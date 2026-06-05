@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Importações{% endblock %}
+{% block subtitle %}Importe tabelas de preços de qualquer fornecedor ou fabricante.{% endblock %}
+
+{% block content %}
+
+{% if request.args.get('sucesso') %}
+<div class="aviso-sucesso">
+    ✅ <strong>{{ request.args.get('total', request.args.get('sucesso')) }} itens</strong>
+    importados com sucesso de <strong>{{ request.args.get('nome') }}</strong>!
+</div>
+{% endif %}
+
+<section class="panel large">
+    <h3>Importar Tabela de Preços</h3>
+    <p style="color:#666; font-size:0.9rem; margin-bottom:16px;">
+        Aceita <strong>PDF, Excel (.xlsx), Word (.docx), CSV, TXT e Imagens (JPG/PNG)</strong>.
+        O sistema detecta automaticamente códigos, descrições e preços.
+    </p>
+
+    <form action="/importacoes/importar" method="POST" enctype="multipart/form-data">
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Arquivo da Tabela *</label>
+                <input type="file" name="arquivo"
+                       accept=".pdf,.xlsx,.xls,.docx,.csv,.txt,.jpg,.jpeg,.png"
+                       required>
+            </div>
+            <div class="form-group">
+                <label>Tipo do Fornecedor</label>
+                <select name="tipo_fornecedor" id="tipo_fornecedor">
+                    <option value="Distribuidor">Distribuidor</option>
+                    <option value="Fabricante">Fabricante</option>
+                    <option value="Importador">Importador</option>
+                    <option value="Representante">Representante</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <label style="font-size:0.82rem; font-weight:600; color:#444; text-transform:uppercase;">
+                Fornecedor *
+            </label>
+            <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:200px;">
+                    <select name="fornecedor_id" id="fornecedor_existente"
+                            style="width:100%; padding:9px 12px; border:1px solid #ddd; border-radius:6px; font-size:0.9rem;">
+                        <option value="">— Novo fornecedor —</option>
+                        {% for f in fornecedores %}
+                        <option value="{{ f.id }}">{{ f.nome }} ({{ f.tipo }})</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color:#999;">Selecione um já cadastrado...</small>
+                </div>
+                <div style="flex:1; min-width:200px;">
+                    <input type="text" name="nome_fornecedor" id="nome_novo"
+                           placeholder="...ou digite o nome do novo fornecedor"
+                           style="width:100%; padding:9px 12px; border:1px solid #ddd; border-radius:6px; font-size:0.9rem;">
+                    <small style="color:#999;">Se novo, será cadastrado automaticamente.</small>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary">⇩ Importar Tabela</button>
+    </form>
+</section>
+
+<section class="panel large">
+    <h3>Importar XML de NF-e</h3>
+    <p style="color:#666; font-size:0.9rem; margin-bottom:16px;">
+        Use esta opção para importar <strong>XML de Nota Fiscal Eletrônica</strong>.
+        O XML é mais confiável que PDF, pois já traz os produtos, quantidades, valores, fornecedor e número da NF estruturados.
+    </p>
+
+    <form action="/importacoes/importar_xml" method="POST" enctype="multipart/form-data">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Arquivo XML da NF-e *</label>
+                <input type="file" name="arquivo_xml"
+                       accept=".xml"
+                       required>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary">⇩ Importar XML NF-e</button>
+    </form>
+</section>
+
+<!-- HISTÓRICO -->
+<section class="panel large">
+    <h3>Histórico de Importações ({{ cotacoes|length }})</h3>
+
+    {% if cotacoes %}
+    <table class="tabela">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Fornecedor</th>
+                <th>Data</th>
+                <th>Arquivo</th>
+                <th>Itens</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in cotacoes %}
+            <tr>
+                <td>{{ c.id }}</td>
+                <td><strong>{{ c.fornecedor_nome or '—' }}</strong></td>
+                <td>{{ c.data_importacao }}</td>
+                <td style="font-size:0.85rem; color:#666;">{{ c.arquivo_origem }}</td>
+                <td><span class="badge-verde">{{ c.total_itens }} itens</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="vazio">Nenhuma importação realizada ainda.</p>
+    {% endif %}
+</section>
+
+{% endblock %}

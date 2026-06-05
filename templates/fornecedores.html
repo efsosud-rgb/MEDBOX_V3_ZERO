@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Fornecedores{% endblock %}
+{% block subtitle %}Cadastro e tabelas de fabricantes/distribuidores.{% endblock %}
+
+{% block content %}
+
+<section class="panel large">
+    <h3>Cadastrar Novo Fornecedor</h3>
+    <form action="/fornecedores/cadastrar" method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Nome do Fornecedor *</label>
+                <input type="text" name="nome" placeholder="Ex: DISTRIBUIDORA MEDPRIME" required>
+            </div>
+            <div class="form-group">
+                <label>Tipo</label>
+                <select name="tipo">
+                    <option value="Distribuidor">Distribuidor</option>
+                    <option value="Fabricante">Fabricante</option>
+                    <option value="Importador">Importador</option>
+                    <option value="Representante">Representante</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Contato / Responsável</label>
+                <input type="text" name="contato" placeholder="Nome do contato">
+            </div>
+            <div class="form-group">
+                <label>E-mail</label>
+                <input type="email" name="email" placeholder="email@fornecedor.com">
+            </div>
+            <div class="form-group">
+                <label>Telefone</label>
+                <input type="text" name="telefone" placeholder="(11) 99999-9999">
+            </div>
+        </div>
+        <button type="submit" class="btn-primary">+ Cadastrar Fornecedor</button>
+    </form>
+</section>
+
+<section class="panel large">
+    <h3>Fornecedores Cadastrados ({{ fornecedores|length }})</h3>
+
+    {% if fornecedores %}
+    <table class="tabela">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Contato</th>
+                <th>E-mail</th>
+                <th>Telefone</th>
+                <th>Ação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in fornecedores %}
+            <tr>
+                <td>{{ f.id }}</td>
+                <td><strong>{{ f.nome }}</strong></td>
+                <td>{{ f.tipo }}</td>
+                <td>{{ f.contato or '—' }}</td>
+                <td>{{ f.email or '—' }}</td>
+                <td>{{ f.telefone or '—' }}</td>
+                <td>
+                    <form action="/fornecedores/excluir/{{ f.id }}" method="POST"
+                          onsubmit="return confirm('Excluir {{ f.nome }}?')">
+                        <button type="submit" class="btn-danger-sm">Excluir</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="vazio">Nenhum fornecedor cadastrado ainda.</p>
+    {% endif %}
+</section>
+
+{% endblock %}

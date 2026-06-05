@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambiente virtual
+venv/
+.venv/
+env/
+
+# Variáveis de ambiente
+.env
+.env.*
+
+# Banco de dados
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads
+uploads/
+
+# Flask
+instance/
+.webassets-cache
+
+# Distribuição / empacotamento
+dist/
+build/
+*.egg-info/
+
+# IDEs
+.vscode/
+.idea/
+*.swp

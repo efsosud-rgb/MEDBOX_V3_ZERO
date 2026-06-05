@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Equivalências{% endblock %}
+{% block subtitle %}Variações, nomes fantasia e descrições alternativas de produtos.{% endblock %}
+
+{% block content %}
+
+<section class="panel large">
+    <h3>Adicionar Equivalência</h3>
+    <p style="margin-bottom:12px; color:#666; font-size:0.9rem;">
+        Equivalências permitem que a busca encontre produtos usando diferentes nomes
+        (nome do fornecedor, nome popular, siglas, etc.).
+    </p>
+    <form action="/equivalencias/adicionar" method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Produto Padrão (SKU Master) *</label>
+                <select name="produto_id" required>
+                    <option value="">Selecione o produto...</option>
+                    {% for p in produtos %}
+                    <option value="{{ p.id }}">{{ p.produto_padrao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Descrição Equivalente *</label>
+                <input type="text" name="descricao"
+                       placeholder="Ex: DIPIRONA 500MG COMP (como aparece na tabela do fornecedor)"
+                       required>
+            </div>
+        </div>
+        {% if produtos %}
+        <button type="submit" class="btn-primary">+ Adicionar Equivalência</button>
+        {% else %}
+        <p class="aviso">⚠ Importe o SKU Master primeiro para cadastrar equivalências.</p>
+        {% endif %}
+    </form>
+</section>
+
+<section class="panel large">
+    <h3>Equivalências Cadastradas ({{ equivalencias|length }})</h3>
+
+    {% if equivalencias %}
+    <table class="tabela">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Produto Padrão</th>
+                <th>Descrição Equivalente</th>
+                <th>Ação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in equivalencias %}
+            <tr>
+                <td>{{ e.id }}</td>
+                <td><strong>{{ e.produto_padrao }}</strong></td>
+                <td style="font-size:0.9rem; color:#555;">{{ e.descricao_equivalente }}</td>
+                <td>
+                    <form action="/equivalencias/excluir/{{ e.id }}" method="POST"
+                          onsubmit="return confirm('Excluir esta equivalência?')">
+                        <button type="submit" class="btn-danger-sm">Excluir</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="vazio">Nenhuma equivalência cadastrada ainda.</p>
+    {% endif %}
+</section>
+
+{% endblock %}

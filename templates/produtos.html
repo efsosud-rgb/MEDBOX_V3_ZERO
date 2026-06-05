@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Produtos (SKU Master){% endblock %}
+{% block subtitle %}Base oficial de produtos padronizados.{% endblock %}
+
+{% block content %}
+
+<section class="panel large">
+    <h3>Produtos (SKU Master)</h3>
+
+    <p>
+        Total de produtos cadastrados:
+        <strong>{{ total_produtos }}</strong>
+    </p>
+
+    <br>
+
+    <form 
+        action="{{ url_for('importar_sku_master_rota') }}" 
+        method="POST" 
+        enctype="multipart/form-data"
+    >
+        <label>Selecione a planilha SKU Master:</label>
+        <br><br>
+
+        <input type="file" name="arquivo" accept=".xlsx,.xls" required>
+
+        <br><br>
+
+        <button type="submit">
+            Importar SKU Master
+        </button>
+    </form>
+</section>
+
+{% endblock %}

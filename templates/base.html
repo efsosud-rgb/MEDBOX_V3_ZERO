@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedBox Inteligência de Compras</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">✚</div>
+            <div>
+                <h1><span>Med</span>Box</h1>
+                <p>INTELIGÊNCIA DE COMPRAS</p>
+            </div>
+        </div>
+
+        <nav>
+            <a href="/" class="{% if request.path == '/' %}active{% endif %}">
+                <span class="nav-icon">⌂</span> Dashboard
+            </a>
+            <a href="/busca" class="{% if request.path == '/busca' %}active{% endif %}">
+                <span class="nav-icon">⌕</span> Busca Inteligente
+            </a>
+            <a href="/fornecedores" class="{% if request.path == '/fornecedores' %}active{% endif %}">
+                <span class="nav-icon">♙</span> Fornecedores
+            </a>
+            <a href="/cotacoes" class="{% if request.path == '/cotacoes' %}active{% endif %}">
+                <span class="nav-icon">▤</span> Cotações
+            </a>
+            <a href="/historico" class="{% if request.path == '/historico' %}active{% endif %}">
+                <span class="nav-icon">◴</span> Histórico de Preços
+            </a>
+            <a href="/produtos" class="{% if request.path == '/produtos' %}active{% endif %}">
+                <span class="nav-icon">◇</span> Produtos (SKU Master)
+            </a>
+            <a href="/equivalencias" class="{% if request.path == '/equivalencias' %}active{% endif %}">
+                <span class="nav-icon">⇄</span> Equivalências
+            </a>
+            <a href="/importacoes" class="{% if request.path == '/importacoes' %}active{% endif %}">
+                <span class="nav-icon">⇩</span> Importações
+            </a>
+            <a href="/relatorios" class="{% if request.path == '/relatorios' %}active{% endif %}">
+                <span class="nav-icon">▥</span> Relatórios
+            </a>
+            <a href="/configuracoes" class="{% if request.path == '/configuracoes' %}active{% endif %}">
+                <span class="nav-icon">⚙</span> Configurações
+            </a>
+        </nav>
+
+        <div class="summary">
+            <strong>RESUMO DO DIA</strong>
+            <div>
+                <span>Cotações importadas</span>
+                <b>{{ resumo.cotacoes if resumo is defined else '—' }}</b>
+            </div>
+            <div>
+                <span>Fornecedores ativos</span>
+                <b>{{ resumo.fornecedores if resumo is defined else '—' }}</b>
+            </div>
+            <div>
+                <span>Produtos atualizados</span>
+                <b>{{ resumo.produtos if resumo is defined else '—' }}</b>
+            </div>
+            <div>
+                <span>Menor preço encontrado</span>
+                <b class="green">{{ resumo.menor_preco if resumo is defined else '—' }}</b>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+        <header class="topbar">
+            <div class="topbar-title">
+                <h2>{% block title %}{% endblock %}</h2>
+                <p>{% block subtitle %}{% endblock %}</p>
+            </div>
+            <div class="top-actions">
+                <div class="date">📅 {{ data_atual }}</div>
+                <div class="bell">🔔<span>0</span></div>
+                <div class="user-info">
+                    <div class="user-avatar">C</div>
+                    <div>
+                        <strong>Compras</strong>
+                        <small>Administrador</small>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+</div>
+</body>
+</html>

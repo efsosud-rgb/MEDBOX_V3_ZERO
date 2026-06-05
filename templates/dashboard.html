@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block subtitle %}Visão geral do sistema MedBox V3.{% endblock %}
+
+{% block content %}
+
+<div class="cards-grid">
+    <div class="card">
+        <div class="card-icon">◇</div>
+        <div class="card-info">
+            <span>Produtos Cadastrados</span>
+            <strong>{{ resumo.produtos }}</strong>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-icon">♙</div>
+        <div class="card-info">
+            <span>Fornecedores Ativos</span>
+            <strong>{{ resumo.fornecedores }}</strong>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-icon">▤</div>
+        <div class="card-info">
+            <span>Cotações Importadas</span>
+            <strong>{{ resumo.cotacoes }}</strong>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-icon">$</div>
+        <div class="card-info">
+            <span>Menor Preço Encontrado</span>
+            <strong class="green">{{ resumo.menor_preco }}</strong>
+        </div>
+    </div>
+</div>
+
+<section class="panel large">
+    <h3>Ações Rápidas</h3>
+    <div class="acoes-grid">
+        <a href="/busca" class="acao-card">
+            <span class="acao-icon">⌕</span>
+            <strong>Buscar Produto</strong>
+            <small>Compare preços entre fornecedores</small>
+        </a>
+        <a href="/cotacoes" class="acao-card">
+            <span class="acao-icon">⇩</span>
+            <strong>Importar Cotação</strong>
+            <small>Carregar tabela de preços</small>
+        </a>
+        <a href="/fornecedores" class="acao-card">
+            <span class="acao-icon">♙</span>
+            <strong>Fornecedores</strong>
+            <small>Gerenciar cadastros</small>
+        </a>
+        <a href="/equivalencias" class="acao-card">
+            <span class="acao-icon">⇄</span>
+            <strong>Equivalências</strong>
+            <small>Vincular nomes alternativos</small>
+        </a>
+    </div>
+</section>
+
+{% if resumo.produtos == 0 %}
+<section class="panel large aviso-panel">
+    <h3>🚀 Por onde começar?</h3>
+    <ol style="margin-top:12px; padding-left:20px; line-height:2;">
+        <li>Vá em <a href="/produtos"><strong>Produtos (SKU Master)</strong></a> e importe sua planilha de produtos.</li>
+        <li>Vá em <a href="/fornecedores"><strong>Fornecedores</strong></a> e cadastre seus fornecedores.</li>
+        <li>Vá em <a href="/cotacoes"><strong>Cotações</strong></a> e importe a tabela de preços de cada fornecedor.</li>
+        <li>Use a <a href="/busca"><strong>Busca Inteligente</strong></a> para comparar preços!</li>
+    </ol>
+</section>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% block title %}Busca Inteligente{% endblock %}
+{% block subtitle %}Encontre o menor preço entre todos os fornecedores{% endblock %}
+
+{% block content %}
+<section class="search-page-shell">
+
+    <!-- BARRA DE BUSCA -->
+    <div class="smart-search-box">
+        <form action="/busca" method="GET" class="smart-search-form">
+            <div class="smart-search-input-wrap">
+                <span class="smart-search-icon">⌕</span>
+                <input
+                    type="text"
+                    name="q"
+                    value="{{ termo }}"
+                    placeholder="Digite o produto, princípio ativo, código ou descrição do fornecedor..."
+                    class="smart-search-input"
+                    autofocus
+                >
+            </div>
+            <button type="submit" class="smart-search-button">Buscar</button>
+            <button type="button" class="smart-search-advanced">☷ Busca Avançada</button>
+        </form>
+
+        <div class="smart-suggestions">
+            <strong>Sugestões:</strong>
+            {% if sugestoes %}
+                {% for s in sugestoes %}
+                    <a href="/busca?q={{ s|urlencode }}">{{ s|lower }}</a>
+                {% endfor %}
+            {% else %}
+                <a href="/busca?q=fio nylon">fio nylon</a>
+                <a href="/busca?q=fio catgut">fio catgut</a>
+                <a href="/busca?q=agulha 40x12">agulha 40x12</a>
+                <a href="/busca?q=bioline">bioline</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if termo %}
+        {% if resultados %}
+
+            {% set principal = resultados[0] %}
+            {% set menor_preco = principal.menor_preco if principal.menor_preco else 0 %}
+            {% set fornecedor_menor = principal.fornecedor_menor if principal.fornecedor_menor else 'A validar' %}
+            {% set precos = principal.precos if principal.precos else [] %}
+            {% set score = principal.score_busca|int if principal.score_busca else 84 %}
+            {% set confianca = [score, 99]|min %}
+
+            <!-- BANNER DE MATCH -->
+            <div class="match-banner">
+                <div class="match-banner-left">
+                    <div class="match-shield">✓</div>
+                    <div>
+                        <strong>Produto encontrado com equivalência</strong>
+                        <span>Exibindo resultados para o produto padronizado abaixo.</span>
+                    </div>
+                </div>
+                <div class="confidence-box">
+                    <span>Confiança da busca</span>
+                    <div>
+                        <strong>{{ confianca }}%</strong>
+                        <div class="confidence-bar">
+                            <i style="width: {{ confianca }}%;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRID PRINCIPAL -->
+            <div class="smart-result-grid">
+
+                <!-- COLUNA PRINCIPAL -->
+                <main class="smart-main-column">
+
+                    <!-- CARD DO PRODUTO -->
+                    <section class="standard-product-card">
+                        <div class="standard-product-top">
+                            <div class="product-illustration">💊</div>
+
+                            <div class="standard-product-info">
+                                <span>Produto Padronizado (SKU Master)</span>
+                                <h3>{{ principal.produto_padrao }}</h3>
+                                <div class="product-meta-line">
+                                    <b>Categoria:</b> {{ principal.categoria if principal.categoria and principal.categoria != 'NONE' else 'A validar' }}
+                                    <em>|</em>
+                                    <b>Fabricante:</b> {{ principal.fabricante if principal.fabricante and principal.fabricante != 'NONE' else (precos[0].marca if precos else 'A validar') }}
+                                    {% if principal.forma %}
+                                    <em>|</em>
+                                    <b>Forma:</b> {{ principal.forma }}
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="sku-pill"
+                                 title="{{ principal.sku_master if principal.sku_master else principal.produto_padrao }}"
+                                 style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle; cursor:default;">
+                                {{ principal.sku_master if principal.sku_master else principal.produto_padrao }}
+                            </div>
+                        </div>
+
+                        <!-- FAIXA MENOR PREÇO -->
+                        <div class="best-price-strip">
+                            <div class="best-price-title">
+                                <span>🏆</span>
+                                <strong>MENOR PREÇO ENCONTRADO</strong>
+                            </div>
+                            <div class="best-price-value">
+                                {% if menor_preco %}
+                                    <strong>R$ {{ "%.2f"|format(menor_preco)|replace(".", ",") }}</strong>
+                                    <span>por {{ principal.unidade_compra if principal.unidade_compra else 'unidade' }}</span>
+                                {% else %}
+                                    <strong>Sem preço</strong>
+                                    <span>aguardando cotação</span>
+                                {% endif %}
+                            </div>
+                            <div class="best-price-supplier">
+                                <span>FORNECEDOR</span>
+                                <strong>{{ fornecedor_menor }}</strong>
+                                <small>Data da cotação: {{ precos[0].data_cotacao if precos else data_atual }}</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TABELA DE COMPARAÇÃO -->
+                    <section class="price-comparison-card">
+                        <div class="comparison-header">
+                            <h3>Comparação de Preços</h3>
+                            <button type="button">Ver todos os fornecedores ({{ precos|length }})</button>
+                        </div>
+
+                        {% if precos %}
+                            <div class="comparison-table-wrap">
+                                <table class="comparison-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos.</th>
+                                            <th>Fornecedor</th>
+                                            <th>Descrição do Fornecedor</th>
+                                            <th>Marca</th>
+                                            <th>Data</th>
+                                            <th>Preço Unit.</th>
+                                            <th>Dif.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% set menor = precos[0].preco %}
+                                        {% for p in precos %}
+                                        <tr {% if loop.first %}class="best-row"{% endif %}>
+                                            <td class="position-cell">
+                                                {% if loop.index == 1 %}🥇
+                                                {% elif loop.index == 2 %}🥈
+                                                {% elif loop.index == 3 %}🥉
+                                                {% else %}{{ loop.index }}{% endif %}
+                                            </td>
+                                            <td>
+                                                <strong class="supplier-link">{{ p.fornecedor }}</strong>
+                                            </td>
+                                            <td>
+                                                <strong>{{ p.descricao_original }}</strong>
+                                                <small>Código: {{ p.codigo_fornecedor if p.codigo_fornecedor else '—' }}</small>
+                                            </td>
+                                            <td>
+                                                <span style="font-size:0.83rem; font-weight:600; color:var(--text2);">
+                                                    {{ p.marca if p.marca else '—' }}
+                                                </span>
+                                            </td>
+                                            <td style="font-size:0.83rem;">
+                                                {{ p.data_cotacao if p.data_cotacao else '—' }}
+                                            </td>
+                                            <td>
+                                                <strong class="{% if loop.first %}price-green{% endif %}">
+                                                    R$ {{ "%.2f"|format(p.preco)|replace(".", ",") }}
+                                                </strong>
+                                            </td>
+                                            <td>
+                                                {% if loop.first %}
+                                                    <span style="color:#159447; font-size:0.78rem;">ref.</span>
+                                                {% else %}
+                                                    <small class="diff-price">+R$ {{ "%.2f"|format(p.preco - menor)|replace(".", ",") }}</small>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="empty-infographic">
+                                <strong>Produto encontrado, mas ainda sem preço importado.</strong>
+                                <span>Importe cotações de fornecedores para gerar o ranking automaticamente.</span>
+                            </div>
+                        {% endif %}
+
+                        <div class="more-suppliers-link">Ver mais fornecedores ⌄</div>
+                    </section>
+
+                    <!-- OUTROS RESULTADOS -->
+                    {% if resultados|length > 1 %}
+                    <section class="price-comparison-card">
+                        <div class="comparison-header">
+                            <h3>Outros Produtos Encontrados</h3>
+                            <span style="font-size:0.82rem; color:var(--muted);">
+                                {{ resultados|length - 1 }} produto(s) similar(es)
+                            </span>
+                        </div>
+                        <div class="comparison-table-wrap">
+                            <table class="comparison-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Produto (SKU Master)</th>
+                                        <th>Categoria</th>
+                                        <th>Marca</th>
+                                        <th>Menor Preço</th>
+                                        <th>Fornecedor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in resultados[1:] %}
+                                    <tr>
+                                        <td class="position-cell">{{ loop.index + 1 }}</td>
+                                        <td><strong>{{ item.produto_padrao }}</strong></td>
+                                        <td style="font-size:0.82rem;">
+                                            {{ item.categoria if item.categoria and item.categoria != 'NONE' else '—' }}
+                                        </td>
+                                        <td style="font-size:0.82rem; font-weight:600;">
+                                            {{ item.precos[0].marca if item.precos else '—' }}
+                                        </td>
+                                        <td>
+                                            {% if item.menor_preco %}
+                                                <strong class="price-green">
+                                                    R$ {{ "%.2f"|format(item.menor_preco)|replace(".", ",") }}
+                                                </strong>
+                                            {% else %}
+                                                <span style="color:var(--muted)">Sem preço</span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="font-size:0.83rem;">
+                                            {{ item.fornecedor_menor if item.fornecedor_menor else '—' }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                    {% endif %}
+
+                    <div class="smart-footnote">
+                        ⓘ Os preços exibidos são referentes às cotações mais recentes importadas.
+                        Verifique sempre a data e as condições comerciais.
+                    </div>
+
+                </main>
+
+                <!-- COLUNA LATERAL -->
+                <aside class="smart-side-column">
+
+                    <!-- DETALHES DO PRODUTO -->
+                    <section class="side-card">
+                        <h3>Detalhes do Produto</h3>
+                        <div class="detail-list">
+                            <div>
+                                <span>SKU Master:</span>
+                                <strong class="mini-sku"
+                                        title="{{ principal.sku_master if principal.sku_master else principal.produto_padrao }}"
+                                        style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; cursor:default;">
+                                    {{ principal.sku_master if principal.sku_master else principal.produto_padrao }}
+                                </strong>
+                            </div>
+                            <div>
+                                <span>Nome Padronizado:</span>
+                                <strong style="word-break:break-word; overflow-wrap:anywhere;">
+                                    {{ principal.produto_padrao }}
+                                </strong>
+                            </div>
+                            <div>
+                                <span>Categoria:</span>
+                                <strong>
+                                    {{ principal.categoria if principal.categoria and principal.categoria != 'NONE' else 'A validar' }}
+                                </strong>
+                            </div>
+                            <div>
+                                <span>Marca:</span>
+                                <strong>
+                                    {{ precos[0].marca if precos and precos[0].marca else 'A validar' }}
+                                </strong>
+                            </div>
+                            <div>
+                                <span>Fabricante:</span>
+                                <strong>
+                                    {{ principal.fabricante if principal.fabricante and principal.fabricante != 'NONE' else 'A validar' }}
+                                </strong>
+                            </div>
+                            <div>
+                                <span>Unidade de Compra:</span>
+                                <strong>{{ principal.unidade_compra if principal.unidade_compra else 'UN' }}</strong>
+                            </div>
+                            <div>
+                                <span>Última atualização:</span>
+                                <strong>{{ precos[0].data_cotacao if precos else data_atual }}</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- HISTÓRICO DE PREÇOS -->
+                    <section class="side-card">
+                        <h3>Histórico de Preços <small>(Últimos 30 dias)</small></h3>
+
+                        <div class="history-chart">
+                            {% if principal.tem_historico_real and principal.historico_precos %}
+                                {% set historico = principal.historico_precos %}
+                                {% set precos_vals = historico | map(attribute='preco') | list %}
+                                {% set max_p = precos_vals | max %}
+                                {% set min_p = precos_vals | min %}
+                                {% set range_p = (max_p - min_p) if (max_p - min_p) > 0 else 1 %}
+                                {% set n = historico | length %}
+
+                                <div class="chart-grid">
+                                    <span>R$ {{ "%.2f"|format(max_p)|replace(".", ",") }}</span>
+                                    <span>R$ {{ "%.2f"|format((max_p + min_p) / 2)|replace(".", ",") }}</span>
+                                    <span>R$ {{ "%.2f"|format(min_p)|replace(".", ",") }}</span>
+                                </div>
+
+                                <svg viewBox="0 0 320 120" preserveAspectRatio="none">
+                                    <polyline
+                                        points="{% for h in historico %}{{ (loop.index0 / ([n - 1, 1]|max)) * 310 }},{{ 100 - ((h.preco - min_p) / range_p * 80) }} {% endfor %}"
+                                        fill="none" stroke="#1774d6" stroke-width="4"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                    />
+                                    {% for h in historico %}{% if loop.last %}
+                                    <circle
+                                        cx="{{ (loop.index0 / ([n - 1, 1]|max)) * 310 }}"
+                                        cy="{{ 100 - ((h.preco - min_p) / range_p * 80) }}"
+                                        r="5" fill="#1774d6"
+                                    />
+                                    {% endif %}{% endfor %}
+                                </svg>
+
+                                {% if menor_preco %}
+                                    <div class="chart-price-tag">
+                                        R$ {{ "%.2f"|format(menor_preco)|replace(".", ",") }}
+                                    </div>
+                                {% endif %}
+
+                                <div class="chart-dates">
+                                    {% for h in historico %}
+                                        {% if loop.first or loop.last %}
+                                            <span>{{ h.data_importacao[5:] if h.data_importacao else '—' }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+
+                            {% else %}
+                                <div class="chart-grid">
+                                    <span>R$ 8,00</span>
+                                    <span>R$ 6,00</span>
+                                    <span>R$ 4,00</span>
+                                </div>
+                                <svg viewBox="0 0 320 120" preserveAspectRatio="none">
+                                    <polyline
+                                        points="0,38 80,52 160,72 240,80 320,68"
+                                        fill="none" stroke="#cbd5e0" stroke-width="3"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        stroke-dasharray="6,4"
+                                    />
+                                </svg>
+                                {% if menor_preco %}
+                                    <div class="chart-price-tag">
+                                        R$ {{ "%.2f"|format(menor_preco)|replace(".", ",") }}
+                                    </div>
+                                {% endif %}
+                                <div class="chart-dates">
+                                    <span>—</span>
+                                    <span>Sem histórico</span>
+                                    <span>—</span>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <a class="side-link" href="/historico">Ver histórico completo</a>
+                    </section>
+
+                    <!-- DESCRIÇÕES EQUIVALENTES -->
+                    <section class="side-card">
+                        <h3>Descrições Equivalentes <small>({{ precos|length }})</small></h3>
+
+                        <div class="equivalent-list">
+                            {% for p in precos[:8] %}
+                                <span>{{ p.descricao_original }}</span>
+                            {% else %}
+                                <span style="color:var(--muted); font-size:0.82rem;">
+                                    Nenhuma equivalência registrada ainda.
+                                </span>
+                            {% endfor %}
+                        </div>
+
+                        <a class="side-link" href="/equivalencias">Ver todas as equivalências</a>
+                    </section>
+
+                </aside>
+            </div>
+
+        {% else %}
+            <div class="panel">
+                <p class="vazio">😕 Nenhum produto encontrado para <strong>"{{ termo }}"</strong>.</p>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="panel">
+            <p class="vazio">Digite um produto acima para comparar preços entre fornecedores. 🔍</p>
+        </div>
+    {% endif %}
+
+</section>
+{% endblock %}

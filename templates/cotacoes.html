@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Cotações{% endblock %}
+{% block subtitle %}Importação e comparação de preços de fornecedores.{% endblock %}
+
+{% block content %}
+
+<section class="panel large">
+    <h3>Importar Tabela de Preços</h3>
+    <p style="margin-bottom:12px; color:#666; font-size:0.9rem;">
+        Selecione o fornecedor e a planilha (.xlsx) com as colunas
+        <strong>Descrição</strong> e <strong>Preço</strong>.
+        O sistema detecta as colunas automaticamente.
+    </p>
+    <form action="/cotacoes/importar" method="POST" enctype="multipart/form-data">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Fornecedor *</label>
+                <select name="fornecedor_id" required>
+                    <option value="">Selecione um fornecedor...</option>
+                    {% for f in fornecedores %}
+                    <option value="{{ f.id }}">{{ f.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Planilha de Preços (.xlsx) *</label>
+                <input type="file" name="arquivo" accept=".xlsx" required>
+            </div>
+        </div>
+        {% if fornecedores %}
+        <button type="submit" class="btn-primary">⇩ Importar Cotação</button>
+        {% else %}
+        <p class="aviso">⚠ Cadastre pelo menos um fornecedor antes de importar cotações.</p>
+        {% endif %}
+    </form>
+</section>
+
+<section class="panel large">
+    <h3>Histórico de Importações ({{ cotacoes|length }})</h3>
+
+    {% if cotacoes %}
+    <table class="tabela">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Fornecedor</th>
+                <th>Data</th>
+                <th>Arquivo</th>
+                <th>Itens Importados</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in cotacoes %}
+            <tr>
+                <td>{{ c.id }}</td>
+                <td><strong>{{ c.fornecedor_nome or '—' }}</strong></td>
+                <td>{{ c.data_importacao }}</td>
+                <td style="font-size:0.85rem; color:#666;">{{ c.arquivo_origem }}</td>
+                <td><span class="badge-verde">{{ c.total_itens }} itens</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="vazio">Nenhuma cotação importada ainda.</p>
+    {% endif %}
+</section>
+
+{% endblock %}

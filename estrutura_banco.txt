@@ -1,0 +1,38 @@
+CREATE TABLE produtos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sku TEXT, produto_padrao TEXT, fabricante TEXT,
+        categoria TEXT, ativo INTEGER DEFAULT 1)
+----------------------------------------
+CREATE TABLE sqlite_sequence(name,seq)
+----------------------------------------
+CREATE TABLE fornecedores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT, tipo TEXT, contato TEXT,
+        email TEXT, telefone TEXT, ativo INTEGER DEFAULT 1)
+----------------------------------------
+CREATE TABLE precos_fornecedores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fornecedor_id INTEGER, produto_id INTEGER,
+        descricao_original TEXT, codigo_fornecedor TEXT,
+        marca TEXT, preco REAL, data_importacao TEXT)
+----------------------------------------
+CREATE TABLE precos_fornecedores_historico (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fornecedor_id INTEGER, produto_id INTEGER,
+        descricao_original TEXT, codigo_fornecedor TEXT,
+        marca TEXT, preco REAL, data_importacao TEXT,
+        arquivo_origem TEXT, origem_importacao TEXT, data_registro TEXT)
+----------------------------------------
+CREATE TABLE equivalencias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        produto_id INTEGER, descricao_equivalente TEXT)
+----------------------------------------
+CREATE TABLE cotacoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fornecedor_id INTEGER, data_importacao TEXT,
+        arquivo_origem TEXT, total_itens INTEGER DEFAULT 0)
+----------------------------------------
+CREATE TABLE sinonimos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        termo TEXT, significado TEXT)
+----------------------------------------

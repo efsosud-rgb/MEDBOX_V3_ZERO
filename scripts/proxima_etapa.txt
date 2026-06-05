@@ -1,0 +1,12 @@
+Próxima etapa:
+1. Criar core/banco.py
+2. Criar scripts/criar_banco.py
+3. Criar tabelas vazias:
+   - produtos
+   - fornecedores
+   - precos_fornecedores
+   - cotacoes
+   - itens_cotacao
+   - equivalencias
+   - sinonimos
+   - memoria_validada
