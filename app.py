@@ -5,10 +5,12 @@ from pathlib import Path
 from core.banco import (
     criar_banco, resumo_dashboard, conectar,
     listar_fornecedores, cadastrar_fornecedor, excluir_fornecedor,
-    buscar_produto, listar_sugestoes_busca,
+    listar_sugestoes_busca,
     listar_equivalencias, adicionar_equivalencia, excluir_equivalencia,
     listar_produtos_simples, listar_cotacoes
 )
+from core.busca_inteligente import buscar_produto_inteligente
+from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
 app = Flask(__name__)
@@ -32,6 +34,25 @@ def contar_produtos():
     return total
 
 
+def formatar_resultados_busca(resultados):
+    for item in resultados:
+        menor_preco = item.get("menor_preco")
+        item["menor_preco_formatado"] = moeda_br(menor_preco)
+
+        for preco in item.get("precos", []):
+            valor = preco.get("preco")
+            preco["preco_formatado"] = moeda_br(valor)
+            if valor is not None and menor_preco is not None:
+                preco["diferenca_formatada"] = moeda_br(valor - menor_preco)
+            else:
+                preco["diferenca_formatada"] = "-"
+
+        for historico in item.get("historico_precos", []):
+            historico["preco_formatado"] = moeda_br(historico.get("preco"))
+
+    return resultados
+
+
 @app.route("/")
 def dashboard():
     resumo = resumo_dashboard()
@@ -49,7 +70,8 @@ def busca():
     resultados = []
     sugestoes = []
     if termo:
-        resultados = buscar_produto(termo)
+        resultados = buscar_produto_inteligente(termo, limite=20)
+        resultados = formatar_resultados_busca(resultados)
         sugestoes = listar_sugestoes_busca(termo)
     return render_template(
         "busca.html",

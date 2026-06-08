@@ -81,7 +81,7 @@
 
                             <div class="standard-product-info">
                                 <span>Produto Padronizado (SKU Master)</span>
-                                <h3>{{ principal.produto_padrao }}</h3>
+                                <h3>{{ principal.produto_padrao if principal.produto_padrao else principal.sku_master }}</h3>
                                 <div class="product-meta-line">
                                     <b>Categoria:</b> {{ principal.categoria if principal.categoria and principal.categoria != 'NONE' else 'A validar' }}
                                     <em>|</em>
@@ -108,7 +108,7 @@
                             </div>
                             <div class="best-price-value">
                                 {% if menor_preco %}
-                                    <strong>R$ {{ "%.2f"|format(menor_preco)|replace(".", ",") }}</strong>
+                                    <strong>{{ principal.menor_preco_formatado }}</strong>
                                     <span>por {{ principal.unidade_compra if principal.unidade_compra else 'unidade' }}</span>
                                 {% else %}
                                     <strong>Sem preço</strong>
@@ -171,14 +171,14 @@
                                             </td>
                                             <td>
                                                 <strong class="{% if loop.first %}price-green{% endif %}">
-                                                    R$ {{ "%.2f"|format(p.preco)|replace(".", ",") }}
+                                                    {{ p.preco_formatado }}
                                                 </strong>
                                             </td>
                                             <td>
                                                 {% if loop.first %}
                                                     <span style="color:#159447; font-size:0.78rem;">ref.</span>
                                                 {% else %}
-                                                    <small class="diff-price">+R$ {{ "%.2f"|format(p.preco - menor)|replace(".", ",") }}</small>
+                                                    <small class="diff-price">+{{ p.diferenca_formatada }}</small>
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -231,7 +231,7 @@
                                         <td>
                                             {% if item.menor_preco %}
                                                 <strong class="price-green">
-                                                    R$ {{ "%.2f"|format(item.menor_preco)|replace(".", ",") }}
+                                                    {{ item.menor_preco_formatado }}
                                                 </strong>
                                             {% else %}
                                                 <span style="color:var(--muted)">Sem preço</span>
@@ -275,6 +275,10 @@
                                 <strong style="word-break:break-word; overflow-wrap:anywhere;">
                                     {{ principal.produto_padrao }}
                                 </strong>
+                            </div>
+                            <div>
+                                <span>Score:</span>
+                                <strong>{{ principal.score_busca|round(1) if principal.score_busca else 'A validar' }}</strong>
                             </div>
                             <div>
                                 <span>Categoria:</span>
