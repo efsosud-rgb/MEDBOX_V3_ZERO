@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 
 from core.banco import conectar, registrar_preco_fornecedor
+from core.formatadores import moeda_br
 
 
 TESSERACT_PADRAO = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
@@ -710,10 +711,11 @@ def extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor):
     itens = []
     unidades = r"UN|UNI|CX|FR|PC|PT|KIT|AMP|BIS|SC|RL|MT|KG|GR|ML|L|TB|BX|AP|EV|CP|FA|FD"
     preco_re = r"(?:R\$\s*)?\d{1,6}(?:\.\d{3})*,\d{2,4}"
+    usar_interest = any("INTEREST" in normalizar_cabecalho(linha) for linha in linhas)
     padrao_tabela = re.compile(
         rf"^\s*(?P<codigo>\S+)\s+(?P<descricao>.+?)\s+"
         rf"(?P<unidade>{unidades})\s+\d+\s+\d{{1,2}}%\s+"
-        rf"(?P<preco>{preco_re})\b",
+        rf"(?P<precos>.+)$",
         re.IGNORECASE
     )
     padrao_generico = re.compile(
@@ -733,8 +735,13 @@ def extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor):
             continue
 
         m = padrao_tabela.match(linha)
-        if not m:
+        if m:
+            precos_linha = re.findall(preco_re, m.group("precos"))
+            indice_preco = 1 if usar_interest and len(precos_linha) > 1 else 0
+            preco_raw = precos_linha[indice_preco] if precos_linha else None
+        else:
             m = padrao_generico.match(linha)
+            preco_raw = m.group("preco") if m else None
 
         if not m:
             continue
@@ -744,7 +751,7 @@ def extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor):
         if len(descricao) < 4 or not re.search(r"[A-Z]", descricao):
             continue
 
-        preco = limpar_preco(m.group("preco"))
+        preco = limpar_preco(preco_raw)
 
         if preco <= 0:
             continue
@@ -757,6 +764,7 @@ def extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor):
             "marca": marca,
             "categoria": "",
             "preco": preco,
+            "preco_formatado": moeda_br(preco),
             "fornecedor_nome": nome_fornecedor.upper(),
             "tipo_fornecedor": tipo_fornecedor.upper(),
             "unidade": (m.groupdict().get("unidade") or "").strip().upper(),
