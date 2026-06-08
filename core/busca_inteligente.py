@@ -270,15 +270,16 @@ def buscar_produto_inteligente(termo, limite=20):
     termos = _termos_expandidos(termo)
 
     conn = conectar()
-    cursor = conn.cursor()
+    try:
+        cursor = conn.cursor()
 
-    candidatos = _recuperar_candidatos(cursor, termos)
-    resultados = [
-        _montar_resultado(cursor, termo, produto)
-        for produto in candidatos.values()
-    ]
-
-    conn.close()
+        candidatos = _recuperar_candidatos(cursor, termos)
+        resultados = [
+            _montar_resultado(cursor, termo, produto)
+            for produto in candidatos.values()
+        ]
+    finally:
+        conn.close()
 
     resultados.sort(
         key=lambda item: (
