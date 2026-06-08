@@ -141,31 +141,63 @@ def _recuperar_candidatos(cursor, termos):
     return candidatos
 
 
-def _score_texto(consulta, texto, usar_partial=False):
+def _score_texto(consulta, texto, usar_partial=False, campo=""):
     consulta_norm = normalizar_texto(consulta)
     texto_norm = normalizar_texto(texto)
 
     if not consulta_norm or not texto_norm:
         return 0.0
 
-    scores = [fuzz.token_set_ratio(consulta_norm, texto_norm)]
+    if consulta_norm == texto_norm:
+        return 100.0
 
-    if usar_partial or len(texto_norm) > len(consulta_norm) * 1.5:
-        scores.append(fuzz.partial_ratio(consulta_norm, texto_norm))
+    token_score = fuzz.token_set_ratio(consulta_norm, texto_norm)
+    texto_longo = len(texto_norm) > len(consulta_norm) * 1.5
 
-    return max(scores)
+    if usar_partial:
+        partial_score = fuzz.partial_ratio(consulta_norm, texto_norm)
+        score = max(token_score * 0.80, partial_score * 0.70)
+    elif texto_longo:
+        partial_score = fuzz.partial_ratio(consulta_norm, texto_norm)
+        score = max(token_score * 0.90, partial_score * 0.85)
+    else:
+        score = token_score
+
+    if texto_norm.startswith(consulta_norm):
+        bonus = 8.0 if campo in ("produto_padrao", "equivalencia") else 4.0
+        return min(100.0, score + bonus)
+
+    palavras_consulta = consulta_norm.split()
+    palavras_texto = texto_norm.split()
+
+    if palavras_consulta and palavras_texto and palavras_texto[0] == palavras_consulta[0]:
+        bonus = 5.0 if campo in ("produto_padrao", "equivalencia") else 2.0
+        return min(100.0, score + bonus)
+
+    posicao = texto_norm.find(consulta_norm)
+    if posicao >= 0:
+        proporcao_posicao = posicao / max(len(texto_norm), 1)
+        penalidade = 12.0 + min(18.0, proporcao_posicao * 30.0)
+
+        if campo == "descricao_original":
+            penalidade += 8.0
+
+        excesso_tokens = max(0, len(palavras_texto) - len(palavras_consulta))
+        penalidade += min(20.0, excesso_tokens * 2.5)
+        score -= penalidade
+
+    return max(0.0, min(100.0, score))
 
 
 def _calcular_score(termo, produto):
     scores_por_campo = {}
 
     for campo, textos in produto["evidencias_busca"].items():
-        peso = PESOS_CAMPOS.get(campo, 0.0)
         usar_partial = campo == "descricao_original"
 
         melhor = 0.0
         for texto in textos:
-            melhor = max(melhor, _score_texto(termo, texto, usar_partial))
+            melhor = max(melhor, _score_texto(termo, texto, usar_partial, campo))
 
         scores_por_campo[campo] = round(melhor, 2)
 

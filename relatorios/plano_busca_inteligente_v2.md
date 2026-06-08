@@ -113,6 +113,32 @@ Para cada produto candidato:
 3. Usa o maior score ponderado como `score_busca`.
 4. Mantem detalhes em `scores_por_campo` e `evidencias_busca` para auditoria futura.
 
+### Ajuste fino de score
+
+A calibragem inicial gerava muitos `score_busca = 100.0` em buscas amplas, porque `token_set_ratio` pode atribuir 100 quando o termo pesquisado aparece como subconjunto de uma descricao maior.
+
+Exemplo observado:
+
+- Busca: `GLICOSE`
+- Resultado indesejado: `TIRA P/ TESTE DE GLICOSE` empatava com produtos iniciados por `GLICOSE`.
+
+Para reduzir esse empate artificial, a V2 agora aplica tres ajustes:
+
+1. Bonus quando o texto comeca com o termo pesquisado, principalmente em `produto_padrao` e `equivalencia`.
+2. Reducao do impacto de `partial_ratio` em `descricao_original`, porque descricoes de fornecedor costumam ser longas.
+3. Penalidade quando o termo aparece apenas no meio ou no final do texto, com penalidade adicional para descricoes longas e excesso de tokens.
+
+Comportamento esperado:
+
+| Busca | Antes esperado | Depois esperado |
+|---|---|---|
+| `GLICOSE` | Itens como `TIRA P/ TESTE DE GLICOSE` podiam empatar com `GLICOSE 25%` | Produtos que comecam com `GLICOSE` devem aparecer antes de ocorrencias no meio/final |
+| `DIPIRONA` | Descricoes longas contendo `DIPIRONA` podiam empatar com produto principal | Produto principal iniciado por `DIPIRONA` deve ter prioridade |
+| `SORO` | Itens que apenas citam `SORO` podiam se aproximar de soros principais | Produtos iniciados por `SORO` devem ser favorecidos |
+| `SERINGA` | Ocorrencias parciais em descricoes longas podiam ganhar relevancia excessiva | Produto padrao iniciado por `SERINGA` deve ficar acima |
+| `CATETER` | Descricoes longas com `CATETER` no meio podiam empatar | `CATETER...` no inicio deve ser priorizado |
+| `ATADURA` | Ocorrencias parciais podiam empatar por subconjunto | `ATADURA...` no inicio deve ser priorizada |
+
 Exemplo conceitual:
 
 ```python
@@ -168,6 +194,8 @@ Importante: a rota `/busca` ainda nao usa a V2.
 Para testar manualmente em ambiente controlado, usar um comando de leitura que importe a funcao nova e consulte os termos abaixo.
 
 Nesta sessao, a validacao automatica de execucao nao foi feita porque o Python disponivel no runtime Codex nao possui `rapidfuzz` instalado (`ModuleNotFoundError`). O projeto ja declara `rapidfuzz==3.9.6` em `requirements.txt`; portanto, o teste manual deve ser feito em um ambiente com as dependencias do projeto instaladas.
+
+Atualizacao do ajuste fino: foi feita uma tentativa de instalar `rapidfuzz==3.9.6` temporariamente fora do projeto para rodar os termos abaixo. A instalacao concluiu, mas o runtime continuou falhando ao importar `from rapidfuzz import fuzz`, enxergando `rapidfuzz` como namespace vazio. Por isso, nesta sessao foi validada apenas a sintaxe do modulo; a validacao funcional deve ser repetida no ambiente da aplicacao com as dependencias instaladas.
 
 Termos obrigatorios:
 
