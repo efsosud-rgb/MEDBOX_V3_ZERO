@@ -43,7 +43,7 @@
 
             {% set principal = resultados[0] %}
             {% set menor_preco = principal.menor_preco if principal.menor_preco else 0 %}
-            {% set fornecedor_menor = principal.fornecedor_menor if principal.fornecedor_menor else 'A validar' %}
+            {% set fornecedor_menor = principal.fornecedor_menor_formatado if principal.fornecedor_menor_formatado else 'A validar' %}
             {% set precos = principal.precos if principal.precos else [] %}
             {% set score = principal.score_busca|int if principal.score_busca else 84 %}
             {% set confianca = [score, 99]|min %}
@@ -112,13 +112,13 @@
                                     <span>por {{ principal.unidade_compra if principal.unidade_compra else 'unidade' }}</span>
                                 {% else %}
                                     <strong>Sem preço</strong>
-                                    <span>aguardando cotação</span>
+                                    <span>Produto encontrado no catálogo, mas sem preço cadastrado.</span>
                                 {% endif %}
                             </div>
                             <div class="best-price-supplier">
-                                <span>FORNECEDOR</span>
-                                <strong>{{ fornecedor_menor }}</strong>
-                                <small>Data da cotação: {{ precos[0].data_cotacao if precos else data_atual }}</small>
+                                <span>{% if precos %}FORNECEDOR{% else %}ORIGEM DO CATÁLOGO{% endif %}</span>
+                                <strong>{% if precos %}{{ fornecedor_menor }}{% else %}{{ principal.origem_catalogo_formatada }}{% endif %}</strong>
+                                <small>{% if precos %}Data da cotação: {{ precos[0].data_cotacao if precos else data_atual }}{% else %}Sem preço cadastrado{% endif %}</small>
                             </div>
                         </div>
                     </section>
@@ -136,7 +136,7 @@
                                     <thead>
                                         <tr>
                                             <th>Pos.</th>
-                                            <th>Fornecedor</th>
+                                            <th>Fornecedor/Origem</th>
                                             <th>Descrição do Fornecedor</th>
                                             <th>Marca</th>
                                             <th>Data</th>
@@ -238,7 +238,11 @@
                                             {% endif %}
                                         </td>
                                         <td style="font-size:0.83rem;">
-                                            {{ item.fornecedor_menor if item.fornecedor_menor else '—' }}
+                                            {% if item.precos %}
+                                                {{ item.fornecedor_menor_formatado if item.fornecedor_menor_formatado else '—' }}
+                                            {% else %}
+                                                {{ item.origem_catalogo_formatada }}
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}

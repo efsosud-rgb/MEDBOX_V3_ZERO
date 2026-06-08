@@ -38,6 +38,16 @@ def formatar_resultados_busca(resultados):
     for item in resultados:
         menor_preco = item.get("menor_preco")
         item["menor_preco_formatado"] = moeda_br(menor_preco)
+        origem_catalogo = item.get("fabricante") or item.get("marca") or "Catálogo"
+        item["origem_catalogo"] = origem_catalogo
+        item["origem_catalogo_formatada"] = (
+            f"{origem_catalogo} (catálogo)"
+            if origem_catalogo != "Catálogo"
+            else origem_catalogo
+        )
+        item["fornecedor_menor_formatado"] = (
+            item.get("fornecedor_menor") if item.get("precos") else "-"
+        )
 
         for preco in item.get("precos", []):
             valor = preco.get("preco")
