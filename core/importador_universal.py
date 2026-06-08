@@ -1,10 +1,23 @@
 import re
 import json
+import csv
 import urllib.request
+import unicodedata
 from pathlib import Path
 from datetime import datetime
 
 from core.banco import conectar, registrar_preco_fornecedor
+
+
+TESSERACT_PADRAO = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+
+
+def normalizar_cabecalho(texto):
+    texto = str(texto or "").upper().strip()
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    texto = re.sub(r"[^A-Z0-9]+", " ", texto)
+    return re.sub(r"\s+", " ", texto).strip()
 
 
 # ================================================
@@ -28,17 +41,18 @@ def ler_pdf(caminho):
 def ler_excel(caminho):
     from openpyxl import load_workbook
 
-    wb = load_workbook(caminho, data_only=True)
+    wb = load_workbook(caminho, data_only=True, read_only=True)
     resultados = []
 
     for ws in wb.worksheets:
-        cabecalhos = []
+        linhas = list(ws.iter_rows(values_only=True))
+        info = detectar_cabecalho_em_linhas(linhas)
+        cabecalhos = info["cabecalhos"]
 
-        for i, row in enumerate(ws.iter_rows(values_only=True)):
-            if i == 0:
-                cabecalhos = [str(c).strip().upper() if c else "" for c in row]
-                continue
+        if info["linha_cabecalho"] is None:
+            continue
 
+        for row in linhas[info["linha_cabecalho"] + 1:]:
             if all(c is None for c in row):
                 continue
 
@@ -50,19 +64,29 @@ def ler_excel(caminho):
 
             resultados.append(item)
 
+    wb.close()
     return resultados
 
 
 def ler_csv(caminho):
-    import csv
-
     resultados = []
+    texto = ler_texto_csv(caminho)
+    dialect = detectar_dialeto_csv(texto)
+    linhas = list(csv.reader(texto.splitlines(), dialect))
+    info = detectar_cabecalho_em_linhas(linhas)
 
-    with open(caminho, encoding="utf-8", errors="ignore") as f:
-        reader = csv.DictReader(f)
+    if info["linha_cabecalho"] is None:
+        return resultados
 
-        for row in reader:
-            resultados.append({k.strip().upper(): v for k, v in row.items()})
+    cabecalhos = info["cabecalhos"]
+    for row in linhas[info["linha_cabecalho"] + 1:]:
+        if not row or all(c in (None, "") for c in row):
+            continue
+        item = {}
+        for j, val in enumerate(row):
+            if j < len(cabecalhos):
+                item[cabecalhos[j]] = val
+        resultados.append(item)
 
     return resultados
 
@@ -83,12 +107,38 @@ def ler_imagem(caminho):
     import pytesseract
     from PIL import Image
 
-    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    tesseract = validar_tesseract()
+    pytesseract.pytesseract.tesseract_cmd = str(tesseract)
 
     img = Image.open(caminho)
     texto = pytesseract.image_to_string(img, lang="por")
 
     return texto.splitlines()
+
+
+def validar_tesseract(caminho=TESSERACT_PADRAO):
+    caminho = Path(caminho)
+    if not caminho.exists():
+        raise Exception(f"Tesseract nao encontrado em: {caminho}")
+    return caminho
+
+
+def ler_texto_csv(caminho):
+    caminho = Path(caminho)
+    for encoding in ("utf-8-sig", "utf-8", "latin-1"):
+        try:
+            return caminho.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    return caminho.read_text(encoding="utf-8", errors="ignore")
+
+
+def detectar_dialeto_csv(texto):
+    amostra = texto[:4096]
+    try:
+        return csv.Sniffer().sniff(amostra, delimiters=";,|\t,")
+    except Exception:
+        return csv.excel
 
 
 # ================================================
@@ -231,17 +281,106 @@ SINONIMOS_COLUNAS = {
 }
 
 
+SINONIMOS_COLUNAS["sku_master"].extend([
+    "PRODUTO PADRÃO",
+    "DESCRIÇÃO PADRONIZADA",
+])
+SINONIMOS_COLUNAS["descricao"].extend([
+    "DESCRIÇÃO DO PRODUTO",
+    "DESCRIÇÃO PRODUTO",
+    "DESCRICAO PRODUTO",
+    "DESCR PRODUTO",
+    "DESCRIÇÃO",
+    "DESCR",
+])
+SINONIMOS_COLUNAS["codigo"].extend([
+    "CÓDIGO PRODUTO",
+    "COD PRODUTO",
+    "CÓDIGO",
+    "CÓD",
+    "COD.",
+])
+SINONIMOS_COLUNAS["preco"].extend([
+    "VALOR UNITÁRIO",
+    "VALOR UNIT",
+    "VLR UNITARIO",
+    "VL UNITARIO",
+    "VL UNIT",
+    "PREÇO",
+    "PRECO UNITARIO",
+    "PREÇO UNITÁRIO",
+    "R$",
+])
+SINONIMOS_COLUNAS["marca"].append("LABORATÓRIO")
+SINONIMOS_COLUNAS["categoria"].extend(["LINHA"])
+SINONIMOS_COLUNAS["fornecedor"].append("RAZÃO SOCIAL DO FORNECEDOR")
+SINONIMOS_COLUNAS["unidade"].extend(["QTDE CX", "QTD CX", "QTD", "QTDE", "ML"])
+
+
 def detectar_coluna(cabecalhos, chave):
     sinonimos = SINONIMOS_COLUNAS.get(chave, [])
 
     for cab in cabecalhos:
-        cab_norm = str(cab).strip().upper()
+        cab_norm = normalizar_cabecalho(cab)
+        if not cab_norm:
+            continue
 
         for s in sinonimos:
-            if s in cab_norm or cab_norm in s:
+            s_norm = normalizar_cabecalho(s)
+            if len(s_norm) < 2:
+                continue
+            if s_norm in cab_norm or (len(cab_norm) >= 3 and cab_norm in s_norm):
                 return cab
 
     return None
+
+
+def colunas_detectadas(cabecalhos):
+    return {
+        chave: detectar_coluna(cabecalhos, chave)
+        for chave in SINONIMOS_COLUNAS
+    }
+
+
+def pontuar_cabecalho(cabecalhos):
+    detectadas = colunas_detectadas(cabecalhos)
+    chaves_detectadas = [chave for chave, valor in detectadas.items() if valor]
+    nao_vazios = sum(1 for cab in cabecalhos if normalizar_cabecalho(cab))
+
+    score = len(chaves_detectadas) * 10 + min(nao_vazios, 10)
+    if detectadas.get("descricao"):
+        score += 20
+    if detectadas.get("preco"):
+        score += 20
+    if detectadas.get("codigo"):
+        score += 5
+
+    return score, detectadas
+
+
+def detectar_cabecalho_em_linhas(linhas, limite=15):
+    melhor = {
+        "linha_cabecalho": None,
+        "cabecalhos": [],
+        "colunas_detectadas": {},
+        "score": 0,
+    }
+
+    for idx, row in enumerate(linhas[:limite]):
+        cabecalhos = [str(c).strip().upper() if c is not None else "" for c in row]
+        score, detectadas = pontuar_cabecalho(cabecalhos)
+        if score > melhor["score"]:
+            melhor = {
+                "linha_cabecalho": idx,
+                "cabecalhos": cabecalhos,
+                "colunas_detectadas": detectadas,
+                "score": score,
+            }
+
+    if not melhor["colunas_detectadas"].get("descricao") and not melhor["colunas_detectadas"].get("sku_master"):
+        melhor["linha_cabecalho"] = None
+
+    return melhor
 
 
 # ================================================
@@ -312,6 +451,160 @@ def extrair_itens_estruturado(registros):
         })
 
     return itens
+
+
+def diagnosticar_registros_estruturados(registros, contexto=None):
+    contexto = contexto or {}
+    cabecalhos = list(registros[0].keys()) if registros else contexto.get("cabecalhos", [])
+    detectadas = colunas_detectadas(cabecalhos)
+    itens = extrair_itens_estruturado(registros)
+
+    faltantes = []
+    if not detectadas.get("descricao") and not detectadas.get("sku_master"):
+        faltantes.append("descricao")
+    if not detectadas.get("preco"):
+        faltantes.append("preco")
+
+    mensagens = []
+    if contexto.get("linha_cabecalho") is None:
+        mensagens.append("Cabeçalho não identificado.")
+    elif contexto.get("linha_cabecalho", 0) > 0:
+        mensagens.append(f"Cabeçalho detectado na linha {contexto['linha_cabecalho'] + 1}.")
+
+    if faltantes:
+        mensagens.append(f"Colunas obrigatórias ausentes: {', '.join(faltantes)}.")
+    if not itens:
+        mensagens.append("Nenhum item com descrição e preço válido foi extraído.")
+
+    return {
+        "ok": bool(itens) and not faltantes,
+        "mensagens": mensagens,
+        "linha_cabecalho": (
+            contexto["linha_cabecalho"] + 1
+            if contexto.get("linha_cabecalho") is not None
+            else None
+        ),
+        "aba": contexto.get("aba"),
+        "delimiter": contexto.get("delimiter"),
+        "cabecalhos": cabecalhos,
+        "colunas_detectadas": detectadas,
+        "colunas_obrigatorias_ausentes": faltantes,
+        "total_registros_lidos": len(registros),
+        "total_itens_extraidos": len(itens),
+        "preview_itens": itens[:5],
+    }
+
+
+def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor="Distribuidor"):
+    caminho = Path(caminho)
+    ext = caminho.suffix.lower()
+    diagnostico = {
+        "arquivo": caminho.name,
+        "formato": ext.lstrip("."),
+        "ok": False,
+        "mensagens": [],
+        "detalhes": {},
+    }
+
+    try:
+        if ext in [".xlsx", ".xls"]:
+            from openpyxl import load_workbook
+
+            wb = load_workbook(caminho, data_only=True, read_only=True)
+            abas = []
+            todos_registros = []
+
+            for ws in wb.worksheets:
+                linhas = list(ws.iter_rows(values_only=True))
+                info = detectar_cabecalho_em_linhas(linhas)
+                registros = []
+
+                if info["linha_cabecalho"] is not None:
+                    cabecalhos = info["cabecalhos"]
+                    for row in linhas[info["linha_cabecalho"] + 1:]:
+                        if all(c is None for c in row):
+                            continue
+                        item = {}
+                        for j, val in enumerate(row):
+                            if j < len(cabecalhos):
+                                item[cabecalhos[j]] = val
+                        registros.append(item)
+                    todos_registros.extend(registros)
+
+                detalhe = diagnosticar_registros_estruturados(
+                    registros,
+                    {
+                        "aba": ws.title,
+                        "linha_cabecalho": info["linha_cabecalho"],
+                        "cabecalhos": info["cabecalhos"],
+                    },
+                )
+                abas.append(detalhe)
+
+            wb.close()
+
+            diagnostico["detalhes"]["abas"] = abas
+            diagnostico["detalhes"]["total_registros_lidos"] = len(todos_registros)
+            diagnostico["detalhes"]["total_itens_extraidos"] = sum(
+                aba["total_itens_extraidos"] for aba in abas
+            )
+            diagnostico["ok"] = any(aba["ok"] for aba in abas)
+            diagnostico["mensagens"] = [
+                msg for aba in abas for msg in aba["mensagens"]
+            ]
+
+        elif ext == ".csv":
+            texto = ler_texto_csv(caminho)
+            dialect = detectar_dialeto_csv(texto)
+            linhas = list(csv.reader(texto.splitlines(), dialect))
+            info = detectar_cabecalho_em_linhas(linhas)
+            registros = ler_csv(caminho)
+            detalhe = diagnosticar_registros_estruturados(
+                registros,
+                {
+                    "linha_cabecalho": info["linha_cabecalho"],
+                    "cabecalhos": info["cabecalhos"],
+                    "delimiter": getattr(dialect, "delimiter", None),
+                },
+            )
+            diagnostico["detalhes"] = detalhe
+            diagnostico["ok"] = detalhe["ok"]
+            diagnostico["mensagens"] = detalhe["mensagens"]
+
+        elif ext == ".pdf":
+            linhas = ler_pdf(caminho)
+            itens = extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor)
+            diagnostico["ok"] = bool(itens)
+            diagnostico["detalhes"] = {
+                "total_linhas_lidas": len(linhas),
+                "total_itens_extraidos": len(itens),
+                "preview_itens": itens[:5],
+            }
+            if not itens:
+                diagnostico["mensagens"].append("Nenhum item com preço foi extraído do PDF.")
+
+        elif ext in [".jpg", ".jpeg", ".png"]:
+            validar_tesseract()
+            linhas = ler_imagem(caminho)
+            itens = extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor)
+            diagnostico["ok"] = bool(itens)
+            diagnostico["detalhes"] = {
+                "tesseract": str(TESSERACT_PADRAO),
+                "total_linhas_lidas": len(linhas),
+                "total_itens_extraidos": len(itens),
+                "preview_itens": itens[:5],
+            }
+            if not itens:
+                diagnostico["mensagens"].append("Nenhum item com preço foi extraído da imagem.")
+
+        else:
+            diagnostico["mensagens"].append(f"Formato não suportado para diagnóstico: {ext}")
+
+    except Exception as erro:
+        diagnostico["ok"] = False
+        diagnostico["mensagens"].append(str(erro))
+
+    return diagnostico
 
 
 # ================================================
