@@ -25,17 +25,55 @@ def normalizar_cabecalho(texto):
 # ================================================
 
 def ler_pdf(caminho):
+    return ler_pdf_detalhado(caminho)["linhas"]
+
+
+def ler_pdf_detalhado(caminho, tentar_ocr=True):
     import pdfplumber
 
     linhas = []
+    linhas_ocr = []
+    mensagens = []
+    total_paginas = 0
 
     with pdfplumber.open(caminho) as pdf:
+        total_paginas = len(pdf.pages)
+
         for pagina in pdf.pages:
             texto = pagina.extract_text()
             if texto:
                 linhas += texto.splitlines()
 
-    return linhas
+        pdf_tem_texto = bool(linhas)
+
+        if not pdf_tem_texto and tentar_ocr:
+            try:
+                import pytesseract
+
+                tesseract = validar_tesseract()
+                pytesseract.pytesseract.tesseract_cmd = str(tesseract)
+
+                for pagina in pdf.pages:
+                    imagem = pagina.to_image(resolution=200).original
+                    try:
+                        texto_ocr = pytesseract.image_to_string(imagem, lang="por")
+                    except Exception:
+                        texto_ocr = pytesseract.image_to_string(imagem)
+                    if texto_ocr:
+                        linhas_ocr += texto_ocr.splitlines()
+            except Exception as erro:
+                mensagens.append(f"OCR indisponivel: {erro}")
+
+    if linhas_ocr:
+        linhas = linhas_ocr
+
+    return {
+        "linhas": linhas,
+        "pdf_tem_texto": bool(linhas) and not bool(linhas_ocr),
+        "usou_ocr": bool(linhas_ocr),
+        "total_paginas": total_paginas,
+        "mensagens": mensagens,
+    }
 
 
 def ler_excel(caminho):
@@ -502,6 +540,9 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
         "arquivo": caminho.name,
         "formato": ext.lstrip("."),
         "ok": False,
+        "modo_importacao": None,
+        "total_produtos_catalogo": 0,
+        "total_precos_importados": 0,
         "mensagens": [],
         "detalhes": {},
     }
@@ -572,14 +613,21 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
             diagnostico["mensagens"] = detalhe["mensagens"]
 
         elif ext == ".pdf":
-            linhas = ler_pdf(caminho)
+            leitura_pdf = ler_pdf_detalhado(caminho)
+            linhas = leitura_pdf["linhas"]
             itens = extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor)
             diagnostico["ok"] = bool(itens)
+            diagnostico["modo_importacao"] = "tabela_com_preco" if itens else None
+            diagnostico["total_precos_importados"] = len(itens)
             diagnostico["detalhes"] = {
+                "pdf_tem_texto": leitura_pdf["pdf_tem_texto"],
+                "usou_ocr": leitura_pdf["usou_ocr"],
+                "total_paginas": leitura_pdf["total_paginas"],
                 "total_linhas_lidas": len(linhas),
                 "total_itens_extraidos": len(itens),
                 "preview_itens": itens[:5],
             }
+            diagnostico["mensagens"].extend(leitura_pdf["mensagens"])
             if not itens:
                 diagnostico["mensagens"].append("Nenhum item com preço foi extraído do PDF.")
 
@@ -654,6 +702,65 @@ def extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor):
                 "tipo_fornecedor": tipo_fornecedor.upper(),
                 "unidade": "",
             })
+
+    return itens
+
+
+def extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor):
+    itens = []
+    unidades = r"UN|UNI|CX|FR|PC|PT|KIT|AMP|BIS|SC|RL|MT|KG|GR|ML|L|TB|BX|AP|EV|CP|FA|FD"
+    preco_re = r"(?:R\$\s*)?\d{1,6}(?:\.\d{3})*,\d{2,4}"
+    padrao_tabela = re.compile(
+        rf"^\s*(?P<codigo>\S+)\s+(?P<descricao>.+?)\s+"
+        rf"(?P<unidade>{unidades})\s+\d+\s+\d{{1,2}}%\s+"
+        rf"(?P<preco>{preco_re})\b",
+        re.IGNORECASE
+    )
+    padrao_generico = re.compile(
+        rf"^\s*(?:(?P<codigo>\S+)\s+)?(?P<descricao>.+?)\s+(?P<preco>{preco_re})\b",
+        re.IGNORECASE
+    )
+
+    marca = nome_fornecedor.upper() if tipo_fornecedor.upper() == "FABRICANTE" else ""
+
+    for linha in linhas:
+        linha = re.sub(r"\s+", " ", str(linha or "").strip().upper())
+
+        if not linha:
+            continue
+
+        if normalizar_cabecalho(linha).startswith(("COD DESCRICAO", "CODIGO DESCRICAO")):
+            continue
+
+        m = padrao_tabela.match(linha)
+        if not m:
+            m = padrao_generico.match(linha)
+
+        if not m:
+            continue
+
+        descricao = re.sub(r"\s+", " ", m.group("descricao").strip().upper())
+
+        if len(descricao) < 4 or not re.search(r"[A-Z]", descricao):
+            continue
+
+        preco = limpar_preco(m.group("preco"))
+
+        if preco <= 0:
+            continue
+
+        itens.append({
+            "nome_produto": descricao,
+            "descricao_orig": descricao,
+            "sku_existente": "",
+            "codigo": (m.group("codigo") or "").strip(),
+            "marca": marca,
+            "categoria": "",
+            "preco": preco,
+            "fornecedor_nome": nome_fornecedor.upper(),
+            "tipo_fornecedor": tipo_fornecedor.upper(),
+            "unidade": (m.groupdict().get("unidade") or "").strip().upper(),
+        })
 
     return itens
 
