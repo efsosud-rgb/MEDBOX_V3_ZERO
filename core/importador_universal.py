@@ -12,6 +12,10 @@ from core.formatadores import moeda_br
 
 
 TESSERACT_PADRAO = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+MENSAGEM_OCR_INDISPONIVEL = (
+    "OCR indispon\u00edvel. Instale o idioma portugu\u00eas do Tesseract "
+    "ou envie XLSX/CSV/PDF com texto."
+)
 
 
 def normalizar_cabecalho(texto):
@@ -71,21 +75,13 @@ def ler_pdf_detalhado(caminho, tentar_ocr=True):
 
         if not pdf_tem_texto and tentar_ocr:
             try:
-                import pytesseract
-
-                tesseract = validar_tesseract()
-                pytesseract.pytesseract.tesseract_cmd = str(tesseract)
-
                 for pagina in pdf.pages:
                     imagem = pagina.to_image(resolution=200).original
-                    try:
-                        texto_ocr = pytesseract.image_to_string(imagem, lang="por")
-                    except Exception:
-                        texto_ocr = pytesseract.image_to_string(imagem)
+                    texto_ocr = executar_ocr_imagem(imagem)
                     if texto_ocr:
                         linhas_ocr += texto_ocr.splitlines()
             except Exception as erro:
-                mensagens.append(f"OCR indisponivel: {erro}")
+                mensagens.append(str(erro) or MENSAGEM_OCR_INDISPONIVEL)
 
     if linhas_ocr:
         linhas = linhas_ocr
@@ -205,16 +201,32 @@ def ler_docx(caminho):
 
 
 def ler_imagem(caminho):
-    import pytesseract
     from PIL import Image
 
-    tesseract = validar_tesseract()
-    pytesseract.pytesseract.tesseract_cmd = str(tesseract)
-
     img = Image.open(caminho)
-    texto = pytesseract.image_to_string(img, lang="por")
+    texto = executar_ocr_imagem(img)
 
     return texto.splitlines()
+
+
+def executar_ocr_imagem(imagem):
+    import pytesseract
+
+    try:
+        tesseract = validar_tesseract()
+    except Exception:
+        raise Exception(MENSAGEM_OCR_INDISPONIVEL)
+
+    pytesseract.pytesseract.tesseract_cmd = str(tesseract)
+
+    erros = []
+    for idioma in ("por", "eng"):
+        try:
+            return pytesseract.image_to_string(imagem, lang=idioma)
+        except Exception as erro:
+            erros.append(str(erro))
+
+    raise Exception(MENSAGEM_OCR_INDISPONIVEL)
 
 
 def validar_tesseract(caminho=TESSERACT_PADRAO):
@@ -852,10 +864,11 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
                 diagnostico["mensagens"].append("Nenhum item com preço foi extraído do PDF.")
 
         elif ext in [".jpg", ".jpeg", ".png"]:
-            validar_tesseract()
             linhas = ler_imagem(caminho)
             itens = extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor)
             diagnostico["ok"] = bool(itens)
+            diagnostico["modo_importacao"] = "tabela_com_preco" if itens else None
+            diagnostico["total_precos_importados"] = len(itens)
             diagnostico["detalhes"] = {
                 "tesseract": str(TESSERACT_PADRAO),
                 "total_linhas_lidas": len(linhas),
