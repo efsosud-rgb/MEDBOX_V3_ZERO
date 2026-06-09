@@ -104,10 +104,10 @@ def ler_pdf_detalhado(caminho, tentar_ocr=True):
 
 
 def ler_excel(caminho):
-    from openpyxl import load_workbook
-
     if detectar_excel_binario(caminho):
-        raise ValueError(MENSAGEM_XLSB)
+        return ler_xlsb(caminho)
+
+    from openpyxl import load_workbook
 
     wb = load_workbook(caminho, data_only=True, read_only=True)
     resultados = []
@@ -134,6 +134,55 @@ def ler_excel(caminho):
 
     wb.close()
     return resultados
+
+
+def ler_xlsb(caminho):
+    abas = ler_xlsb_abas(caminho)
+    resultados = []
+
+    for aba in abas:
+        if extrair_itens_estruturado(aba["registros"]):
+            resultados.extend(aba["registros"])
+
+    return resultados
+
+
+def ler_xlsb_abas(caminho):
+    from pyxlsb import open_workbook
+
+    abas = []
+
+    with open_workbook(str(caminho)) as wb:
+        for nome_aba in wb.sheets:
+            with wb.get_sheet(nome_aba) as ws:
+                linhas = [
+                    [cell.v for cell in row]
+                    for row in ws.rows()
+                ]
+
+            info = detectar_cabecalho_em_linhas(linhas)
+            registros = []
+
+            if info["linha_cabecalho"] is not None:
+                cabecalhos = info["cabecalhos"]
+                for row in linhas[info["linha_cabecalho"] + 1:]:
+                    if all(c is None for c in row):
+                        continue
+
+                    item = {}
+                    for j, val in enumerate(row):
+                        if j < len(cabecalhos):
+                            item[cabecalhos[j]] = val
+                    registros.append(item)
+
+            abas.append({
+                "aba": nome_aba,
+                "linha_cabecalho": info["linha_cabecalho"],
+                "cabecalhos": info["cabecalhos"],
+                "registros": registros,
+            })
+
+    return abas
 
 
 def ler_csv(caminho):
@@ -377,6 +426,8 @@ SINONIMOS_COLUNAS["preco"].extend([
     "PREÇO",
     "PRECO UNITARIO",
     "PREÇO UNITÁRIO",
+    "PF 12%",
+    "PF",
     "R$",
 ])
 SINONIMOS_COLUNAS["marca"].append("LABORATÓRIO")
@@ -387,6 +438,19 @@ SINONIMOS_COLUNAS["unidade"].extend(["QTDE CX", "QTD CX", "QTD", "QTDE", "ML"])
 
 def detectar_coluna(cabecalhos, chave):
     sinonimos = SINONIMOS_COLUNAS.get(chave, [])
+
+    if chave == "preco":
+        for cab in cabecalhos:
+            cab_norm = normalizar_cabecalho(cab)
+            if not cab_norm:
+                continue
+
+            for s in sinonimos:
+                s_norm = normalizar_cabecalho(s)
+                if len(s_norm) < 2:
+                    continue
+                if cab_norm == s_norm:
+                    return cab
 
     for cab in cabecalhos:
         cab_norm = normalizar_cabecalho(cab)
@@ -559,6 +623,7 @@ def diagnosticar_registros_estruturados(registros, contexto=None):
         "colunas_obrigatorias_ausentes": faltantes,
         "total_registros_lidos": len(registros),
         "total_itens_extraidos": len(itens),
+        "total_precos_importados": len(itens),
         "preview_itens": itens[:5],
     }
 
@@ -578,10 +643,43 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
     }
 
     try:
-        if ext in [".xlsx", ".xls"]:
-            if detectar_excel_binario(caminho):
+        if ext in [".xlsx", ".xls", ".xlsb"]:
+            if ext == ".xlsb" or detectar_excel_binario(caminho):
+                abas_lidas = ler_xlsb_abas(caminho)
+                abas = []
+                todos_registros = []
+
+                for aba_lida in abas_lidas:
+                    registros = aba_lida["registros"]
+                    todos_registros.extend(registros)
+                    detalhe = diagnosticar_registros_estruturados(
+                        registros,
+                        {
+                            "aba": aba_lida["aba"],
+                            "linha_cabecalho": aba_lida["linha_cabecalho"],
+                            "cabecalhos": aba_lida["cabecalhos"],
+                        },
+                    )
+                    abas.append(detalhe)
+
                 diagnostico["formato"] = "xlsb"
-                diagnostico["mensagens"].append(MENSAGEM_XLSB)
+                diagnostico["detalhes"]["abas"] = abas
+                diagnostico["detalhes"]["total_registros_lidos"] = len(todos_registros)
+                diagnostico["detalhes"]["total_itens_extraidos"] = sum(
+                    aba["total_itens_extraidos"] for aba in abas
+                )
+                diagnostico["detalhes"]["total_precos_importados"] = sum(
+                    aba["total_precos_importados"] for aba in abas
+                )
+                diagnostico["total_precos_importados"] = diagnostico["detalhes"]["total_precos_importados"]
+                diagnostico["modo_importacao"] = (
+                    "tabela_com_preco" if diagnostico["total_precos_importados"] else None
+                )
+                diagnostico["ok"] = any(aba["ok"] for aba in abas)
+                abas_mensagens = [aba for aba in abas if aba["ok"]] if diagnostico["ok"] else abas
+                diagnostico["mensagens"] = [
+                    msg for aba in abas_mensagens for msg in aba["mensagens"]
+                ]
                 return diagnostico
 
             from openpyxl import load_workbook
@@ -885,7 +983,7 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
     ext = caminho.suffix.lower()
     data_hoje = datetime.now().strftime("%Y-%m-%d")
 
-    if ext in [".xlsx", ".xls"]:
+    if ext in [".xlsx", ".xls", ".xlsb"]:
         registros = ler_excel(caminho)
         itens = extrair_itens_estruturado(registros)
 
