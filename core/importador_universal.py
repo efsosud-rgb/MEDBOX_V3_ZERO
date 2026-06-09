@@ -1,6 +1,7 @@
 import re
 import json
 import csv
+import zipfile
 import urllib.request
 import unicodedata
 from pathlib import Path
@@ -19,6 +20,27 @@ def normalizar_cabecalho(texto):
     texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
     texto = re.sub(r"[^A-Z0-9]+", " ", texto)
     return re.sub(r"\s+", " ", texto).strip()
+
+
+def detectar_excel_binario(caminho):
+    caminho = Path(caminho)
+
+    if caminho.suffix.lower() == ".xlsb":
+        return True
+
+    try:
+        with zipfile.ZipFile(caminho) as pacote:
+            nomes = {nome.lower() for nome in pacote.namelist()}
+    except (OSError, zipfile.BadZipFile):
+        return False
+
+    if "xl/workbook.bin" in nomes or "xl/vbaproject.bin" in nomes:
+        return True
+
+    return any(
+        nome.startswith("xl/worksheets/") and nome.endswith(".bin")
+        for nome in nomes
+    )
 
 
 # ================================================
@@ -78,6 +100,9 @@ def ler_pdf_detalhado(caminho, tentar_ocr=True):
 
 
 def ler_excel(caminho):
+    if detectar_excel_binario(caminho):
+        return ler_xlsb(caminho)
+
     from openpyxl import load_workbook
 
     wb = load_workbook(caminho, data_only=True, read_only=True)
@@ -104,6 +129,43 @@ def ler_excel(caminho):
             resultados.append(item)
 
     wb.close()
+    return resultados
+
+
+def ler_xlsb(caminho):
+    from pyxlsb import open_workbook
+
+    resultados = []
+
+    with open_workbook(str(caminho)) as wb:
+        for nome_aba in wb.sheets:
+            with wb.get_sheet(nome_aba) as ws:
+                linhas = [
+                    [cell.v for cell in row]
+                    for row in ws.rows()
+                ]
+
+            info = detectar_cabecalho_em_linhas(linhas)
+
+            if info["linha_cabecalho"] is None:
+                continue
+
+            cabecalhos = info["cabecalhos"]
+            registros_aba = []
+
+            for row in linhas[info["linha_cabecalho"] + 1:]:
+                if all(c is None for c in row):
+                    continue
+
+                item = {}
+                for j, val in enumerate(row):
+                    if j < len(cabecalhos):
+                        item[cabecalhos[j]] = val
+                registros_aba.append(item)
+
+            if extrair_itens_estruturado(registros_aba):
+                resultados.extend(registros_aba)
+
     return resultados
 
 
@@ -348,6 +410,8 @@ SINONIMOS_COLUNAS["preco"].extend([
     "PREÇO",
     "PRECO UNITARIO",
     "PREÇO UNITÁRIO",
+    "PF 12%",
+    "PF",
     "R$",
 ])
 SINONIMOS_COLUNAS["marca"].append("LABORATÓRIO")
@@ -358,6 +422,19 @@ SINONIMOS_COLUNAS["unidade"].extend(["QTDE CX", "QTD CX", "QTD", "QTDE", "ML"])
 
 def detectar_coluna(cabecalhos, chave):
     sinonimos = SINONIMOS_COLUNAS.get(chave, [])
+
+    if chave == "preco":
+        for cab in cabecalhos:
+            cab_norm = normalizar_cabecalho(cab)
+            if not cab_norm:
+                continue
+
+            for s in sinonimos:
+                s_norm = normalizar_cabecalho(s)
+                if len(s_norm) < 2:
+                    continue
+                if cab_norm == s_norm:
+                    return cab
 
     for cab in cabecalhos:
         cab_norm = normalizar_cabecalho(cab)
@@ -631,7 +708,29 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
     }
 
     try:
-        if ext in [".xlsx", ".xls"]:
+        if ext == ".xlsb" or detectar_excel_binario(caminho):
+            registros = ler_xlsb(caminho)
+            detalhe = diagnosticar_registros_estruturados(
+                registros,
+                {
+                    "linha_cabecalho": 0,
+                    "cabecalhos": list(registros[0].keys()) if registros else [],
+                    "nome_fornecedor": nome_fornecedor,
+                    "tipo_fornecedor": tipo_fornecedor,
+                },
+            )
+
+            diagnostico["formato"] = "xlsb"
+            diagnostico["detalhes"] = detalhe
+            diagnostico["ok"] = detalhe["ok"]
+            diagnostico["modo_importacao"] = detalhe.get("modo_importacao")
+            diagnostico["total_produtos_catalogo"] = detalhe.get("total_produtos_catalogo", 0)
+            diagnostico["total_precos_importados"] = detalhe.get("total_precos_importados", 0)
+            diagnostico["total_itens_extraidos"] = detalhe.get("total_itens_extraidos", 0)
+            diagnostico["total_registros_lidos"] = detalhe.get("total_registros_lidos", 0)
+            diagnostico["mensagens"] = detalhe["mensagens"]
+
+        elif ext in [".xlsx", ".xls"]:
             from openpyxl import load_workbook
 
             wb = load_workbook(caminho, data_only=True, read_only=True)
@@ -1074,7 +1173,17 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
     data_hoje = datetime.now().strftime("%Y-%m-%d")
     itens_catalogo = []
 
-    if ext in [".xlsx", ".xls"]:
+    if ext == ".xlsb" or detectar_excel_binario(caminho):
+        registros = ler_xlsb(caminho)
+        itens = extrair_itens_estruturado(registros)
+        if not itens:
+            itens_catalogo = extrair_itens_catalogo_estruturado(
+                registros,
+                nome_fornecedor,
+                tipo_fornecedor
+            )
+
+    elif ext in [".xlsx", ".xls"]:
         registros = ler_excel(caminho)
         itens = extrair_itens_estruturado(registros)
         if not itens:

@@ -11,6 +11,12 @@
 </div>
 {% endif %}
 
+{% if request.args.get('erro') %}
+<div class="aviso-erro" style="background:#fff5f5; border:1px solid #f1b6b6; color:#8a1f1f; padding:12px 14px; border-radius:6px; margin-bottom:16px;">
+    <strong>Erro ao importar:</strong> {{ request.args.get('erro') }}
+</div>
+{% endif %}
+
 <section class="panel large">
     <h3>Importar Tabela de Preços</h3>
     <p style="color:#666; font-size:0.9rem; margin-bottom:16px;">
