@@ -453,17 +453,93 @@ def extrair_itens_estruturado(registros):
     return itens
 
 
+def normalizar_descricao_catalogo(descricao):
+    descricao = str(descricao or "").strip().upper()
+    descricao = re.sub(r"\s+", " ", descricao)
+    descricao = re.sub(r"(\d+(?:[.,]\d+)?MG)\s+(\d+(?:[.,]\d+)?ML)\b", r"\1/\2", descricao)
+    return descricao
+
+
+def extrair_itens_catalogo_estruturado(registros, nome_fornecedor="", tipo_fornecedor=""):
+    if not registros:
+        return []
+
+    cabecalhos = list(registros[0].keys())
+
+    col_sku = detectar_coluna(cabecalhos, "sku_master")
+    col_descricao = detectar_coluna(cabecalhos, "descricao")
+    col_codigo = detectar_coluna(cabecalhos, "codigo")
+    col_preco = detectar_coluna(cabecalhos, "preco")
+    col_marca = detectar_coluna(cabecalhos, "marca")
+    col_categoria = detectar_coluna(cabecalhos, "categoria")
+    col_fornecedor = detectar_coluna(cabecalhos, "fornecedor")
+    col_tipo = detectar_coluna(cabecalhos, "tipo_fornecedor")
+    col_unidade = detectar_coluna(cabecalhos, "unidade")
+
+    if col_preco or (not col_descricao and not col_sku):
+        return []
+
+    itens = []
+    fornecedor_padrao = str(nome_fornecedor or "").strip().upper()
+    tipo_padrao = str(tipo_fornecedor or "").strip().upper()
+
+    for row in registros:
+        sku_existente = normalizar_descricao_catalogo(row.get(col_sku, ""))
+        descricao_orig = normalizar_descricao_catalogo(row.get(col_descricao, ""))
+        nome_produto = sku_existente if sku_existente else descricao_orig
+
+        if not nome_produto:
+            continue
+
+        fornecedor_nome = str(row.get(col_fornecedor, "") or "").strip().upper()
+        tipo_item = str(row.get(col_tipo, "") or "").strip().upper()
+        marca = str(row.get(col_marca, "") or "").strip().upper()
+
+        if not fornecedor_nome:
+            fornecedor_nome = fornecedor_padrao
+
+        if not tipo_item:
+            tipo_item = tipo_padrao
+
+        if not marca and tipo_item == "FABRICANTE":
+            marca = fornecedor_nome or fornecedor_padrao
+
+        itens.append({
+            "nome_produto": nome_produto,
+            "descricao_orig": descricao_orig or nome_produto,
+            "sku_existente": sku_existente,
+            "codigo": str(row.get(col_codigo, "") or "").strip(),
+            "marca": marca,
+            "categoria": str(row.get(col_categoria, "") or "").strip().upper(),
+            "preco": None,
+            "fornecedor_nome": fornecedor_nome,
+            "tipo_fornecedor": tipo_item,
+            "unidade": str(row.get(col_unidade, "") or "").strip().upper(),
+        })
+
+    return itens
+
+
 def diagnosticar_registros_estruturados(registros, contexto=None):
     contexto = contexto or {}
     cabecalhos = list(registros[0].keys()) if registros else contexto.get("cabecalhos", [])
     detectadas = colunas_detectadas(cabecalhos)
     itens = extrair_itens_estruturado(registros)
+    itens_catalogo = extrair_itens_catalogo_estruturado(
+        registros,
+        contexto.get("nome_fornecedor", ""),
+        contexto.get("tipo_fornecedor", ""),
+    )
+    modo_importacao = "tabela_com_preco" if itens else None
 
     faltantes = []
     if not detectadas.get("descricao") and not detectadas.get("sku_master"):
         faltantes.append("descricao")
     if not detectadas.get("preco"):
-        faltantes.append("preco")
+        if itens_catalogo:
+            modo_importacao = "catalogo_sem_preco"
+        else:
+            faltantes.append("preco")
 
     mensagens = []
     if contexto.get("linha_cabecalho") is None:
@@ -473,11 +549,14 @@ def diagnosticar_registros_estruturados(registros, contexto=None):
 
     if faltantes:
         mensagens.append(f"Colunas obrigatórias ausentes: {', '.join(faltantes)}.")
-    if not itens:
+    if modo_importacao == "catalogo_sem_preco":
+        mensagens.append("Catalogo sem preco identificado.")
+    elif not itens:
         mensagens.append("Nenhum item com descrição e preço válido foi extraído.")
 
     return {
-        "ok": bool(itens) and not faltantes,
+        "ok": bool(itens or itens_catalogo) and not faltantes,
+        "modo_importacao": modo_importacao,
         "mensagens": mensagens,
         "linha_cabecalho": (
             contexto["linha_cabecalho"] + 1
@@ -491,7 +570,10 @@ def diagnosticar_registros_estruturados(registros, contexto=None):
         "colunas_obrigatorias_ausentes": faltantes,
         "total_registros_lidos": len(registros),
         "total_itens_extraidos": len(itens),
+        "total_produtos_catalogo": len(itens_catalogo),
+        "total_precos_importados": len(itens),
         "preview_itens": itens[:5],
+        "preview_catalogo": itens_catalogo[:5],
     }
 
 
@@ -533,12 +615,14 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
 
                 detalhe = diagnosticar_registros_estruturados(
                     registros,
-                    {
-                        "aba": ws.title,
-                        "linha_cabecalho": info["linha_cabecalho"],
-                        "cabecalhos": info["cabecalhos"],
-                    },
-                )
+                        {
+                            "aba": ws.title,
+                            "linha_cabecalho": info["linha_cabecalho"],
+                            "cabecalhos": info["cabecalhos"],
+                            "nome_fornecedor": nome_fornecedor,
+                            "tipo_fornecedor": tipo_fornecedor,
+                        },
+                    )
                 abas.append(detalhe)
 
             wb.close()
@@ -548,6 +632,18 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
             diagnostico["detalhes"]["total_itens_extraidos"] = sum(
                 aba["total_itens_extraidos"] for aba in abas
             )
+            diagnostico["detalhes"]["total_produtos_catalogo"] = sum(
+                aba.get("total_produtos_catalogo", 0) for aba in abas
+            )
+            diagnostico["detalhes"]["total_precos_importados"] = sum(
+                aba.get("total_precos_importados", 0) for aba in abas
+            )
+            if diagnostico["detalhes"]["total_precos_importados"]:
+                diagnostico["modo_importacao"] = "tabela_com_preco"
+            elif diagnostico["detalhes"]["total_produtos_catalogo"]:
+                diagnostico["modo_importacao"] = "catalogo_sem_preco"
+            diagnostico["total_produtos_catalogo"] = diagnostico["detalhes"]["total_produtos_catalogo"]
+            diagnostico["total_precos_importados"] = diagnostico["detalhes"]["total_precos_importados"]
             diagnostico["ok"] = any(aba["ok"] for aba in abas)
             diagnostico["mensagens"] = [
                 msg for aba in abas for msg in aba["mensagens"]
@@ -565,10 +661,15 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
                     "linha_cabecalho": info["linha_cabecalho"],
                     "cabecalhos": info["cabecalhos"],
                     "delimiter": getattr(dialect, "delimiter", None),
+                    "nome_fornecedor": nome_fornecedor,
+                    "tipo_fornecedor": tipo_fornecedor,
                 },
             )
             diagnostico["detalhes"] = detalhe
             diagnostico["ok"] = detalhe["ok"]
+            diagnostico["modo_importacao"] = detalhe.get("modo_importacao")
+            diagnostico["total_produtos_catalogo"] = detalhe.get("total_produtos_catalogo", 0)
+            diagnostico["total_precos_importados"] = detalhe.get("total_precos_importados", 0)
             diagnostico["mensagens"] = detalhe["mensagens"]
 
         elif ext == ".pdf":
@@ -674,6 +775,7 @@ def garantir_fornecedor(cursor, nome, tipo):
     row = cursor.fetchone()
 
     if row:
+        cursor.execute("UPDATE fornecedores SET ativo = 1 WHERE id = ?", (row["id"],))
         return row["id"]
 
     cursor.execute("""
@@ -727,6 +829,126 @@ def garantir_produto(cursor, sku_master, categoria, fabricante):
     return produto_id
 
 
+def garantir_produto_catalogo(cursor, sku_master, categoria, fabricante):
+    sku_master = str(sku_master or "").strip().upper()
+    categoria = str(categoria or "").strip().upper()
+    fabricante = str(fabricante or "").strip().upper()
+
+    if not sku_master:
+        return None, "ignorado"
+
+    cursor.execute("""
+        SELECT id, fabricante, categoria
+        FROM produtos
+        WHERE UPPER(produto_padrao) = ?
+    """, (sku_master,))
+    row = cursor.fetchone()
+
+    if row:
+        produto_id = row["id"]
+        fabricante_atual = str(row["fabricante"] or "").strip()
+        categoria_atual = str(row["categoria"] or "").strip()
+        novo_fabricante = fabricante_atual or fabricante
+        nova_categoria = categoria_atual or categoria
+
+        cursor.execute("""
+            UPDATE produtos
+            SET fabricante = ?,
+                categoria = ?,
+                ativo = 1
+            WHERE id = ?
+        """, (novo_fabricante, nova_categoria, produto_id))
+
+        if novo_fabricante != fabricante_atual or nova_categoria != categoria_atual:
+            return produto_id, "atualizado"
+
+        return produto_id, "existente"
+
+    cursor.execute("""
+        INSERT INTO produtos (sku, produto_padrao, fabricante, categoria, ativo)
+        VALUES ('', ?, ?, ?, 1)
+    """, (sku_master, fabricante, categoria))
+
+    produto_id = cursor.lastrowid
+
+    cursor.execute("""
+        INSERT INTO equivalencias (produto_id, descricao_equivalente)
+        VALUES (?, ?)
+    """, (produto_id, sku_master))
+
+    return produto_id, "criado"
+
+
+def garantir_equivalencia(cursor, produto_id, descricao):
+    descricao = str(descricao or "").strip().upper()
+
+    if not produto_id or not descricao:
+        return
+
+    cursor.execute("""
+        SELECT id FROM equivalencias
+        WHERE produto_id = ?
+        AND UPPER(descricao_equivalente) = ?
+    """, (produto_id, descricao))
+
+    if cursor.fetchone():
+        return
+
+    cursor.execute("""
+        INSERT INTO equivalencias (produto_id, descricao_equivalente)
+        VALUES (?, ?)
+    """, (produto_id, descricao))
+
+
+def importar_catalogo_sem_preco(caminho, fornecedor_id, nome_fornecedor, tipo_fornecedor, itens):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    criados = 0
+    atualizados = 0
+
+    try:
+        garantir_fornecedor(cursor, nome_fornecedor, tipo_fornecedor)
+
+        for item in itens:
+            marca = item["marca"]
+
+            if not marca and item["tipo_fornecedor"] == "FABRICANTE":
+                marca = item["fornecedor_nome"] or nome_fornecedor.upper()
+
+            produto_id, status = garantir_produto_catalogo(
+                cursor,
+                item["nome_produto"],
+                item["categoria"],
+                marca
+            )
+
+            if not produto_id:
+                continue
+
+            garantir_equivalencia(cursor, produto_id, item["descricao_orig"])
+
+            if status == "criado":
+                criados += 1
+            elif status == "atualizado":
+                atualizados += 1
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "ok": True,
+        "modo_importacao": "catalogo_sem_preco",
+        "total_produtos_catalogo": len(itens),
+        "total_produtos_criados": criados,
+        "total_produtos_atualizados": atualizados,
+        "total_precos_importados": 0,
+        "arquivo_origem": Path(caminho).name,
+        "mensagens": [],
+    }
+
+
 # ================================================
 # IMPORTAÇÃO PRINCIPAL
 # ================================================
@@ -735,14 +957,27 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
     caminho = Path(caminho)
     ext = caminho.suffix.lower()
     data_hoje = datetime.now().strftime("%Y-%m-%d")
+    itens_catalogo = []
 
     if ext in [".xlsx", ".xls"]:
         registros = ler_excel(caminho)
         itens = extrair_itens_estruturado(registros)
+        if not itens:
+            itens_catalogo = extrair_itens_catalogo_estruturado(
+                registros,
+                nome_fornecedor,
+                tipo_fornecedor
+            )
 
     elif ext == ".csv":
         registros = ler_csv(caminho)
         itens = extrair_itens_estruturado(registros)
+        if not itens:
+            itens_catalogo = extrair_itens_catalogo_estruturado(
+                registros,
+                nome_fornecedor,
+                tipo_fornecedor
+            )
 
     elif ext == ".pdf":
         itens = extrair_itens_texto(
@@ -774,6 +1009,17 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
 
     else:
         raise Exception(f"Formato não suportado: {ext}")
+
+    if not itens and itens_catalogo:
+        diagnostico_catalogo = importar_catalogo_sem_preco(
+            caminho,
+            fornecedor_id,
+            nome_fornecedor,
+            tipo_fornecedor,
+            itens_catalogo
+        )
+        importar_arquivo_fornecedor.ultimo_diagnostico = diagnostico_catalogo
+        return diagnostico_catalogo["total_produtos_catalogo"]
 
     if not itens:
         raise Exception("Nenhum item encontrado no arquivo.")
