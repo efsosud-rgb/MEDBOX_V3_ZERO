@@ -43,6 +43,15 @@ TERMOS_EXCLUSAO_GLICOSE = (
     "BUPIVACAINA",
     "NITROGLICERINA",
 )
+TERMOS_FORNECEDOR_GENERICOS = {
+    "MED",
+    "FARMA",
+    "DISTRIBUIDORA",
+    "DISTRIBUIDOR",
+    "HOSPITALAR",
+    "MEDICAMENTOS",
+    "PRODUTOS",
+}
 
 
 def _termos_expandidos(termo):
@@ -61,6 +70,11 @@ def _termos_expandidos(termo):
             termos.add(palavra)
 
     return sorted(t for t in termos if t)
+
+
+def _termo_generico_fornecedor(termo):
+    palavras = set(normalizar_texto(termo).split())
+    return bool(palavras) and palavras.issubset(TERMOS_FORNECEDOR_GENERICOS)
 
 
 def _tokens(texto):
@@ -342,6 +356,161 @@ def _recuperar_candidatos(cursor, termos):
         _buscar_por_fornecedor(cursor, candidatos, termo)
 
     return candidatos
+
+
+def identificar_fornecedor(termo):
+    termo_norm = normalizar_texto(termo)
+    if not termo_norm or _termo_generico_fornecedor(termo):
+        return None
+
+    conn = conectar()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT f.id, f.nome, f.tipo, f.ativo,
+                   COUNT(DISTINCT pf.produto_id) AS total_produtos,
+                   COUNT(pf.id) AS total_precos
+            FROM fornecedores f
+            LEFT JOIN precos_fornecedores pf ON pf.fornecedor_id = f.id
+            WHERE f.ativo = 1
+            GROUP BY f.id
+            """
+        )
+        fornecedores = [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+    exatos = [
+        f for f in fornecedores
+        if normalizar_texto(f["nome"]) == termo_norm
+    ]
+    if exatos:
+        fornecedor = exatos[0]
+        fornecedor["confianca_match"] = 100.0
+        fornecedor["tipo_match"] = "exato"
+        return fornecedor
+
+    candidatos = []
+    for fornecedor in fornecedores:
+        nome_norm = normalizar_texto(fornecedor["nome"])
+        if termo_norm in nome_norm or nome_norm in termo_norm:
+            score = 96.0
+        else:
+            score = fuzz.token_set_ratio(termo_norm, nome_norm)
+
+        if score >= 90:
+            item = dict(fornecedor)
+            item["confianca_match"] = round(score, 2)
+            item["tipo_match"] = "fuzzy"
+            candidatos.append(item)
+
+    if not candidatos:
+        return None
+
+    candidatos.sort(key=lambda item: (-item["confianca_match"], item["nome"]))
+    return candidatos[0]
+
+
+def buscar_produtos_por_fornecedor(termo, limite=50):
+    fornecedor = identificar_fornecedor(termo)
+    if not fornecedor:
+        return None
+
+    conn = conectar()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT p.id, p.sku, p.produto_padrao, p.fabricante, p.categoria,
+                   pf.preco, pf.descricao_original, pf.codigo_fornecedor,
+                   pf.marca, pf.data_importacao,
+                   f.id AS fornecedor_id, f.nome AS fornecedor
+            FROM precos_fornecedores pf
+            JOIN produtos p ON p.id = pf.produto_id
+            JOIN fornecedores f ON f.id = pf.fornecedor_id
+            WHERE f.id = ?
+            AND pf.data_importacao = (
+                SELECT MAX(pf2.data_importacao)
+                FROM precos_fornecedores pf2
+                WHERE pf2.produto_id = pf.produto_id
+                AND pf2.fornecedor_id = pf.fornecedor_id
+            )
+            ORDER BY p.produto_padrao ASC, pf.preco ASC
+            LIMIT ?
+            """,
+            (fornecedor["id"], limite),
+        )
+        rows = [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+    resultados = []
+    for row in rows:
+        preco = {
+            "preco": row["preco"],
+            "descricao_original": row["descricao_original"],
+            "codigo_fornecedor": row["codigo_fornecedor"],
+            "marca": row["marca"],
+            "data_importacao": row["data_importacao"],
+            "data_cotacao": row["data_importacao"],
+            "fornecedor": row["fornecedor"],
+            "fornecedor_id": row["fornecedor_id"],
+            "condicao": "",
+            "tendencia": "novo",
+            "variacao": 0,
+            "historico": [],
+        }
+        resultado = {
+            "id": row["id"],
+            "sku": row["sku"],
+            "produto_padrao": row["produto_padrao"],
+            "sku_master": row["produto_padrao"],
+            "sku_master_exibicao": row["produto_padrao"],
+            "fabricante": row["fabricante"],
+            "categoria": row["categoria"],
+            "apresentacao": "",
+            "concentracao": "",
+            "forma": "",
+            "unidade_compra": "UN",
+            "score_busca": fornecedor["confianca_match"],
+            "scores_por_campo": {"fornecedor": fornecedor["confianca_match"]},
+            "evidencias_busca": {"fornecedor": [fornecedor["nome"]]},
+            "origem_busca": "busca_fornecedor",
+            "modo_resultado": "fornecedor",
+            "precos": [preco],
+            "menor_preco": row["preco"],
+            "fornecedor_menor": row["fornecedor"],
+            "tem_preco": True,
+            "historico_precos": [],
+            "tem_historico_real": False,
+            "suspeito_contaminado": False,
+            "motivos_sku_suspeito": [],
+            "sku_pendente_padronizacao": False,
+        }
+        resultados.append(resultado)
+
+    for item in resultados:
+        suspeito, motivos = _produto_padrao_suspeito(
+            item["produto_padrao"],
+            item.get("precos", []),
+        )
+        item["suspeito_contaminado"] = suspeito
+        item["motivos_sku_suspeito"] = motivos
+        item["sku_pendente_padronizacao"] = suspeito
+
+    for item in resultados:
+        if item["suspeito_contaminado"]:
+            sku_limpo = _buscar_sku_limpo_equivalente(item, resultados)
+            if sku_limpo:
+                item["sku_master_exibicao"] = sku_limpo
+                item["sku_pendente_padronizacao"] = False
+
+    return {
+        "modo_busca": "fornecedor",
+        "fornecedor": fornecedor,
+        "resultados": resultados,
+    }
 
 
 def _score_texto(consulta, texto, usar_partial=False, campo=""):

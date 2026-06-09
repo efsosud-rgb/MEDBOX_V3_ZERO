@@ -10,7 +10,10 @@ from core.banco import (
     listar_equivalencias, adicionar_equivalencia, excluir_equivalencia,
     listar_produtos_simples, listar_cotacoes
 )
-from core.busca_inteligente import buscar_produto_inteligente
+from core.busca_inteligente import (
+    buscar_produto_inteligente,
+    buscar_produtos_por_fornecedor,
+)
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
@@ -51,8 +54,16 @@ def busca():
     termo = request.args.get("q", "").strip()
     resultados = []
     sugestoes = []
+    modo_busca = "produto"
+    fornecedor_encontrado = None
     if termo:
-        resultados = buscar_produto_inteligente(termo, limite=20)
+        resultado_fornecedor = buscar_produtos_por_fornecedor(termo, limite=50)
+        if resultado_fornecedor:
+            modo_busca = "fornecedor"
+            fornecedor_encontrado = resultado_fornecedor["fornecedor"]
+            resultados = resultado_fornecedor["resultados"]
+        else:
+            resultados = buscar_produto_inteligente(termo, limite=20)
         for item in resultados:
             item["menor_preco_formatado"] = moeda_br(item.get("menor_preco"))
             if not item.get("tem_preco"):
@@ -76,7 +87,9 @@ def busca():
         resumo=resumo_dashboard(),
         termo=termo,
         resultados=resultados,
-        sugestoes=sugestoes
+        sugestoes=sugestoes,
+        modo_busca=modo_busca,
+        fornecedor_encontrado=fornecedor_encontrado
     )
 
 
