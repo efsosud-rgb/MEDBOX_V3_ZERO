@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlencode
 
 from core.banco import (
     criar_banco, resumo_dashboard, conectar,
@@ -222,7 +223,8 @@ def importar_fornecedor_rota():
         return redirect(url_for("importacoes") + f"?sucesso={total}&nome={nome_fornecedor}")
 
     except Exception as erro:
-        return f"Erro ao importar: {erro}"
+        query = urlencode({"erro": str(erro)})
+        return redirect(url_for("importacoes") + f"?{query}")
 
 
 @app.route("/importacoes/importar_xml", methods=["POST"])

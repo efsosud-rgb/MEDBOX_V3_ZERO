@@ -1,6 +1,7 @@
 import re
 import json
 import csv
+import zipfile
 import urllib.request
 import unicodedata
 from pathlib import Path
@@ -11,6 +12,10 @@ from core.formatadores import moeda_br
 
 
 TESSERACT_PADRAO = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+MENSAGEM_XLSB = (
+    "Arquivo Excel binário/XLSB detectado. Salve novamente como Pasta de Trabalho "
+    "do Excel (.xlsx) ou CSV e tente importar."
+)
 
 
 def normalizar_cabecalho(texto):
@@ -19,6 +24,27 @@ def normalizar_cabecalho(texto):
     texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
     texto = re.sub(r"[^A-Z0-9]+", " ", texto)
     return re.sub(r"\s+", " ", texto).strip()
+
+
+def detectar_excel_binario(caminho):
+    caminho = Path(caminho)
+
+    if caminho.suffix.lower() == ".xlsb":
+        return True
+
+    try:
+        with zipfile.ZipFile(caminho) as pacote:
+            nomes = {nome.lower() for nome in pacote.namelist()}
+    except (OSError, zipfile.BadZipFile):
+        return False
+
+    if "xl/workbook.bin" in nomes or "xl/vbaproject.bin" in nomes:
+        return True
+
+    return any(
+        nome.startswith("xl/worksheets/") and nome.endswith(".bin")
+        for nome in nomes
+    )
 
 
 # ================================================
@@ -79,6 +105,9 @@ def ler_pdf_detalhado(caminho, tentar_ocr=True):
 
 def ler_excel(caminho):
     from openpyxl import load_workbook
+
+    if detectar_excel_binario(caminho):
+        raise ValueError(MENSAGEM_XLSB)
 
     wb = load_workbook(caminho, data_only=True, read_only=True)
     resultados = []
@@ -550,6 +579,11 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
 
     try:
         if ext in [".xlsx", ".xls"]:
+            if detectar_excel_binario(caminho):
+                diagnostico["formato"] = "xlsb"
+                diagnostico["mensagens"].append(MENSAGEM_XLSB)
+                return diagnostico
+
             from openpyxl import load_workbook
 
             wb = load_workbook(caminho, data_only=True, read_only=True)
