@@ -303,9 +303,28 @@ def gerar_skus_em_lotes(descricoes, tamanho_lote=30):
             mapa.update(resultado)
         except Exception:
             for d in lote:
-                mapa[d] = d
+                mapa[d] = None
 
     return mapa
+
+
+def sku_gerado_valido(descricao, sku_master):
+    descricao_norm = normalizar_cabecalho(descricao)
+    sku_norm = normalizar_cabecalho(sku_master)
+
+    if not sku_norm:
+        return False
+
+    if sku_norm == descricao_norm:
+        return False
+
+    return len(sku_norm.split()) <= 10
+
+
+def montar_sku_provisorio(descricao):
+    texto = str(descricao or "").strip().upper()
+    texto = re.sub(r"\s+", " ", texto)
+    return f"SKU PENDENTE - {texto[:90]}"
 
 
 # ================================================
@@ -1267,8 +1286,12 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
     for item in itens:
         if item["sku_existente"]:
             sku_master = item["sku_existente"]
+            sku_provisorio = False
         else:
-            sku_master = mapa_sku.get(item["descricao_orig"], item["descricao_orig"])
+            sku_master = mapa_sku.get(item["descricao_orig"])
+            sku_provisorio = not sku_gerado_valido(item["descricao_orig"], sku_master)
+            if sku_provisorio:
+                sku_master = montar_sku_provisorio(item["descricao_orig"])
 
         if item["fornecedor_nome"] and item["fornecedor_nome"] != nome_fornecedor.upper():
             fid = garantir_fornecedor(
@@ -1284,10 +1307,17 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
         if not marca and item["tipo_fornecedor"] == "FABRICANTE":
             marca = item["fornecedor_nome"] or nome_fornecedor.upper()
 
+        categoria = item["categoria"]
+        if sku_provisorio:
+            categoria = (
+                f"{categoria} | SKU PENDENTE DE PADRONIZACAO"
+                if categoria else "SKU PENDENTE DE PADRONIZACAO"
+            )
+
         produto_id = garantir_produto(
             cursor,
             sku_master,
-            item["categoria"],
+            categoria,
             marca
         )
 

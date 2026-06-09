@@ -81,7 +81,12 @@
 
                             <div class="standard-product-info">
                                 <span>Produto Padronizado (SKU Master)</span>
-                                <h3>{{ principal.produto_padrao }}</h3>
+                                <h3>{{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}</h3>
+                                {% if principal.suspeito_contaminado and principal.sku_pendente_padronizacao %}
+                                <small style="display:block; margin-top:4px; color:#b45309; font-weight:700;">
+                                    SKU pendente de padronizacao
+                                </small>
+                                {% endif %}
                                 <div class="product-meta-line">
                                     <b>Categoria:</b> {{ principal.categoria if principal.categoria and principal.categoria != 'NONE' else 'A validar' }}
                                     <em>|</em>
@@ -94,9 +99,9 @@
                             </div>
 
                             <div class="sku-pill"
-                                 title="{{ principal.sku_master if principal.sku_master else principal.produto_padrao }}"
+                                 title="{{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}"
                                  style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle; cursor:default;">
-                                {{ principal.sku_master if principal.sku_master else principal.produto_padrao }}
+                                {{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}
                             </div>
                         </div>
 
@@ -108,7 +113,7 @@
                             </div>
                             <div class="best-price-value">
                                 {% if menor_preco %}
-                                    <strong>R$ {{ "%.2f"|format(menor_preco)|replace(".", ",") }}</strong>
+                                    <strong>{{ principal.menor_preco_formatado if principal.menor_preco_formatado else ("R$ " ~ "%.2f"|format(menor_preco)|replace(".", ",")) }}</strong>
                                     <span>por {{ principal.unidade_compra if principal.unidade_compra else 'unidade' }}</span>
                                 {% else %}
                                     <strong>Sem preço</strong>
@@ -171,7 +176,7 @@
                                             </td>
                                             <td>
                                                 <strong class="{% if loop.first %}price-green{% endif %}">
-                                                    R$ {{ "%.2f"|format(p.preco)|replace(".", ",") }}
+                                                    {{ p.preco_formatado if p.preco_formatado else ("R$ " ~ "%.2f"|format(p.preco)|replace(".", ",")) }}
                                                 </strong>
                                             </td>
                                             <td>
@@ -221,7 +226,12 @@
                                     {% for item in resultados[1:] %}
                                     <tr>
                                         <td class="position-cell">{{ loop.index + 1 }}</td>
-                                        <td><strong>{{ item.produto_padrao }}</strong></td>
+                                        <td>
+                                            <strong>{{ item.sku_master_exibicao if item.sku_master_exibicao else item.produto_padrao }}</strong>
+                                            {% if item.suspeito_contaminado and item.sku_pendente_padronizacao %}
+                                            <small style="display:block; color:#b45309; font-weight:700;">SKU pendente</small>
+                                            {% endif %}
+                                        </td>
                                         <td style="font-size:0.82rem;">
                                             {{ item.categoria if item.categoria and item.categoria != 'NONE' else '—' }}
                                         </td>
@@ -231,14 +241,18 @@
                                         <td>
                                             {% if item.menor_preco %}
                                                 <strong class="price-green">
-                                                    R$ {{ "%.2f"|format(item.menor_preco)|replace(".", ",") }}
+                                                    {{ item.menor_preco_formatado if item.menor_preco_formatado else ("R$ " ~ "%.2f"|format(item.menor_preco)|replace(".", ",")) }}
                                                 </strong>
                                             {% else %}
                                                 <span style="color:var(--muted)">Sem preço</span>
                                             {% endif %}
                                         </td>
                                         <td style="font-size:0.83rem;">
-                                            {{ item.fornecedor_menor if item.fornecedor_menor else '—' }}
+                                            {% if item.tem_preco %}
+                                                {{ item.fornecedor_menor_formatado if item.fornecedor_menor_formatado else item.fornecedor_menor }}
+                                            {% else %}
+                                                {{ item.origem_catalogo_formatada if item.origem_catalogo_formatada else 'Catalogo' }}
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -265,15 +279,15 @@
                             <div>
                                 <span>SKU Master:</span>
                                 <strong class="mini-sku"
-                                        title="{{ principal.sku_master if principal.sku_master else principal.produto_padrao }}"
+                                        title="{{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}"
                                         style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; cursor:default;">
-                                    {{ principal.sku_master if principal.sku_master else principal.produto_padrao }}
+                                    {{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}
                                 </strong>
                             </div>
                             <div>
                                 <span>Nome Padronizado:</span>
                                 <strong style="word-break:break-word; overflow-wrap:anywhere;">
-                                    {{ principal.produto_padrao }}
+                                    {{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}
                                 </strong>
                             </div>
                             <div>

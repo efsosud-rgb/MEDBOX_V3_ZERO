@@ -6,10 +6,12 @@ from urllib.parse import urlencode
 from core.banco import (
     criar_banco, resumo_dashboard, conectar,
     listar_fornecedores, cadastrar_fornecedor, excluir_fornecedor,
-    buscar_produto, listar_sugestoes_busca,
+    listar_sugestoes_busca,
     listar_equivalencias, adicionar_equivalencia, excluir_equivalencia,
     listar_produtos_simples, listar_cotacoes
 )
+from core.busca_inteligente import buscar_produto_inteligente
+from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
 app = Flask(__name__)
@@ -50,7 +52,23 @@ def busca():
     resultados = []
     sugestoes = []
     if termo:
-        resultados = buscar_produto(termo)
+        resultados = buscar_produto_inteligente(termo, limite=20)
+        for item in resultados:
+            item["menor_preco_formatado"] = moeda_br(item.get("menor_preco"))
+            if not item.get("tem_preco"):
+                item["fornecedor_menor_formatado"] = "-"
+                item["origem_catalogo"] = (
+                    item.get("fabricante")
+                    or (item.get("precos") or [{}])[0].get("marca")
+                    or "Catalogo"
+                )
+                item["origem_catalogo_formatada"] = f"{item['origem_catalogo']} (catalogo)"
+            else:
+                item["fornecedor_menor_formatado"] = item.get("fornecedor_menor") or "-"
+                item["origem_catalogo"] = ""
+                item["origem_catalogo_formatada"] = ""
+            for preco in item.get("precos", []):
+                preco["preco_formatado"] = moeda_br(preco.get("preco"))
         sugestoes = listar_sugestoes_busca(termo)
     return render_template(
         "busca.html",
