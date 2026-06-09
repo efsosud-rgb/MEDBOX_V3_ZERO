@@ -69,6 +69,27 @@ def _assinatura_sku(texto):
     return " ".join(assinatura[:6])
 
 
+def _percentuais(texto):
+    texto_norm = normalizar_texto(texto)
+    return {
+        match.replace(",", ".")
+        for match in re.findall(r"\b\d+(?:[,.]\d+)?%", texto_norm)
+    }
+
+
+def _sku_exato_ou_equivalente(termo, sku):
+    termo_norm = normalizar_texto(termo)
+    sku_norm = normalizar_texto(sku)
+
+    if not termo_norm or not sku_norm:
+        return False
+
+    if sku_norm == termo_norm or sku_norm.startswith(termo_norm):
+        return True
+
+    return fuzz.token_set_ratio(termo_norm, sku_norm) >= 96
+
+
 def _produto_padrao_suspeito(produto_padrao, precos=None):
     texto = normalizar_texto(produto_padrao)
     palavras = texto.split()
@@ -134,6 +155,31 @@ def _buscar_sku_limpo_equivalente(resultado, todos_resultados):
 
     melhores.sort(key=lambda item: (-item[0], item[1], item[2]))
     return melhores[0][2]
+
+
+def _aplicar_regras_ranking(termo, resultados):
+    percentuais_termo = _percentuais(termo)
+
+    for item in resultados:
+        sku_exibicao = item.get("sku_master_exibicao") or item.get("produto_padrao") or ""
+        percentuais_item = _percentuais(sku_exibicao) or _percentuais(item.get("produto_padrao", ""))
+        percentual_divergente = bool(
+            percentuais_termo and percentuais_item and not (percentuais_termo & percentuais_item)
+        )
+
+        item["sku_exato_termo"] = _sku_exato_ou_equivalente(termo, sku_exibicao)
+        item["percentual_divergente"] = percentual_divergente
+
+        if percentual_divergente:
+            item["score_busca"] = max(0.0, round(item["score_busca"] - 35.0, 2))
+
+    if percentuais_termo:
+        resultados_mesmo_percentual = [
+            item for item in resultados
+            if not item.get("percentual_divergente")
+        ]
+        if len(resultados_mesmo_percentual) >= 10:
+            resultados[:] = resultados_mesmo_percentual
 
 
 def _produto_base(row):
@@ -426,14 +472,23 @@ def buscar_produto_inteligente(termo, limite=20):
                 item["sku_pendente_padronizacao"] = False
 
     for item in resultados:
-        if item["suspeito_contaminado"]:
+        if _sku_exato_ou_equivalente(termo, item.get("sku_master_exibicao", "")):
+            item["score_busca"] = max(
+                item["score_busca"],
+                round(_score_texto(termo, item["sku_master_exibicao"]), 2),
+            )
+
+        if item["suspeito_contaminado"] and item["sku_pendente_padronizacao"]:
             item["score_busca"] = max(0.0, round(item["score_busca"] - 4.0, 2))
+
+    _aplicar_regras_ranking(termo, resultados)
 
     resultados.sort(
         key=lambda item: (
             -item["score_busca"],
-            1 if item["suspeito_contaminado"] else 0,
+            0 if item["sku_exato_termo"] else 1,
             0 if item["tem_preco"] else 1,
+            0 if not item["sku_pendente_padronizacao"] else 1,
             item["menor_preco"] if item["menor_preco"] is not None else 999999999,
             item["produto_padrao"] or "",
         )
