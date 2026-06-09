@@ -33,6 +33,17 @@ MARCAS_FINAIS_SUSPEITAS = {
     "BIOLAB",
 }
 
+TERMOS_SOLUCAO_GLICOSE = ("GLICOSE", "DEXTROSE", "SORO GLICOSADO")
+TERMOS_EXCLUSAO_GLICOSE = (
+    "TIRA",
+    "TESTE",
+    "MEDIDOR",
+    "GLUCOMETRO",
+    "GLUCOLEADER",
+    "BUPIVACAINA",
+    "NITROGLICERINA",
+)
+
 
 def _termos_expandidos(termo):
     termos = set()
@@ -75,6 +86,37 @@ def _percentuais(texto):
         match.replace(",", ".")
         for match in re.findall(r"\b\d+(?:[,.]\d+)?%", texto_norm)
     }
+
+
+def _consulta_solucao_glicose_percentual(termo):
+    termo_norm = normalizar_texto(termo)
+    return bool(_percentuais(termo_norm)) and any(
+        base in termo_norm for base in TERMOS_SOLUCAO_GLICOSE
+    )
+
+
+def _produto_solucao_glicose_compativel(item, percentuais_termo):
+    textos = [
+        item.get("sku_master_exibicao", ""),
+        item.get("produto_padrao", ""),
+    ]
+
+    for textos_campo in item.get("evidencias_busca", {}).values():
+        textos.extend(textos_campo)
+
+    texto_total = normalizar_texto(" ".join(textos))
+
+    if any(bloqueado in texto_total for bloqueado in TERMOS_EXCLUSAO_GLICOSE):
+        return False
+
+    if not any(base in texto_total for base in TERMOS_SOLUCAO_GLICOSE):
+        return False
+
+    percentuais_item = set()
+    for texto in textos:
+        percentuais_item.update(_percentuais(texto))
+
+    return bool(percentuais_item & percentuais_termo)
 
 
 def _sku_exato_ou_equivalente(termo, sku):
@@ -159,6 +201,7 @@ def _buscar_sku_limpo_equivalente(resultado, todos_resultados):
 
 def _aplicar_regras_ranking(termo, resultados):
     percentuais_termo = _percentuais(termo)
+    consulta_glicose = _consulta_solucao_glicose_percentual(termo)
 
     for item in resultados:
         sku_exibicao = item.get("sku_master_exibicao") or item.get("produto_padrao") or ""
@@ -173,6 +216,14 @@ def _aplicar_regras_ranking(termo, resultados):
         if percentual_divergente:
             item["score_busca"] = max(0.0, round(item["score_busca"] - 35.0, 2))
 
+        item["solucao_glicose_compativel"] = (
+            _produto_solucao_glicose_compativel(item, percentuais_termo)
+            if consulta_glicose else True
+        )
+
+        if consulta_glicose and not item["solucao_glicose_compativel"]:
+            item["score_busca"] = max(0.0, round(item["score_busca"] - 60.0, 2))
+
     if percentuais_termo:
         resultados_mesmo_percentual = [
             item for item in resultados
@@ -180,6 +231,14 @@ def _aplicar_regras_ranking(termo, resultados):
         ]
         if len(resultados_mesmo_percentual) >= 10:
             resultados[:] = resultados_mesmo_percentual
+
+    if consulta_glicose:
+        resultados_compativeis = [
+            item for item in resultados
+            if item.get("solucao_glicose_compativel")
+        ]
+        if resultados_compativeis:
+            resultados[:] = resultados_compativeis
 
 
 def _produto_base(row):
