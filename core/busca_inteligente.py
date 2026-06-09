@@ -1,4 +1,5 @@
 from collections import defaultdict
+import re
 
 from rapidfuzz import fuzz
 
@@ -19,6 +20,19 @@ PESOS_CAMPOS = {
     "fornecedor": 0.30,
 }
 
+MARCAS_FINAIS_SUSPEITAS = {
+    "EQUIPLEX",
+    "FARMACE",
+    "HALEXISTAR",
+    "HYPOFARMA",
+    "SAMTEC",
+    "MEDIX",
+    "WILTEX",
+    "INJEX",
+    "LEGRAND",
+    "BIOLAB",
+}
+
 
 def _termos_expandidos(termo):
     termos = set()
@@ -36,6 +50,90 @@ def _termos_expandidos(termo):
             termos.add(palavra)
 
     return sorted(t for t in termos if t)
+
+
+def _tokens(texto):
+    return normalizar_texto(texto).split()
+
+
+def _assinatura_sku(texto):
+    texto_norm = normalizar_texto(texto)
+    partes = re.findall(r"[A-Z]+|\d+(?:[,.]\d+)?\s*(?:MG|ML|G|MCG|UI|%)?", texto_norm)
+    assinatura = []
+
+    for parte in partes:
+        parte = re.sub(r"\s+", "", parte)
+        if parte and parte not in assinatura:
+            assinatura.append(parte)
+
+    return " ".join(assinatura[:6])
+
+
+def _produto_padrao_suspeito(produto_padrao, precos=None):
+    texto = normalizar_texto(produto_padrao)
+    palavras = texto.split()
+    precos = precos or []
+
+    motivos = []
+
+    if len(palavras) > 8:
+        motivos.append("excesso_tokens")
+
+    if len(texto) > 55:
+        motivos.append("muito_longo")
+
+    if len(palavras) >= 4:
+        metade = max(2, len(palavras) // 2)
+        inicio = " ".join(palavras[:metade])
+        restante = " ".join(palavras[metade:])
+        if inicio and inicio in restante:
+            motivos.append("repeticao_termo_base")
+        prefixo_curto = " ".join(palavras[:2])
+        prefixo_medio = " ".join(palavras[:3])
+        restante_curto = " ".join(palavras[2:])
+        if prefixo_curto and prefixo_curto in restante_curto:
+            motivos.append("repeticao_termo_base")
+        if prefixo_medio and prefixo_medio in restante:
+            motivos.append("repeticao_termo_base")
+
+    if re.search(r"\bAP\s+[A-Z0-9]+$", texto):
+        marca_final = palavras[-1] if palavras else ""
+        if marca_final in MARCAS_FINAIS_SUSPEITAS or len(marca_final) >= 4:
+            motivos.append("marca_fabricante_no_fim")
+
+    for preco in precos:
+        descricao = normalizar_texto(preco.get("descricao_original", ""))
+        if descricao and descricao == texto:
+            motivos.append("igual_descricao_original")
+            break
+
+    return bool(motivos), motivos
+
+
+def _buscar_sku_limpo_equivalente(resultado, todos_resultados):
+    assinatura = _assinatura_sku(resultado.get("produto_padrao", ""))
+    if not assinatura:
+        return ""
+
+    melhores = []
+    for candidato in todos_resultados:
+        if candidato["id"] == resultado["id"]:
+            continue
+        if candidato.get("suspeito_contaminado"):
+            continue
+        nome = candidato.get("produto_padrao", "")
+        if not nome:
+            continue
+
+        score = fuzz.token_set_ratio(assinatura, _assinatura_sku(nome))
+        if score >= 92:
+            melhores.append((score, len(_tokens(nome)), nome))
+
+    if not melhores:
+        return ""
+
+    melhores.sort(key=lambda item: (-item[0], item[1], item[2]))
+    return melhores[0][2]
 
 
 def _produto_base(row):
@@ -284,9 +382,16 @@ def _montar_resultado(cursor, termo, produto):
         "precos": precos,
         "menor_preco": precos[0]["preco"] if precos else None,
         "fornecedor_menor": precos[0]["fornecedor"] if precos else "sem preco cadastrado",
+        "tem_preco": bool(precos),
         "historico_precos": historico_precos,
         "tem_historico_real": len(historico_precos) >= 2,
     }
+
+    suspeito, motivos = _produto_padrao_suspeito(resultado["produto_padrao"], precos)
+    resultado["suspeito_contaminado"] = suspeito
+    resultado["motivos_sku_suspeito"] = motivos
+    resultado["sku_master_exibicao"] = resultado["produto_padrao"]
+    resultado["sku_pendente_padronizacao"] = suspeito
 
     if resultado["fabricante"] in (None, "", "NONE"):
         resultado["fabricante"] = precos[0]["marca"] if precos else ""
@@ -313,9 +418,22 @@ def buscar_produto_inteligente(termo, limite=20):
     finally:
         conn.close()
 
+    for item in resultados:
+        if item["suspeito_contaminado"]:
+            sku_limpo = _buscar_sku_limpo_equivalente(item, resultados)
+            if sku_limpo:
+                item["sku_master_exibicao"] = sku_limpo
+                item["sku_pendente_padronizacao"] = False
+
+    for item in resultados:
+        if item["suspeito_contaminado"]:
+            item["score_busca"] = max(0.0, round(item["score_busca"] - 4.0, 2))
+
     resultados.sort(
         key=lambda item: (
             -item["score_busca"],
+            1 if item["suspeito_contaminado"] else 0,
+            0 if item["tem_preco"] else 1,
             item["menor_preco"] if item["menor_preco"] is not None else 999999999,
             item["produto_padrao"] or "",
         )
