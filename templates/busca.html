@@ -53,8 +53,17 @@
                 <div class="match-banner-left">
                     <div class="match-shield">✓</div>
                     <div>
+                        {% if modo_busca == 'fornecedor' and fornecedor_encontrado %}
+                        <strong>Fornecedor encontrado</strong>
+                        <span>
+                            {{ fornecedor_encontrado.nome }} · {{ fornecedor_encontrado.tipo }}
+                            · {{ fornecedor_encontrado.total_produtos }} produto(s)
+                            · {{ fornecedor_encontrado.total_precos }} preço(s)
+                        </span>
+                        {% else %}
                         <strong>Produto encontrado com equivalência</strong>
                         <span>Exibindo resultados para o produto padronizado abaixo.</span>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="confidence-box">
@@ -80,7 +89,11 @@
                             <div class="product-illustration">💊</div>
 
                             <div class="standard-product-info">
+                                {% if modo_busca == 'fornecedor' and fornecedor_encontrado %}
+                                <span>Produto do fornecedor {{ fornecedor_encontrado.nome }}</span>
+                                {% else %}
                                 <span>Produto Padronizado (SKU Master)</span>
+                                {% endif %}
                                 <h3>{{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}</h3>
                                 {% if principal.suspeito_contaminado and principal.sku_pendente_padronizacao %}
                                 <small style="display:block; margin-top:4px; color:#b45309; font-weight:700;">
@@ -205,7 +218,7 @@
                     {% if resultados|length > 1 %}
                     <section class="price-comparison-card">
                         <div class="comparison-header">
-                            <h3>Outros Produtos Encontrados</h3>
+                            <h3>{% if modo_busca == 'fornecedor' %}Outros Produtos do Fornecedor{% else %}Outros Produtos Encontrados{% endif %}</h3>
                             <span style="font-size:0.82rem; color:var(--muted);">
                                 {{ resultados|length - 1 }} produto(s) similar(es)
                             </span>
