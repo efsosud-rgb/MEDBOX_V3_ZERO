@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Previa do Lote SKU Master{% endblock %}
+{% block subtitle %}Conferencia manual antes de aplicar correcoes em lote.{% endblock %}
+
+{% block content %}
+
+<section class="panel">
+    <h3>Resumo do Lote</h3>
+
+    <div class="cards-grid">
+        <div class="card">
+            <div class="card-info">
+                <span>Itens selecionados</span>
+                <strong>{{ preview.total_itens }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Precos a migrar</span>
+                <strong>{{ preview.total_precos_migrar }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Equivalencias a migrar</span>
+                <strong>{{ preview.total_equivalencias_migrar }}</strong>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="panel large">
+    <h3>Conferencia</h3>
+
+    <div class="comparison-table-wrap">
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Produto origem</th>
+                    <th>Nome origem</th>
+                    <th>Produto destino</th>
+                    <th>SKU destino</th>
+                    <th>Precos</th>
+                    <th>Equivalencias</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in preview.itens %}
+                <tr>
+                    <td>{{ item.produto_origem_id }}</td>
+                    <td>{{ item.produto_origem_nome }}</td>
+                    <td>{{ item.produto_destino_id }}</td>
+                    <td>{{ item.produto_destino_nome }}</td>
+                    <td>{{ item.precos_migrar }}</td>
+                    <td>{{ item.equivalencias_migrar }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <form
+        method="POST"
+        action="{{ url_for('sku_master_sugestoes_lote_aplicar') }}"
+        onsubmit="return confirm('Aplicar este lote aprovado? Sera criado um backup unico e a operacao sera transacional.');"
+        style="margin-top: 16px;"
+    >
+        <input type="hidden" name="grupo" value="{{ grupo }}">
+        {% for item in preview.itens %}
+            <input
+                type="hidden"
+                name="itens_lote"
+                value='{{ {
+                    "produto_origem_id": item.produto_origem_id,
+                    "produto_destino_id": item.produto_destino_id,
+                    "sku_sugerido": item.sku_sugerido,
+                    "origem_sugestao": item.origem_sugestao
+                } | tojson }}'
+            >
+        {% endfor %}
+        <button type="submit" class="btn-primary">Aplicar lote aprovado</button>
+        <a class="btn-primary" href="{{ url_for('sku_master_sugestoes', grupo=grupo) }}">Voltar</a>
+    </form>
+</section>
+
+{% endblock %}
