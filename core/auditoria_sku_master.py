@@ -84,13 +84,6 @@ MARCAS_FINAIS_SUSPEITAS = {
 }
 
 ABREVIACOES_MEDBOX = {
-    "AGULHA HIPODERMICA COM DISPOSITIVO DE SEGURANCA": "AG HIP C/DISP SEG",
-    "AGULHA COLETA A VACUO": "AG COLETA VAC",
-    "AGULHA PARA COLETA A VACUO": "AG COLETA VAC",
-    "AGULHA HIPODERMICA": "AG HIP",
-    "AGULHA PARA CANETA": "AG CANETA",
-    "AGULHA CANETA": "AG CANETA",
-    "AGULHA RAQUI": "AG RAQUI",
     "COM DISPOSITIVO DE SEGURANCA": "C/DISP SEG",
     "DISPOSITIVO DE SEGURANCA": "DISP SEG",
     "SISTEMA DE SEGURANCA": "SIST SEG",
@@ -106,14 +99,6 @@ ABREVIACOES_MEDBOX = {
     "SOLUCAO ORAL": "SOL ORAL",
     "RINGER COM LACTATO": "RINGER C/LACTATO",
     "RINGER LACTATO": "RINGER C/LACTATO",
-    "EQUIPO BOMBA INFUSAO": "EQ BI",
-    "EQUIPO FOTOSSENSIVEL": "EQ FOTO",
-    "EQUIPO MACROGOTAS": "EQ MACRO",
-    "EQUIPO MICROGOTAS": "EQ MICRO",
-    "SONDA NASOGASTRICA": "SONDA NG",
-    "SONDA NASOENTERAL": "SONDA NE",
-    "SONDA URETRAL": "SONDA URET",
-    "SONDA ASPIRACAO": "SONDA ASP",
     "SONDA FOLEY": "FOLEY",
     "INTRAVENOSO": "IV",
     "INTRAMUSCULAR": "IM",
@@ -169,7 +154,10 @@ def aplicar_abreviacoes_medbox(texto):
         return ""
 
     for termo, abreviacao in sorted(ABREVIACOES_MEDBOX.items(), key=lambda item: len(item[0]), reverse=True):
-        padrao = rf"(?<![A-Z0-9/]){re.escape(termo)}(?![A-Z0-9/])"
+        if termo == "DESCARTAVEL":
+            padrao = rf"(?<![A-Z0-9/])(?<!AGULHA ){re.escape(termo)}(?![A-Z0-9/])"
+        else:
+            padrao = rf"(?<![A-Z0-9/]){re.escape(termo)}(?![A-Z0-9/])"
         texto = re.sub(padrao, abreviacao, texto)
 
     texto = re.sub(r"(?<!SOL )(?<!SOLUCAO )\bORAL\b", "VO", texto)
