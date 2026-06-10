@@ -83,6 +83,72 @@ MARCAS_FINAIS_SUSPEITAS = {
     "CARE",
 }
 
+ABREVIACOES_MEDBOX = {
+    "AGULHA HIPODERMICA COM DISPOSITIVO DE SEGURANCA": "AG HIP C/DISP SEG",
+    "AGULHA COLETA A VACUO": "AG COLETA VAC",
+    "AGULHA PARA COLETA A VACUO": "AG COLETA VAC",
+    "AGULHA HIPODERMICA": "AG HIP",
+    "AGULHA PARA CANETA": "AG CANETA",
+    "AGULHA CANETA": "AG CANETA",
+    "AGULHA RAQUI": "AG RAQUI",
+    "COM DISPOSITIVO DE SEGURANCA": "C/DISP SEG",
+    "DISPOSITIVO DE SEGURANCA": "DISP SEG",
+    "SISTEMA DE SEGURANCA": "SIST SEG",
+    "SISTEMA FECHADO": "SIST FECH",
+    "SISTEMA ABERTO": "SIST ABER",
+    "COLETA A VACUO": "COLETA VAC",
+    "A VACUO": "VAC",
+    "NAO ESTERIL": "N/EST",
+    "FRASCO AMPOLA": "FR AMP",
+    "FRASCO-AMPOLA": "FR AMP",
+    "SOLUCAO INJETAVEL": "SOL INJ",
+    "SOL INJETAVEL": "SOL INJ",
+    "SOLUCAO ORAL": "SOL ORAL",
+    "RINGER COM LACTATO": "RINGER C/LACTATO",
+    "RINGER LACTATO": "RINGER C/LACTATO",
+    "EQUIPO BOMBA INFUSAO": "EQ BI",
+    "EQUIPO FOTOSSENSIVEL": "EQ FOTO",
+    "EQUIPO MACROGOTAS": "EQ MACRO",
+    "EQUIPO MICROGOTAS": "EQ MICRO",
+    "SONDA NASOGASTRICA": "SONDA NG",
+    "SONDA NASOENTERAL": "SONDA NE",
+    "SONDA URETRAL": "SONDA URET",
+    "SONDA ASPIRACAO": "SONDA ASP",
+    "SONDA FOLEY": "FOLEY",
+    "INTRAVENOSO": "IV",
+    "INTRAMUSCULAR": "IM",
+    "SUBCUTANEO": "SC",
+    "VIA ORAL": "VO",
+    "OFTALMICO": "OFT",
+    "TOPICO": "TOP",
+    "NASAL": "NAS",
+    "RETAL": "RET",
+    "COMPRIMIDOS": "COMP",
+    "COMPRIMIDO": "COMP",
+    "CAPSULAS": "CAPS",
+    "CAPSULA": "CAPS",
+    "DRAGEA": "COMP",
+    "SUSPENSAO": "SUSP",
+    "XAROPE": "XPE",
+    "EMULSAO": "EMUL",
+    "CREME": "CREM",
+    "POMADA": "POM",
+    "LOCAO": "LOC",
+    "AEROSSOL": "AER",
+    "AMPOLAS": "AMP",
+    "AMPOLA": "AMP",
+    "FRASCO": "FR",
+    "BOLSA": "BOL",
+    "BISNAGA": "BIS",
+    "SERINGA": "SER",
+    "ENVELOPE": "ENV",
+    "REFIL": "REF",
+    "ESTERIL": "EST",
+    "DESCARTAVEL": "DESC",
+    "CIRURGICO": "CIR",
+    "PROCEDIMENTO": "PROC",
+}
+
 
 def _conectar_leitura():
     caminho = CAMINHO_BANCO.as_posix()
@@ -95,6 +161,20 @@ def _normalizar(texto):
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     texto = re.sub(r"[^A-Z0-9%+/,.-]+", " ", texto)
     return re.sub(r"\s+", " ", texto).strip()
+
+
+def aplicar_abreviacoes_medbox(texto):
+    texto = _normalizar(texto)
+    if not texto:
+        return ""
+
+    for termo, abreviacao in sorted(ABREVIACOES_MEDBOX.items(), key=lambda item: len(item[0]), reverse=True):
+        padrao = rf"(?<![A-Z0-9/]){re.escape(termo)}(?![A-Z0-9/])"
+        texto = re.sub(padrao, abreviacao, texto)
+
+    texto = re.sub(r"(?<!SOL )(?<!SOLUCAO )\bORAL\b", "VO", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto
 
 
 def _tokens(texto):
@@ -424,7 +504,7 @@ def sugerir_sku_medbox_oficial(descricao):
         partes = ["ONDANSETRONA"]
         if dose:
             partes.append(dose)
-        return " ".join(partes), 94 if dose else 86
+        return aplicar_abreviacoes_medbox(" ".join(partes)), 94 if dose else 86
 
     if "RINGER" in texto:
         volume = _extrair_volume(texto)
@@ -437,7 +517,7 @@ def sugerir_sku_medbox_oficial(descricao):
         if partes:
             if volume:
                 partes.append(volume)
-            return " ".join(partes), 94 if volume else 88
+            return aplicar_abreviacoes_medbox(" ".join(partes)), 94 if volume else 88
 
     if "GLICOSE" in texto or "SORO GLICOSADO" in texto or "DEXTROSE" in texto:
         percentual = _extrair_percentual(texto, ("5", "10", "25", "50"))
@@ -446,7 +526,7 @@ def sugerir_sku_medbox_oficial(descricao):
             partes = ["SORO GLICOSADO", percentual]
             if volume:
                 partes.append(volume)
-            return " ".join(partes), 94 if volume else 88
+            return aplicar_abreviacoes_medbox(" ".join(partes)), 94 if volume else 88
 
     if "CLORETO DE SODIO" in texto or "SORO FISIOLOGICO" in texto:
         percentual = _extrair_percentual(texto, ("0,9", "3", "20"))
@@ -455,7 +535,7 @@ def sugerir_sku_medbox_oficial(descricao):
             partes = ["SORO FISIOLOGICO", percentual]
             if volume:
                 partes.append(volume)
-            return " ".join(partes), 94 if volume else 88
+            return aplicar_abreviacoes_medbox(" ".join(partes)), 94 if volume else 88
 
     return "", 0
 
@@ -926,7 +1006,7 @@ def _aplicar_item_validado(cursor, item):
 
 
 def _normalizar_sku_manual(sku_manual):
-    sku = _normalizar(sku_manual)
+    sku = aplicar_abreviacoes_medbox(sku_manual)
     if not sku:
         raise ValueError("SKU Master manual nao pode estar vazio.")
     if len(sku) < 3:
