@@ -1,9 +1,12 @@
 import csv
 import io
+import json
 import re
+import shutil
 import sqlite3
 import unicodedata
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 from rapidfuzz import fuzz
@@ -11,6 +14,9 @@ from rapidfuzz import fuzz
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CAMINHO_BANCO = BASE_DIR / "banco" / "medbox_v3.db"
+PASTA_BACKUPS = BASE_DIR / "banco" / "backups"
+PASTA_RELATORIOS = BASE_DIR / "relatorios"
+CAMINHO_LOG_CORRECOES = PASTA_RELATORIOS / "sku_master_correcoes.jsonl"
 
 CLASSIFICACOES = {
     "LIMPO",
@@ -487,37 +493,37 @@ def _buscar_sku_existente(item, limpos, indice_limpos, sugestao_dicionario=""):
         if concentracoes_atual and concentracoes_candidato and not (concentracoes_atual & concentracoes_candidato):
             score -= 18
 
-        registro = (score, len(_tokens(candidato["produto_padrao"])), candidato["produto_padrao"])
+        registro = (score, len(_tokens(candidato["produto_padrao"])), candidato["produto_padrao"], candidato["id"])
         if not melhor or registro[0] > melhor[0] or (
             registro[0] == melhor[0] and registro[1] < melhor[1]
         ):
             melhor = registro
 
     if melhor and melhor[0] >= 92:
-        return melhor[2], "existente", round(float(melhor[0]), 2)
+        return melhor[2], melhor[3], "existente", round(float(melhor[0]), 2)
 
-    return "", "", 0
+    return "", None, "", 0
 
 
 def _sugerir_sku_assistido(item, limpos, indice_limpos):
     sugestao_dicionario, confianca_dicionario = _sugestao_dicionario_medbox(item["produto_padrao"])
-    sku_existente, origem, confianca = _buscar_sku_existente(
+    sku_existente, produto_destino_id, origem, confianca = _buscar_sku_existente(
         item,
         limpos,
         indice_limpos,
         sugestao_dicionario,
     )
     if sku_existente:
-        return sku_existente, origem, confianca
+        return sku_existente, produto_destino_id, origem, confianca
 
     if sugestao_dicionario:
-        return sugestao_dicionario, "dicionario", confianca_dicionario
+        return sugestao_dicionario, None, "dicionario", confianca_dicionario
 
     sugestao_regex = _limpar_por_regex(item["produto_padrao"])
     if sugestao_regex and sugestao_regex != _normalizar(item["produto_padrao"]):
-        return sugestao_regex, "regex", 70
+        return sugestao_regex, None, "regex", 70
 
-    return "", "revisao", 0
+    return "", None, "revisao", 0
 
 
 def gerar_sugestoes_sku_master(grupo="todos", limite=250):
@@ -536,9 +542,10 @@ def gerar_sugestoes_sku_master(grupo="todos", limite=250):
         if grupo != "todos" and grupo_item != grupo:
             continue
 
-        sku_sugerido, origem, confianca = _sugerir_sku_assistido(item, limpos, indice_limpos)
+        sku_sugerido, produto_destino_id, origem, confianca = _sugerir_sku_assistido(item, limpos, indice_limpos)
         sugestoes.append({
             "produto_id": item["id"],
+            "produto_destino_id": produto_destino_id,
             "produto_padrao": item["produto_padrao"],
             "fabricante": item["fabricante"],
             "motivo": item["motivo"],
@@ -579,6 +586,7 @@ def gerar_csv_sugestoes_sku_master(grupo="todos"):
     buffer = io.StringIO()
     campos = [
         "produto_id",
+        "produto_destino_id",
         "produto_padrao",
         "fabricante",
         "motivo",
@@ -595,3 +603,234 @@ def gerar_csv_sugestoes_sku_master(grupo="todos"):
     for item in sugestoes["itens"]:
         writer.writerow(item)
     return buffer.getvalue()
+
+
+def _conectar_escrita(caminho_banco=None):
+    caminho = Path(caminho_banco or CAMINHO_BANCO)
+    conn = sqlite3.connect(caminho)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _buscar_produto(cursor, produto_id):
+    cursor.execute(
+        """
+        SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+        FROM produtos
+        WHERE id = ?
+        """,
+        (produto_id,),
+    )
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def _classificar_produto_no_banco(cursor, produto):
+    cursor.execute(
+        """
+        SELECT descricao_original
+        FROM precos_fornecedores
+        WHERE produto_id = ?
+        """,
+        (produto["id"],),
+    )
+    descricoes = [row["descricao_original"] for row in cursor.fetchall()]
+
+    cursor.execute(
+        """
+        SELECT produto_padrao, COUNT(*) AS total
+        FROM produtos
+        WHERE UPPER(TRIM(produto_padrao)) = UPPER(TRIM(?))
+        GROUP BY UPPER(TRIM(produto_padrao))
+        """,
+        (produto["produto_padrao"],),
+    )
+    row = cursor.fetchone()
+    duplicado = bool(row and row["total"] > 1)
+    motivos = _motivos_sku(produto.get("produto_padrao"), descricoes)
+    return _classificar(produto, motivos, duplicado), motivos
+
+
+def validar_correcao_sku(
+    produto_origem_id,
+    produto_destino_id,
+    sku_sugerido,
+    origem_sugestao,
+    caminho_banco=None,
+):
+    if origem_sugestao != "existente":
+        raise ValueError("Somente sugestoes com origem_sugestao = existente podem ser aplicadas.")
+
+    produto_origem_id = int(produto_origem_id)
+    produto_destino_id = int(produto_destino_id)
+    sku_sugerido = str(sku_sugerido or "").strip()
+
+    if produto_origem_id == produto_destino_id:
+        raise ValueError("Produto origem e destino nao podem ser iguais.")
+
+    conn = _conectar_escrita(caminho_banco)
+    try:
+        cursor = conn.cursor()
+        origem = _buscar_produto(cursor, produto_origem_id)
+        destino = _buscar_produto(cursor, produto_destino_id)
+
+        if not origem:
+            raise ValueError("Produto origem nao encontrado.")
+        if not destino:
+            raise ValueError("Produto destino nao encontrado.")
+        if int(origem.get("ativo") or 0) != 1:
+            raise ValueError("Produto origem precisa estar ativo.")
+        if int(destino.get("ativo") or 0) != 1:
+            raise ValueError("Produto destino precisa estar ativo.")
+        if _normalizar(destino.get("produto_padrao")) != _normalizar(sku_sugerido):
+            raise ValueError("SKU sugerido nao confere com o produto destino.")
+
+        classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
+        classificacao_destino, motivos_destino = _classificar_produto_no_banco(cursor, destino)
+
+        if classificacao_origem not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
+            raise ValueError("Produto origem nao esta classificado como contaminado forte ou SKU pendente.")
+        if classificacao_destino == "CONTAMINADO_FORTE":
+            raise ValueError("Produto destino nao pode estar classificado como contaminado forte.")
+
+        cursor.execute(
+            "SELECT COUNT(*) AS total FROM precos_fornecedores WHERE produto_id = ?",
+            (produto_origem_id,),
+        )
+        total_precos = cursor.fetchone()["total"]
+        cursor.execute(
+            "SELECT COUNT(*) AS total FROM equivalencias WHERE produto_id = ?",
+            (produto_origem_id,),
+        )
+        total_equivalencias = cursor.fetchone()["total"]
+
+        return {
+            "origem": origem,
+            "destino": destino,
+            "classificacao_origem": classificacao_origem,
+            "classificacao_destino": classificacao_destino,
+            "motivos_origem": motivos_origem,
+            "motivos_destino": motivos_destino,
+            "total_precos_origem": total_precos,
+            "total_equivalencias_origem": total_equivalencias,
+        }
+    finally:
+        conn.close()
+
+
+def criar_backup_banco(caminho_banco=None, pasta_backups=None):
+    origem = Path(caminho_banco or CAMINHO_BANCO)
+    destino_dir = Path(pasta_backups or PASTA_BACKUPS)
+    destino_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    destino = destino_dir / f"{origem.stem}_backup_sku_master_{timestamp}{origem.suffix}"
+    shutil.copy2(origem, destino)
+    if not destino.exists() or destino.stat().st_size == 0:
+        raise RuntimeError("Backup do banco nao foi criado corretamente.")
+    return str(destino)
+
+
+def registrar_log_correcao(registro, caminho_log=None):
+    destino = Path(caminho_log or CAMINHO_LOG_CORRECOES)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    with destino.open("a", encoding="utf-8") as arquivo:
+        arquivo.write(json.dumps(registro, ensure_ascii=False, sort_keys=True) + "\n")
+    return str(destino)
+
+
+def aplicar_correcao_sku_master(
+    produto_origem_id,
+    produto_destino_id,
+    sku_sugerido,
+    origem_sugestao,
+    usuario="sistema",
+    caminho_banco=None,
+    pasta_backups=None,
+    caminho_log=None,
+):
+    validacao = validar_correcao_sku(
+        produto_origem_id,
+        produto_destino_id,
+        sku_sugerido,
+        origem_sugestao,
+        caminho_banco=caminho_banco,
+    )
+    backup = criar_backup_banco(caminho_banco=caminho_banco, pasta_backups=pasta_backups)
+
+    conn = _conectar_escrita(caminho_banco)
+    try:
+        cursor = conn.cursor()
+        conn.execute("BEGIN")
+
+        cursor.execute(
+            """
+            UPDATE precos_fornecedores
+            SET produto_id = ?
+            WHERE produto_id = ?
+            """,
+            (produto_destino_id, produto_origem_id),
+        )
+        precos_migrados = cursor.rowcount
+
+        cursor.execute(
+            """
+            UPDATE equivalencias
+            SET produto_id = ?
+            WHERE produto_id = ?
+            """,
+            (produto_destino_id, produto_origem_id),
+        )
+        equivalencias_migradas = cursor.rowcount
+
+        cursor.execute(
+            """
+            UPDATE produtos
+            SET ativo = 0
+            WHERE id = ?
+            """,
+            (produto_origem_id,),
+        )
+        produtos_inativados = cursor.rowcount
+
+        if produtos_inativados != 1:
+            raise RuntimeError("Produto origem nao foi inativado corretamente.")
+
+        conn.commit()
+
+        registro = {
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "usuario": usuario,
+            "status": "sucesso",
+            "produto_origem_id": int(produto_origem_id),
+            "produto_origem": validacao["origem"]["produto_padrao"],
+            "produto_destino_id": int(produto_destino_id),
+            "produto_destino": validacao["destino"]["produto_padrao"],
+            "sku_sugerido": sku_sugerido,
+            "origem_sugestao": origem_sugestao,
+            "classificacao_origem": validacao["classificacao_origem"],
+            "classificacao_destino": validacao["classificacao_destino"],
+            "precos_migrados": precos_migrados,
+            "equivalencias_migradas": equivalencias_migradas,
+            "produtos_inativados": produtos_inativados,
+            "backup": backup,
+        }
+        caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
+        registro["log"] = caminho_log_final
+        return registro
+    except Exception as erro:
+        conn.rollback()
+        registro = {
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "usuario": usuario,
+            "status": "erro",
+            "produto_origem_id": int(produto_origem_id),
+            "produto_destino_id": int(produto_destino_id),
+            "sku_sugerido": sku_sugerido,
+            "origem_sugestao": origem_sugestao,
+            "erro": str(erro),
+            "backup": backup,
+        }
+        registrar_log_correcao(registro, caminho_log=caminho_log)
+        raise
+    finally:
+        conn.close()
