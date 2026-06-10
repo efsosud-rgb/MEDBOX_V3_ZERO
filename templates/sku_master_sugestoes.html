@@ -161,6 +161,23 @@
                         {% else %}
                             -
                         {% endif %}
+                        <form
+                            method="POST"
+                            action="{{ url_for('sku_master_sugestoes_aplicar_manual') }}"
+                            onsubmit="return confirm('Salvar esta correcao manual? Esta acao cria backup, migra vinculos e inativa o produto origem.');"
+                            style="margin-top: 8px;"
+                        >
+                            <input type="hidden" name="grupo" value="{{ sugestoes.grupo }}">
+                            <input type="hidden" name="produto_origem_id" value="{{ item.produto_id }}">
+                            <input
+                                type="text"
+                                name="sku_manual"
+                                placeholder="SKU Master correto"
+                                minlength="3"
+                                required
+                            >
+                            <button type="submit" class="btn-primary">Salvar manual</button>
+                        </form>
                     </td>
                 </tr>
                 {% else %}

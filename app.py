@@ -19,6 +19,7 @@ from core.auditoria_sku_master import (
     FILTROS as FILTROS_AUDITORIA_SKU,
     GRUPOS_SUGESTOES as GRUPOS_SUGESTOES_SKU,
     aplicar_correcao_sku_master,
+    aplicar_correcao_manual_sku_master,
     aplicar_lote_correcoes_sku_master,
     gerar_auditoria_sku_master,
     gerar_csv_auditoria_sku_master,
@@ -187,6 +188,27 @@ def sku_master_sugestoes_aplicar():
         )
     except Exception as erro:
         flash(f"Correcao nao aplicada: {erro}")
+    return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+
+
+@app.route("/sku-master/sugestoes/aplicar-manual", methods=["POST"])
+def sku_master_sugestoes_aplicar_manual():
+    grupo = request.form.get("grupo", "todos")
+    try:
+        resultado = aplicar_correcao_manual_sku_master(
+            produto_origem_id=request.form.get("produto_origem_id"),
+            sku_manual=request.form.get("sku_manual"),
+            usuario="compras",
+        )
+        acao_destino = "criado" if resultado["destino_criado"] else "existente"
+        flash(
+            "Correcao manual aplicada: "
+            f"SKU destino {acao_destino}, "
+            f"{resultado['precos_migrados']} precos e "
+            f"{resultado['equivalencias_migradas']} equivalencias migrados."
+        )
+    except Exception as erro:
+        flash(f"Correcao manual nao aplicada: {erro}")
     return redirect(url_for("sku_master_sugestoes", grupo=grupo))
 
 
