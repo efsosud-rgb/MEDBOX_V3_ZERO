@@ -5,6 +5,7 @@ import re
 import shutil
 import sqlite3
 import unicodedata
+import uuid
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -651,12 +652,12 @@ def _classificar_produto_no_banco(cursor, produto):
     return _classificar(produto, motivos, duplicado), motivos
 
 
-def validar_correcao_sku(
+def _validar_correcao_sku_com_cursor(
+    cursor,
     produto_origem_id,
     produto_destino_id,
     sku_sugerido,
     origem_sugestao,
-    caminho_banco=None,
 ):
     if origem_sugestao != "existente":
         raise ValueError("Somente sugestoes com origem_sugestao = existente podem ser aplicadas.")
@@ -668,52 +669,70 @@ def validar_correcao_sku(
     if produto_origem_id == produto_destino_id:
         raise ValueError("Produto origem e destino nao podem ser iguais.")
 
+    origem = _buscar_produto(cursor, produto_origem_id)
+    destino = _buscar_produto(cursor, produto_destino_id)
+
+    if not origem:
+        raise ValueError("Produto origem nao encontrado.")
+    if not destino:
+        raise ValueError("Produto destino nao encontrado.")
+    if int(origem.get("ativo") or 0) != 1:
+        raise ValueError("Produto origem precisa estar ativo.")
+    if int(destino.get("ativo") or 0) != 1:
+        raise ValueError("Produto destino precisa estar ativo.")
+    if _normalizar(destino.get("produto_padrao")) != _normalizar(sku_sugerido):
+        raise ValueError("SKU sugerido nao confere com o produto destino.")
+
+    classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
+    classificacao_destino, motivos_destino = _classificar_produto_no_banco(cursor, destino)
+
+    if classificacao_origem not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
+        raise ValueError("Produto origem nao esta classificado como contaminado forte ou SKU pendente.")
+    if classificacao_destino == "CONTAMINADO_FORTE":
+        raise ValueError("Produto destino nao pode estar classificado como contaminado forte.")
+
+    cursor.execute(
+        "SELECT COUNT(*) AS total FROM precos_fornecedores WHERE produto_id = ?",
+        (produto_origem_id,),
+    )
+    total_precos = cursor.fetchone()["total"]
+    cursor.execute(
+        "SELECT COUNT(*) AS total FROM equivalencias WHERE produto_id = ?",
+        (produto_origem_id,),
+    )
+    total_equivalencias = cursor.fetchone()["total"]
+
+    return {
+        "origem": origem,
+        "destino": destino,
+        "classificacao_origem": classificacao_origem,
+        "classificacao_destino": classificacao_destino,
+        "motivos_origem": motivos_origem,
+        "motivos_destino": motivos_destino,
+        "total_precos_origem": total_precos,
+        "total_equivalencias_origem": total_equivalencias,
+        "sku_sugerido": sku_sugerido,
+        "origem_sugestao": origem_sugestao,
+    }
+
+
+def validar_correcao_sku(
+    produto_origem_id,
+    produto_destino_id,
+    sku_sugerido,
+    origem_sugestao,
+    caminho_banco=None,
+):
     conn = _conectar_escrita(caminho_banco)
     try:
         cursor = conn.cursor()
-        origem = _buscar_produto(cursor, produto_origem_id)
-        destino = _buscar_produto(cursor, produto_destino_id)
-
-        if not origem:
-            raise ValueError("Produto origem nao encontrado.")
-        if not destino:
-            raise ValueError("Produto destino nao encontrado.")
-        if int(origem.get("ativo") or 0) != 1:
-            raise ValueError("Produto origem precisa estar ativo.")
-        if int(destino.get("ativo") or 0) != 1:
-            raise ValueError("Produto destino precisa estar ativo.")
-        if _normalizar(destino.get("produto_padrao")) != _normalizar(sku_sugerido):
-            raise ValueError("SKU sugerido nao confere com o produto destino.")
-
-        classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
-        classificacao_destino, motivos_destino = _classificar_produto_no_banco(cursor, destino)
-
-        if classificacao_origem not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
-            raise ValueError("Produto origem nao esta classificado como contaminado forte ou SKU pendente.")
-        if classificacao_destino == "CONTAMINADO_FORTE":
-            raise ValueError("Produto destino nao pode estar classificado como contaminado forte.")
-
-        cursor.execute(
-            "SELECT COUNT(*) AS total FROM precos_fornecedores WHERE produto_id = ?",
-            (produto_origem_id,),
+        return _validar_correcao_sku_com_cursor(
+            cursor,
+            produto_origem_id,
+            produto_destino_id,
+            sku_sugerido,
+            origem_sugestao,
         )
-        total_precos = cursor.fetchone()["total"]
-        cursor.execute(
-            "SELECT COUNT(*) AS total FROM equivalencias WHERE produto_id = ?",
-            (produto_origem_id,),
-        )
-        total_equivalencias = cursor.fetchone()["total"]
-
-        return {
-            "origem": origem,
-            "destino": destino,
-            "classificacao_origem": classificacao_origem,
-            "classificacao_destino": classificacao_destino,
-            "motivos_origem": motivos_origem,
-            "motivos_destino": motivos_destino,
-            "total_precos_origem": total_precos,
-            "total_equivalencias_origem": total_equivalencias,
-        }
     finally:
         conn.close()
 
@@ -736,6 +755,106 @@ def registrar_log_correcao(registro, caminho_log=None):
     with destino.open("a", encoding="utf-8") as arquivo:
         arquivo.write(json.dumps(registro, ensure_ascii=False, sort_keys=True) + "\n")
     return str(destino)
+
+
+def _normalizar_item_lote(item):
+    return {
+        "produto_origem_id": int(item.get("produto_origem_id") or item.get("produto_id")),
+        "produto_destino_id": int(item.get("produto_destino_id")),
+        "sku_sugerido": str(item.get("sku_sugerido") or "").strip(),
+        "origem_sugestao": str(item.get("origem_sugestao") or "").strip(),
+    }
+
+
+def _validar_tamanho_lote(itens):
+    if not itens:
+        raise ValueError("Selecione pelo menos uma correcao para o lote.")
+    if len(itens) > 10:
+        raise ValueError("O lote pode ter no maximo 10 itens.")
+
+
+def previsualizar_lote_correcoes_sku_master(itens, caminho_banco=None):
+    itens_normalizados = [_normalizar_item_lote(item) for item in itens]
+    _validar_tamanho_lote(itens_normalizados)
+
+    conn = _conectar_escrita(caminho_banco)
+    try:
+        cursor = conn.cursor()
+        itens_preview = []
+        pares_origem = set()
+        for item in itens_normalizados:
+            if item["produto_origem_id"] in pares_origem:
+                raise ValueError("O mesmo produto origem nao pode aparecer mais de uma vez no lote.")
+            pares_origem.add(item["produto_origem_id"])
+
+            validacao = _validar_correcao_sku_com_cursor(
+                cursor,
+                item["produto_origem_id"],
+                item["produto_destino_id"],
+                item["sku_sugerido"],
+                item["origem_sugestao"],
+            )
+            itens_preview.append({
+                **item,
+                "produto_origem_nome": validacao["origem"]["produto_padrao"],
+                "produto_destino_nome": validacao["destino"]["produto_padrao"],
+                "classificacao_origem": validacao["classificacao_origem"],
+                "classificacao_destino": validacao["classificacao_destino"],
+                "precos_migrar": validacao["total_precos_origem"],
+                "equivalencias_migrar": validacao["total_equivalencias_origem"],
+            })
+
+        return {
+            "total_itens": len(itens_preview),
+            "total_precos_migrar": sum(item["precos_migrar"] for item in itens_preview),
+            "total_equivalencias_migrar": sum(item["equivalencias_migrar"] for item in itens_preview),
+            "itens": itens_preview,
+        }
+    finally:
+        conn.close()
+
+
+def _aplicar_item_validado(cursor, item):
+    produto_origem_id = item["produto_origem_id"]
+    produto_destino_id = item["produto_destino_id"]
+
+    cursor.execute(
+        """
+        UPDATE precos_fornecedores
+        SET produto_id = ?
+        WHERE produto_id = ?
+        """,
+        (produto_destino_id, produto_origem_id),
+    )
+    precos_migrados = cursor.rowcount
+
+    cursor.execute(
+        """
+        UPDATE equivalencias
+        SET produto_id = ?
+        WHERE produto_id = ?
+        """,
+        (produto_destino_id, produto_origem_id),
+    )
+    equivalencias_migradas = cursor.rowcount
+
+    cursor.execute(
+        """
+        UPDATE produtos
+        SET ativo = 0
+        WHERE id = ?
+        """,
+        (produto_origem_id,),
+    )
+    produtos_inativados = cursor.rowcount
+    if produtos_inativados != 1:
+        raise RuntimeError("Produto origem nao foi inativado corretamente.")
+
+    return {
+        "precos_migrados": precos_migrados,
+        "equivalencias_migradas": equivalencias_migradas,
+        "produtos_inativados": produtos_inativados,
+    }
 
 
 def aplicar_correcao_sku_master(
@@ -762,38 +881,13 @@ def aplicar_correcao_sku_master(
         cursor = conn.cursor()
         conn.execute("BEGIN")
 
-        cursor.execute(
-            """
-            UPDATE precos_fornecedores
-            SET produto_id = ?
-            WHERE produto_id = ?
-            """,
-            (produto_destino_id, produto_origem_id),
-        )
-        precos_migrados = cursor.rowcount
-
-        cursor.execute(
-            """
-            UPDATE equivalencias
-            SET produto_id = ?
-            WHERE produto_id = ?
-            """,
-            (produto_destino_id, produto_origem_id),
-        )
-        equivalencias_migradas = cursor.rowcount
-
-        cursor.execute(
-            """
-            UPDATE produtos
-            SET ativo = 0
-            WHERE id = ?
-            """,
-            (produto_origem_id,),
-        )
-        produtos_inativados = cursor.rowcount
-
-        if produtos_inativados != 1:
-            raise RuntimeError("Produto origem nao foi inativado corretamente.")
+        contadores = _aplicar_item_validado(cursor, {
+            "produto_origem_id": int(produto_origem_id),
+            "produto_destino_id": int(produto_destino_id),
+        })
+        precos_migrados = contadores["precos_migrados"]
+        equivalencias_migradas = contadores["equivalencias_migradas"]
+        produtos_inativados = contadores["produtos_inativados"]
 
         conn.commit()
 
@@ -831,6 +925,82 @@ def aplicar_correcao_sku_master(
             "backup": backup,
         }
         registrar_log_correcao(registro, caminho_log=caminho_log)
+        raise
+    finally:
+        conn.close()
+
+
+def aplicar_lote_correcoes_sku_master(
+    itens,
+    usuario="sistema",
+    caminho_banco=None,
+    pasta_backups=None,
+    caminho_log=None,
+):
+    preview = previsualizar_lote_correcoes_sku_master(itens, caminho_banco=caminho_banco)
+    lote_id = str(uuid.uuid4())
+    backup = criar_backup_banco(caminho_banco=caminho_banco, pasta_backups=pasta_backups)
+    conn = _conectar_escrita(caminho_banco)
+    registros = []
+    try:
+        cursor = conn.cursor()
+        conn.execute("BEGIN")
+
+        for item in preview["itens"]:
+            validacao = _validar_correcao_sku_com_cursor(
+                cursor,
+                item["produto_origem_id"],
+                item["produto_destino_id"],
+                item["sku_sugerido"],
+                item["origem_sugestao"],
+            )
+            contadores = _aplicar_item_validado(cursor, item)
+            registros.append({
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+                "usuario": usuario,
+                "status": "sucesso",
+                "lote_id": lote_id,
+                "produto_origem_id": item["produto_origem_id"],
+                "produto_origem": validacao["origem"]["produto_padrao"],
+                "produto_destino_id": item["produto_destino_id"],
+                "produto_destino": validacao["destino"]["produto_padrao"],
+                "sku_sugerido": item["sku_sugerido"],
+                "origem_sugestao": item["origem_sugestao"],
+                "classificacao_origem": validacao["classificacao_origem"],
+                "classificacao_destino": validacao["classificacao_destino"],
+                "precos_migrados": contadores["precos_migrados"],
+                "equivalencias_migradas": contadores["equivalencias_migradas"],
+                "produtos_inativados": contadores["produtos_inativados"],
+                "backup": backup,
+            })
+
+        conn.commit()
+        caminho_log_final = ""
+        for registro in registros:
+            caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
+            registro["log"] = caminho_log_final
+
+        return {
+            "lote_id": lote_id,
+            "backup": backup,
+            "log": caminho_log_final,
+            "total_itens": len(registros),
+            "precos_migrados": sum(item["precos_migrados"] for item in registros),
+            "equivalencias_migradas": sum(item["equivalencias_migradas"] for item in registros),
+            "produtos_inativados": sum(item["produtos_inativados"] for item in registros),
+            "itens": registros,
+        }
+    except Exception as erro:
+        conn.rollback()
+        registrar_log_correcao({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "usuario": usuario,
+            "status": "erro",
+            "lote_id": lote_id,
+            "erro": str(erro),
+            "backup": backup,
+            "total_itens": len(preview["itens"]),
+        }, caminho_log=caminho_log)
         raise
     finally:
         conn.close()

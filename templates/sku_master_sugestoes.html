@@ -90,6 +90,7 @@
         <table class="comparison-table">
             <thead>
                 <tr>
+                    <th>Lote</th>
                     <th>Produto ID</th>
                     <th>Produto padrao atual</th>
                     <th>Fabricante</th>
@@ -105,6 +106,23 @@
             <tbody>
                 {% for item in sugestoes.itens %}
                 <tr>
+                    <td>
+                        {% if item.origem_sugestao == 'existente' and item.produto_destino_id %}
+                            <input
+                                type="checkbox"
+                                name="itens_lote"
+                                form="form-lote-sku"
+                                value='{{ {
+                                    "produto_origem_id": item.produto_id,
+                                    "produto_destino_id": item.produto_destino_id,
+                                    "sku_sugerido": item.sku_sugerido,
+                                    "origem_sugestao": item.origem_sugestao
+                                } | tojson }}'
+                            >
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                     <td>{{ item.produto_id }}</td>
                     <td>
                         <strong>{{ item.produto_padrao }}</strong>
@@ -145,12 +163,23 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="10">Nenhuma sugestao encontrada para o grupo selecionado.</td>
+                    <td colspan="11">Nenhuma sugestao encontrada para o grupo selecionado.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <form
+        id="form-lote-sku"
+        method="POST"
+        action="{{ url_for('sku_master_sugestoes_lote_previsualizar') }}"
+        onsubmit="return confirm('Previsualizar o lote selecionado? O limite e de 10 itens e nada sera aplicado ainda.');"
+        style="margin-top: 16px;"
+    >
+        <input type="hidden" name="grupo" value="{{ sugestoes.grupo }}">
+        <button type="submit" class="btn-primary">Previsualizar lote selecionado</button>
+    </form>
 </section>
 
 {% endblock %}

@@ -1,3 +1,4 @@
+import json
 from flask import Flask, Response, render_template, request, redirect, url_for, flash
 from datetime import datetime
 from pathlib import Path
@@ -18,10 +19,12 @@ from core.auditoria_sku_master import (
     FILTROS as FILTROS_AUDITORIA_SKU,
     GRUPOS_SUGESTOES as GRUPOS_SUGESTOES_SKU,
     aplicar_correcao_sku_master,
+    aplicar_lote_correcoes_sku_master,
     gerar_auditoria_sku_master,
     gerar_csv_auditoria_sku_master,
     gerar_csv_sugestoes_sku_master,
     gerar_sugestoes_sku_master,
+    previsualizar_lote_correcoes_sku_master,
 )
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
@@ -184,6 +187,48 @@ def sku_master_sugestoes_aplicar():
         )
     except Exception as erro:
         flash(f"Correcao nao aplicada: {erro}")
+    return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+
+
+def _itens_lote_do_formulario():
+    itens = []
+    for valor in request.form.getlist("itens_lote"):
+        itens.append(json.loads(valor))
+    return itens
+
+
+@app.route("/sku-master/sugestoes/lote/previsualizar", methods=["POST"])
+def sku_master_sugestoes_lote_previsualizar():
+    grupo = request.form.get("grupo", "todos")
+    try:
+        itens = _itens_lote_do_formulario()
+        preview = previsualizar_lote_correcoes_sku_master(itens)
+        return render_template(
+            "sku_master_lote_preview.html",
+            data_atual=DATA_ATUAL,
+            resumo=resumo_dashboard(),
+            grupo=grupo,
+            preview=preview,
+        )
+    except Exception as erro:
+        flash(f"Lote nao pode ser previsualizado: {erro}")
+        return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+
+
+@app.route("/sku-master/sugestoes/lote/aplicar", methods=["POST"])
+def sku_master_sugestoes_lote_aplicar():
+    grupo = request.form.get("grupo", "todos")
+    try:
+        itens = _itens_lote_do_formulario()
+        resultado = aplicar_lote_correcoes_sku_master(itens, usuario="compras")
+        flash(
+            "Lote aplicado: "
+            f"{resultado['total_itens']} itens, "
+            f"{resultado['precos_migrados']} precos e "
+            f"{resultado['equivalencias_migradas']} equivalencias migrados."
+        )
+    except Exception as erro:
+        flash(f"Lote nao aplicado: {erro}")
     return redirect(url_for("sku_master_sugestoes", grupo=grupo))
 
 
