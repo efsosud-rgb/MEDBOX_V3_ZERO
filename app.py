@@ -17,6 +17,7 @@ from core.busca_inteligente import (
 from core.auditoria_sku_master import (
     FILTROS as FILTROS_AUDITORIA_SKU,
     GRUPOS_SUGESTOES as GRUPOS_SUGESTOES_SKU,
+    aplicar_correcao_sku_master,
     gerar_auditoria_sku_master,
     gerar_csv_auditoria_sku_master,
     gerar_csv_sugestoes_sku_master,
@@ -163,6 +164,27 @@ def sku_master_sugestoes_csv():
             "Content-Disposition": f"attachment; filename={nome_arquivo}"
         },
     )
+
+
+@app.route("/sku-master/sugestoes/aplicar", methods=["POST"])
+def sku_master_sugestoes_aplicar():
+    grupo = request.form.get("grupo", "todos")
+    try:
+        resultado = aplicar_correcao_sku_master(
+            produto_origem_id=request.form.get("produto_origem_id"),
+            produto_destino_id=request.form.get("produto_destino_id"),
+            sku_sugerido=request.form.get("sku_sugerido"),
+            origem_sugestao=request.form.get("origem_sugestao"),
+            usuario="compras",
+        )
+        flash(
+            "Correcao aplicada: "
+            f"{resultado['precos_migrados']} precos e "
+            f"{resultado['equivalencias_migradas']} equivalencias migrados."
+        )
+    except Exception as erro:
+        flash(f"Correcao nao aplicada: {erro}")
+    return redirect(url_for("sku_master_sugestoes", grupo=grupo))
 
 
 @app.route("/importar_sku_master", methods=["POST"])

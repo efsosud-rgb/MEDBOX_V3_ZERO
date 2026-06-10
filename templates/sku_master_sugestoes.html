@@ -5,6 +5,16 @@
 
 {% block content %}
 
+{% with mensagens = get_flashed_messages() %}
+    {% if mensagens %}
+        <section class="panel">
+            {% for mensagem in mensagens %}
+                <p>{{ mensagem }}</p>
+            {% endfor %}
+        </section>
+    {% endif %}
+{% endwith %}
+
 <section class="panel">
     <h3>Resumo das Sugestoes</h3>
 
@@ -89,6 +99,7 @@
                     <th>Confianca</th>
                     <th>Precos</th>
                     <th>Equivalencias</th>
+                    <th>Acao</th>
                 </tr>
             </thead>
             <tbody>
@@ -117,10 +128,24 @@
                     <td>{{ item.confianca }}</td>
                     <td>{{ item.total_precos }}</td>
                     <td>{{ item.total_equivalencias }}</td>
+                    <td>
+                        {% if item.origem_sugestao == 'existente' and item.produto_destino_id %}
+                            <form method="POST" action="{{ url_for('sku_master_sugestoes_aplicar') }}" onsubmit="return confirm('Aplicar esta correcao aprovada? Esta acao cria backup, migra vinculos e inativa o produto origem.');">
+                                <input type="hidden" name="grupo" value="{{ sugestoes.grupo }}">
+                                <input type="hidden" name="produto_origem_id" value="{{ item.produto_id }}">
+                                <input type="hidden" name="produto_destino_id" value="{{ item.produto_destino_id }}">
+                                <input type="hidden" name="sku_sugerido" value="{{ item.sku_sugerido }}">
+                                <input type="hidden" name="origem_sugestao" value="{{ item.origem_sugestao }}">
+                                <button type="submit" class="btn-primary">Aplicar correcao</button>
+                            </form>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9">Nenhuma sugestao encontrada para o grupo selecionado.</td>
+                    <td colspan="10">Nenhuma sugestao encontrada para o grupo selecionado.</td>
                 </tr>
                 {% endfor %}
             </tbody>
