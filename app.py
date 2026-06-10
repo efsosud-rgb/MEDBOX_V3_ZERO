@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, Response, render_template, request, redirect, url_for, flash
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -13,6 +13,11 @@ from core.banco import (
 from core.busca_inteligente import (
     buscar_produto_inteligente,
     buscar_produtos_por_fornecedor,
+)
+from core.auditoria_sku_master import (
+    FILTROS as FILTROS_AUDITORIA_SKU,
+    gerar_auditoria_sku_master,
+    gerar_csv_auditoria_sku_master,
 )
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
@@ -100,6 +105,33 @@ def produtos():
         data_atual=DATA_ATUAL,
         resumo=resumo_dashboard(),
         total_produtos=contar_produtos()
+    )
+
+
+@app.route("/sku-master/auditoria")
+def sku_master_auditoria():
+    filtro = request.args.get("filtro", "todos")
+    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=250)
+    return render_template(
+        "sku_master_auditoria.html",
+        data_atual=DATA_ATUAL,
+        resumo=resumo_dashboard(),
+        auditoria=auditoria,
+        filtros=FILTROS_AUDITORIA_SKU,
+    )
+
+
+@app.route("/sku-master/auditoria.csv")
+def sku_master_auditoria_csv():
+    filtro = request.args.get("filtro", "todos")
+    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro)
+    nome_arquivo = f"auditoria_sku_master_{filtro}.csv"
+    return Response(
+        conteudo,
+        content_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f"attachment; filename={nome_arquivo}"
+        },
     )
 
 

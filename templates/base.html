@@ -38,6 +38,9 @@
             <a href="/produtos" class="{% if request.path == '/produtos' %}active{% endif %}">
                 <span class="nav-icon">◇</span> Produtos (SKU Master)
             </a>
+            <a href="/sku-master/auditoria" class="{% if request.path.startswith('/sku-master/auditoria') %}active{% endif %}">
+                <span class="nav-icon">SKU</span> Auditoria SKU Master
+            </a>
             <a href="/equivalencias" class="{% if request.path == '/equivalencias' %}active{% endif %}">
                 <span class="nav-icon">⇄</span> Equivalências
             </a>

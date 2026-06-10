@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Auditoria SKU Master{% endblock %}
+{% block subtitle %}Analise em modo leitura da qualidade dos produtos padronizados.{% endblock %}
+
+{% block content %}
+
+<section class="panel">
+    <h3>Resumo da Auditoria</h3>
+
+    <div class="cards-grid">
+        <div class="card">
+            <div class="card-info">
+                <span>Total de produtos</span>
+                <strong>{{ auditoria.contadores.total_produtos }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Limpos</span>
+                <strong>{{ auditoria.contadores.total_limpos }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Suspeitos</span>
+                <strong>{{ auditoria.contadores.total_suspeitos }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Contaminados fortes</span>
+                <strong>{{ auditoria.contadores.total_contaminados_fortes }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>SKU pendente</span>
+                <strong>{{ auditoria.contadores.total_sku_pendente }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Grupos duplicados</span>
+                <strong>{{ auditoria.contadores.total_grupos_duplicados }}</strong>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <h3>Filtros e Exportacao</h3>
+
+    <form method="GET" action="{{ url_for('sku_master_auditoria') }}" class="form-grid">
+        <div class="form-group">
+            <label>Classificacao</label>
+            <select name="filtro">
+                <option value="todos" {% if auditoria.filtro == 'todos' %}selected{% endif %}>Todos</option>
+                <option value="contaminado_forte" {% if auditoria.filtro == 'contaminado_forte' %}selected{% endif %}>Contaminado forte</option>
+                <option value="sku_pendente" {% if auditoria.filtro == 'sku_pendente' %}selected{% endif %}>SKU pendente</option>
+                <option value="duplicado" {% if auditoria.filtro == 'duplicado' %}selected{% endif %}>Duplicado</option>
+                <option value="limpo" {% if auditoria.filtro == 'limpo' %}selected{% endif %}>Limpo</option>
+                <option value="suspeito" {% if auditoria.filtro == 'suspeito' %}selected{% endif %}>Suspeito</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <button type="submit" class="btn-primary">Aplicar filtro</button>
+        </div>
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', filtro=auditoria.filtro) }}">Exportar CSV</a>
+        </div>
+    </form>
+
+    <p style="margin-top: 16px; color: var(--muted);">
+        Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros filtrados.
+        A auditoria e somente leitura e nao altera produtos, equivalencias ou precos.
+    </p>
+</section>
+
+<section class="panel large">
+    <h3>Exemplos Encontrados</h3>
+
+    <div class="comparison-table-wrap">
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Produto ID</th>
+                    <th>Produto padrao atual</th>
+                    <th>Fabricante</th>
+                    <th>Categoria</th>
+                    <th>Classificacao</th>
+                    <th>Motivo</th>
+                    <th>Sugestao SKU limpo</th>
+                    <th>Precos</th>
+                    <th>Equivalencias</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in auditoria.itens %}
+                <tr>
+                    <td>{{ item.id }}</td>
+                    <td>
+                        <strong>{{ item.produto_padrao }}</strong>
+                    </td>
+                    <td>{{ item.fabricante or "-" }}</td>
+                    <td>{{ item.categoria or "-" }}</td>
+                    <td>
+                        {% if item.classificacao == 'LIMPO' %}
+                            <span class="badge-verde">LIMPO</span>
+                        {% elif item.classificacao == 'CONTAMINADO_FORTE' %}
+                            <span class="badge-red">CONTAMINADO_FORTE</span>
+                        {% elif item.classificacao == 'SKU_PENDENTE' %}
+                            <span class="badge-blue">SKU_PENDENTE</span>
+                        {% elif item.classificacao == 'DUPLICADO' %}
+                            <span class="badge-red">DUPLICADO</span>
+                        {% else %}
+                            <span class="badge-cinza">{{ item.classificacao }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.motivo }}</td>
+                    <td>{{ item.sugestao_sku_limpo or "-" }}</td>
+                    <td>{{ item.total_precos }}</td>
+                    <td>{{ item.total_equivalencias }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9">Nenhum registro encontrado para o filtro selecionado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}
