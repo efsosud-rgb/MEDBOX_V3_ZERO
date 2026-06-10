@@ -3,6 +3,7 @@ from flask import Flask, Response, render_template, request, redirect, url_for, 
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
+from werkzeug.utils import secure_filename
 
 from core.banco import (
     criar_banco, resumo_dashboard, conectar,
@@ -27,6 +28,7 @@ from core.auditoria_sku_master import (
     gerar_sugestoes_sku_master,
     previsualizar_lote_correcoes_sku_master,
 )
+from core.cotacao_lances import analisar_arquivo_cotacao
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
@@ -38,6 +40,8 @@ criar_banco()
 BASE_DIR = Path(__file__).resolve().parent
 PASTA_UPLOADS = BASE_DIR / "uploads"
 PASTA_UPLOADS.mkdir(exist_ok=True)
+PASTA_UPLOADS_LANCES = PASTA_UPLOADS / "cotacoes_lances"
+PASTA_UPLOADS_LANCES.mkdir(exist_ok=True)
 
 DATA_ATUAL = datetime.now().strftime("%d/%m/%Y")
 
@@ -305,6 +309,62 @@ def cotacoes():
         cotacoes=listar_cotacoes(),
         fornecedores=listar_fornecedores()
     )
+
+
+@app.route("/cotacoes/lances")
+def cotacoes_lances():
+    return render_template(
+        "cotacao_lances.html",
+        data_atual=DATA_ATUAL,
+        resumo=resumo_dashboard(),
+        analise=None,
+        erro=None,
+        arquivo_nome="",
+        markup_percentual=80,
+    )
+
+
+@app.route("/cotacoes/lances/importar", methods=["POST"])
+def importar_cotacao_lances():
+    arquivo = request.files.get("arquivo")
+    markup_percentual = request.form.get("markup_percentual", 80)
+
+    if not arquivo or arquivo.filename == "":
+        return render_template(
+            "cotacao_lances.html",
+            data_atual=DATA_ATUAL,
+            resumo=resumo_dashboard(),
+            analise=None,
+            erro="Nenhum arquivo selecionado.",
+            arquivo_nome="",
+            markup_percentual=markup_percentual,
+        ), 400
+
+    nome_seguro = secure_filename(arquivo.filename)
+    caminho = PASTA_UPLOADS_LANCES / nome_seguro
+    arquivo.save(caminho)
+
+    try:
+        analise = analisar_arquivo_cotacao(caminho, markup_percentual=markup_percentual)
+        return render_template(
+            "cotacao_lances.html",
+            data_atual=DATA_ATUAL,
+            resumo=resumo_dashboard(),
+            analise=analise,
+            erro=None,
+            arquivo_nome=arquivo.filename,
+            markup_percentual=analise["markup_percentual"],
+        )
+    except Exception as erro:
+        return render_template(
+            "cotacao_lances.html",
+            data_atual=DATA_ATUAL,
+            resumo=resumo_dashboard(),
+            analise=None,
+            erro=str(erro),
+            arquivo_nome=arquivo.filename,
+            markup_percentual=markup_percentual,
+        ), 400
 
 
 @app.route("/cotacoes/importar", methods=["POST"])
