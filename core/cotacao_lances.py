@@ -6,6 +6,7 @@ from pathlib import Path
 
 from rapidfuzz import fuzz
 
+from core.auditoria_sku_master import sugerir_sku_medbox_oficial
 from core.busca_inteligente import buscar_produto_inteligente
 from core.formatadores import moeda_br
 
@@ -273,6 +274,9 @@ def _extrair_imagem(caminho):
 
 def _termo_busca_tecnico(descricao):
     texto = normalizar_texto(descricao)
+    sku_oficial, confianca_oficial = sugerir_sku_medbox_oficial(texto)
+    if sku_oficial and confianca_oficial >= 88:
+        return sku_oficial
 
     texto = texto.replace("DESC HIP", "HIPODERMICA")
     texto = texto.replace("DISP SEG", "COM DISPOSITIVO DE SEGURANCA")
@@ -305,6 +309,23 @@ def _termo_busca_tecnico(descricao):
 
 def _sku_tecnico_derivado(descricao):
     texto = normalizar_texto(descricao)
+    sku_oficial, confianca_oficial = sugerir_sku_medbox_oficial(texto)
+    if sku_oficial and confianca_oficial >= 88:
+        return {
+            "id": f"oficial:{sku_oficial}",
+            "sku": "",
+            "produto_padrao": sku_oficial,
+            "sku_master_exibicao": sku_oficial,
+            "sku_master_lances": sku_oficial,
+            "fabricante": "",
+            "categoria": "DICIONARIO MEDBOX",
+            "score_busca": float(confianca_oficial),
+            "precos": [],
+            "menor_preco": None,
+            "fornecedor_menor": "-",
+            "tem_preco": False,
+        }
+
     medida_agulha = re.search(r"\b\d{1,2}\s*[Xx]\s*\d{1,2}(?:[,.]\d+)?\b", texto)
     if "AGULHA" in texto and medida_agulha and ("SEGURANCA" in texto or "DISP SEG" in texto):
         return {
@@ -344,7 +365,9 @@ def _assinatura_compativel(descricao, candidato):
 
 
 def buscar_sku_para_lance(descricao, score_minimo=70):
-    termos = [_termo_busca_tecnico(descricao), descricao]
+    termo_tecnico = _termo_busca_tecnico(descricao)
+    sku_oficial, confianca_oficial = sugerir_sku_medbox_oficial(descricao)
+    termos = [termo_tecnico, descricao]
     candidatos = []
     vistos = set()
     for termo in termos:
@@ -366,8 +389,13 @@ def buscar_sku_para_lance(descricao, score_minimo=70):
         return _sku_tecnico_derivado(descricao)
 
     melhor = candidatos[0]
+    if sku_oficial and confianca_oficial >= 88:
+        melhor = dict(melhor)
+        melhor["sku_master_lances"] = sku_oficial
+        melhor["sku_master_exibicao"] = sku_oficial
+
     derivado = _sku_tecnico_derivado(descricao)
-    if derivado:
+    if derivado and not sku_oficial:
         sku_norm = normalizar_texto(melhor.get("sku_master_exibicao") or melhor.get("produto_padrao"))
         medida_derivada = re.search(r"\d{1,2}X\d{1,2}(?:[,.]\d+)?", derivado["sku_master_exibicao"].replace(" ", ""))
         if medida_derivada and medida_derivada.group(0) not in sku_norm.replace(" ", ""):
@@ -426,7 +454,7 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=70):
         analisado = {
             "item": indice,
             "descricao_original": item["descricao_original"],
-            "sku_master": (candidato or {}).get("sku_master_exibicao") or (candidato or {}).get("produto_padrao") or "REVISAR SKU",
+            "sku_master": (candidato or {}).get("sku_master_lances") or (candidato or {}).get("sku_master_exibicao") or (candidato or {}).get("produto_padrao") or "REVISAR SKU",
             "score_busca": (candidato or {}).get("score_busca", 0),
             "quantidade": quantidade,
             "preco_osinfo": item["preco_osinfo"],
