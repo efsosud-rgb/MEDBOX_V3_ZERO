@@ -16,8 +16,11 @@ from core.busca_inteligente import (
 )
 from core.auditoria_sku_master import (
     FILTROS as FILTROS_AUDITORIA_SKU,
+    GRUPOS_SUGESTOES as GRUPOS_SUGESTOES_SKU,
     gerar_auditoria_sku_master,
     gerar_csv_auditoria_sku_master,
+    gerar_csv_sugestoes_sku_master,
+    gerar_sugestoes_sku_master,
 )
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
@@ -126,6 +129,33 @@ def sku_master_auditoria_csv():
     filtro = request.args.get("filtro", "todos")
     conteudo = gerar_csv_auditoria_sku_master(filtro=filtro)
     nome_arquivo = f"auditoria_sku_master_{filtro}.csv"
+    return Response(
+        conteudo,
+        content_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f"attachment; filename={nome_arquivo}"
+        },
+    )
+
+
+@app.route("/sku-master/sugestoes")
+def sku_master_sugestoes():
+    grupo = request.args.get("grupo", "todos")
+    sugestoes = gerar_sugestoes_sku_master(grupo=grupo, limite=250)
+    return render_template(
+        "sku_master_sugestoes.html",
+        data_atual=DATA_ATUAL,
+        resumo=resumo_dashboard(),
+        sugestoes=sugestoes,
+        grupos=GRUPOS_SUGESTOES_SKU,
+    )
+
+
+@app.route("/sku-master/sugestoes.csv")
+def sku_master_sugestoes_csv():
+    grupo = request.args.get("grupo", "todos")
+    conteudo = gerar_csv_sugestoes_sku_master(grupo=grupo)
+    nome_arquivo = f"sugestoes_sku_master_{grupo}.csv"
     return Response(
         conteudo,
         content_type="text/csv; charset=utf-8",

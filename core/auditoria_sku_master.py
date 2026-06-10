@@ -29,6 +29,39 @@ FILTROS = {
     "duplicado": "DUPLICADO",
 }
 
+GRUPOS_SUGESTOES = {
+    "todos": "",
+    "soro_fisiologico": "soro_fisiologico",
+    "soro_glicosado": "soro_glicosado",
+    "ondansetrona": "ondansetrona",
+    "dipirona": "dipirona",
+    "agulha": "agulha",
+}
+
+STOPWORDS_SKU = {
+    "DE",
+    "DA",
+    "DO",
+    "DAS",
+    "DOS",
+    "E",
+    "A",
+    "O",
+    "AS",
+    "OS",
+    "COM",
+    "C",
+    "SEM",
+    "PARA",
+    "P",
+    "POR",
+    "EM",
+    "NA",
+    "NO",
+    "NAS",
+    "NOS",
+}
+
 MARCAS_FINAIS_SUSPEITAS = {
     "EQUIPLEX",
     "FARMACE",
@@ -307,4 +340,258 @@ def gerar_csv_auditoria_sku_master(filtro="todos"):
             "total_precos": item["total_precos"],
             "total_equivalencias": item["total_equivalencias"],
         })
+    return buffer.getvalue()
+
+
+def _grupo_sugestao(produto_padrao):
+    texto = _normalizar(produto_padrao)
+    if (
+        "SORO FISIOLOGICO" in texto
+        or "CLORETO DE SODIO 0,9" in texto
+        or "CLORETO DE SODIO 20" in texto
+    ):
+        return "soro_fisiologico"
+    if (
+        "SORO GLICOSADO" in texto
+        or "GLICOSE 5%" in texto
+        or "GLICOSE 10%" in texto
+        or "GLICOSE 25%" in texto
+        or "GLICOSE 50%" in texto
+        or "DEXTROSE" in texto
+    ):
+        return "soro_glicosado"
+    if "RINGER" in texto and "LACTATO" in texto:
+        return "soro_fisiologico"
+    if "ONDANSETRONA" in texto:
+        return "ondansetrona"
+    if "DIPIRONA" in texto:
+        return "dipirona"
+    if "AGULHA" in texto:
+        return "agulha"
+    return "outros"
+
+
+def _sugestao_dicionario_medbox(produto_padrao):
+    texto = _normalizar(produto_padrao)
+
+    if "ONDANSETRONA" in texto:
+        dose = re.search(r"\b(4|8)\s*MG\s*/?\s*(2|4)?\s*ML\b", texto)
+        if dose:
+            mg = dose.group(1)
+            ml = dose.group(2) or ("2" if mg == "4" else "4")
+            return f"ONDANSETRONA {mg}MG/{ml}ML", 91
+        return "ONDANSETRONA", 84
+
+    if "RINGER" in texto and "LACTATO" in texto:
+        volume = re.search(r"\b(\d+)\s*ML\b", texto)
+        if volume:
+            return f"SORO RINGER COM LACTATO {volume.group(1)}ML", 90
+        return "SORO RINGER COM LACTATO", 88
+
+    glicose = re.search(r"\bGLICOSE\s*(5|10|25|50)\s*%", texto)
+    if glicose or "SORO GLICOSADO" in texto or "DEXTROSE" in texto:
+        percentual = glicose.group(1) if glicose else ""
+        if not percentual:
+            percentual_match = re.search(r"\b(5|10|25|50)\s*%", texto)
+            percentual = percentual_match.group(1) if percentual_match else ""
+        volume = re.search(r"\b(\d+)\s*ML\b", texto)
+        partes = ["SORO GLICOSADO"]
+        if percentual:
+            partes.append(f"{percentual}%")
+        if volume:
+            partes.append(f"{volume.group(1)}ML")
+        return " ".join(partes), 88 if percentual else 82
+
+    cloreto = re.search(r"\bCLORETO DE SODIO\s*(0,9|20)\s*%", texto)
+    if cloreto or "SORO FISIOLOGICO" in texto:
+        percentual = cloreto.group(1) if cloreto else ""
+        if not percentual:
+            percentual_match = re.search(r"\b(0,9|20)\s*%", texto)
+            percentual = percentual_match.group(1) if percentual_match else "0,9"
+        volume = re.search(r"\b(\d+)\s*ML\b", texto)
+        partes = ["SORO FISIOLOGICO", f"{percentual}%"]
+        if volume:
+            partes.append(f"{volume.group(1)}ML")
+        return " ".join(partes), 88
+
+    return "", 0
+
+
+def _limpar_por_regex(produto_padrao):
+    texto = _normalizar(produto_padrao)
+    texto = re.sub(r"^SKU PENDENTE\s*-\s*", "", texto)
+    texto = re.sub(r"^\d{3,}\s+", "", texto)
+    texto = re.sub(r"\b(CX|CAIXA)\b.*$", "", texto)
+    texto = re.sub(r"\b(AP|FR|FA|BO|BOLSA|CP|COMPRIMIDO|UN)\b\s+[A-Z0-9].*$", "", texto)
+    texto = re.sub(r"\b(LOTE|LT|VAL|VALIDADE|PAGINA)\b.*$", "", texto)
+    texto = re.sub(r"\s+", " ", texto).strip(" -,.")
+
+    palavras = texto.split()
+    for tamanho in range(2, min(6, len(palavras) // 2 + 1)):
+        inicio = " ".join(palavras[:tamanho])
+        restante = " ".join(palavras[tamanho:])
+        if inicio and inicio in restante:
+            texto = inicio
+            break
+
+    return texto[:90].strip()
+
+
+def _tokens_sugestao(texto):
+    return [
+        token for token in _normalizar(texto).split()
+        if token not in STOPWORDS_SKU and not re.fullmatch(r"\d{4,}", token)
+    ]
+
+
+def _montar_indice_limpos(itens):
+    limpos = [
+        {
+            **item,
+            "assinatura": _assinatura_sku(item["produto_padrao"]),
+        }
+        for item in itens
+        if item["classificacao"] == "LIMPO"
+    ]
+    indice = defaultdict(list)
+    for posicao, item in enumerate(limpos):
+        for token in set(_tokens_sugestao(item["produto_padrao"])):
+            indice[token].append(posicao)
+    return limpos, indice
+
+
+def _buscar_sku_existente(item, limpos, indice_limpos, sugestao_dicionario=""):
+    termos = set(_tokens_sugestao(item["produto_padrao"]))
+    if sugestao_dicionario:
+        termos.update(_tokens_sugestao(sugestao_dicionario))
+
+    candidatos_ids = set()
+    for termo in termos:
+        candidatos_ids.update(indice_limpos.get(termo, []))
+
+    melhor = None
+    texto_atual = item["produto_padrao"]
+    assinatura_atual = _assinatura_sku(texto_atual)
+    referencia = sugestao_dicionario or texto_atual
+    concentracoes_atual = set(re.findall(r"\b\d+(?:[,.]\d+)?\s*(?:MG|ML|G|MCG|UI|%)\b", _normalizar(referencia)))
+
+    for posicao in candidatos_ids:
+        candidato = limpos[posicao]
+        concentracoes_candidato = set(
+            re.findall(r"\b\d+(?:[,.]\d+)?\s*(?:MG|ML|G|MCG|UI|%)\b", _normalizar(candidato["produto_padrao"]))
+        )
+        score = max(
+            fuzz.token_set_ratio(assinatura_atual, candidato["assinatura"]),
+            fuzz.token_set_ratio(referencia, candidato["produto_padrao"]),
+        )
+        if concentracoes_atual and concentracoes_candidato and not (concentracoes_atual & concentracoes_candidato):
+            score -= 18
+
+        registro = (score, len(_tokens(candidato["produto_padrao"])), candidato["produto_padrao"])
+        if not melhor or registro[0] > melhor[0] or (
+            registro[0] == melhor[0] and registro[1] < melhor[1]
+        ):
+            melhor = registro
+
+    if melhor and melhor[0] >= 92:
+        return melhor[2], "existente", round(float(melhor[0]), 2)
+
+    return "", "", 0
+
+
+def _sugerir_sku_assistido(item, limpos, indice_limpos):
+    sugestao_dicionario, confianca_dicionario = _sugestao_dicionario_medbox(item["produto_padrao"])
+    sku_existente, origem, confianca = _buscar_sku_existente(
+        item,
+        limpos,
+        indice_limpos,
+        sugestao_dicionario,
+    )
+    if sku_existente:
+        return sku_existente, origem, confianca
+
+    if sugestao_dicionario:
+        return sugestao_dicionario, "dicionario", confianca_dicionario
+
+    sugestao_regex = _limpar_por_regex(item["produto_padrao"])
+    if sugestao_regex and sugestao_regex != _normalizar(item["produto_padrao"]):
+        return sugestao_regex, "regex", 70
+
+    return "", "revisao", 0
+
+
+def gerar_sugestoes_sku_master(grupo="todos", limite=250):
+    grupo = grupo if grupo in GRUPOS_SUGESTOES else "todos"
+    limite = max(1, int(limite or 250))
+    auditoria = gerar_auditoria_sku_master(filtro="todos", limite=1000000)
+    itens = auditoria["itens"]
+    limpos, indice_limpos = _montar_indice_limpos(itens)
+
+    sugestoes = []
+    for item in itens:
+        if item["classificacao"] not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
+            continue
+
+        grupo_item = _grupo_sugestao(item["produto_padrao"])
+        if grupo != "todos" and grupo_item != grupo:
+            continue
+
+        sku_sugerido, origem, confianca = _sugerir_sku_assistido(item, limpos, indice_limpos)
+        sugestoes.append({
+            "produto_id": item["id"],
+            "produto_padrao": item["produto_padrao"],
+            "fabricante": item["fabricante"],
+            "motivo": item["motivo"],
+            "classificacao": item["classificacao"],
+            "grupo": grupo_item,
+            "sku_sugerido": sku_sugerido,
+            "origem_sugestao": origem,
+            "confianca": confianca,
+            "total_precos": item["total_precos"],
+            "total_equivalencias": item["total_equivalencias"],
+        })
+
+    contadores = {
+        "total": len(sugestoes),
+        "existente": sum(1 for item in sugestoes if item["origem_sugestao"] == "existente"),
+        "dicionario": sum(1 for item in sugestoes if item["origem_sugestao"] == "dicionario"),
+        "regex": sum(1 for item in sugestoes if item["origem_sugestao"] == "regex"),
+        "revisao": sum(1 for item in sugestoes if item["origem_sugestao"] == "revisao"),
+    }
+
+    sugestoes.sort(key=lambda item: (
+        item["origem_sugestao"] == "revisao",
+        -item["confianca"],
+        item["grupo"],
+        item["produto_padrao"],
+    ))
+
+    return {
+        "grupo": grupo,
+        "contadores": contadores,
+        "itens": sugestoes[:limite],
+        "total_sem_limite": len(sugestoes),
+    }
+
+
+def gerar_csv_sugestoes_sku_master(grupo="todos"):
+    sugestoes = gerar_sugestoes_sku_master(grupo=grupo, limite=1000000)
+    buffer = io.StringIO()
+    campos = [
+        "produto_id",
+        "produto_padrao",
+        "fabricante",
+        "motivo",
+        "classificacao",
+        "grupo",
+        "sku_sugerido",
+        "origem_sugestao",
+        "confianca",
+        "total_precos",
+        "total_equivalencias",
+    ]
+    writer = csv.DictWriter(buffer, fieldnames=campos, extrasaction="ignore")
+    writer.writeheader()
+    for item in sugestoes["itens"]:
+        writer.writerow(item)
     return buffer.getvalue()

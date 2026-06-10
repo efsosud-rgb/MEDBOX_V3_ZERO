@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Sugestoes SKU Master{% endblock %}
+{% block subtitle %}Sugestoes assistidas em modo leitura para SKUs contaminados e pendentes.{% endblock %}
+
+{% block content %}
+
+<section class="panel">
+    <h3>Resumo das Sugestoes</h3>
+
+    <div class="cards-grid">
+        <div class="card">
+            <div class="card-info">
+                <span>Total filtrado</span>
+                <strong>{{ sugestoes.contadores.total }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>SKU existente</span>
+                <strong>{{ sugestoes.contadores.existente }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Dicionario</span>
+                <strong>{{ sugestoes.contadores.dicionario }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Regex</span>
+                <strong>{{ sugestoes.contadores.regex }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Revisao</span>
+                <strong>{{ sugestoes.contadores.revisao }}</strong>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <h3>Filtros e Exportacao</h3>
+
+    <form method="GET" action="{{ url_for('sku_master_sugestoes') }}" class="form-grid">
+        <div class="form-group">
+            <label>Grupo</label>
+            <select name="grupo">
+                <option value="todos" {% if sugestoes.grupo == 'todos' %}selected{% endif %}>Todos</option>
+                <option value="soro_fisiologico" {% if sugestoes.grupo == 'soro_fisiologico' %}selected{% endif %}>Soro fisiologico</option>
+                <option value="soro_glicosado" {% if sugestoes.grupo == 'soro_glicosado' %}selected{% endif %}>Soro glicosado</option>
+                <option value="ondansetrona" {% if sugestoes.grupo == 'ondansetrona' %}selected{% endif %}>Ondansetrona</option>
+                <option value="dipirona" {% if sugestoes.grupo == 'dipirona' %}selected{% endif %}>Dipirona</option>
+                <option value="agulha" {% if sugestoes.grupo == 'agulha' %}selected{% endif %}>Agulha</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <button type="submit" class="btn-primary">Aplicar filtro</button>
+        </div>
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <a class="btn-primary" href="{{ url_for('sku_master_sugestoes_csv', grupo=sugestoes.grupo) }}">Exportar CSV</a>
+        </div>
+    </form>
+
+    <p style="margin-top: 16px; color: var(--muted);">
+        Exibindo {{ sugestoes.itens|length }} de {{ sugestoes.total_sem_limite }} sugestoes.
+        Esta tela nao aplica correcoes e nao altera produtos, equivalencias ou precos.
+    </p>
+</section>
+
+<section class="panel large">
+    <h3>Sugestoes Assistidas</h3>
+
+    <div class="comparison-table-wrap">
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Produto ID</th>
+                    <th>Produto padrao atual</th>
+                    <th>Fabricante</th>
+                    <th>Motivo</th>
+                    <th>SKU sugerido</th>
+                    <th>Origem</th>
+                    <th>Confianca</th>
+                    <th>Precos</th>
+                    <th>Equivalencias</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in sugestoes.itens %}
+                <tr>
+                    <td>{{ item.produto_id }}</td>
+                    <td>
+                        <strong>{{ item.produto_padrao }}</strong>
+                        <br>
+                        <small>{{ item.classificacao }} | {{ item.grupo }}</small>
+                    </td>
+                    <td>{{ item.fabricante or "-" }}</td>
+                    <td>{{ item.motivo }}</td>
+                    <td>{{ item.sku_sugerido or "-" }}</td>
+                    <td>
+                        {% if item.origem_sugestao == 'existente' %}
+                            <span class="badge-verde">existente</span>
+                        {% elif item.origem_sugestao == 'dicionario' %}
+                            <span class="badge-blue">dicionario</span>
+                        {% elif item.origem_sugestao == 'regex' %}
+                            <span class="badge-cinza">regex</span>
+                        {% else %}
+                            <span class="badge-red">revisao</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.confianca }}</td>
+                    <td>{{ item.total_precos }}</td>
+                    <td>{{ item.total_equivalencias }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9">Nenhuma sugestao encontrada para o grupo selecionado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}
