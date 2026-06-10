@@ -925,6 +925,148 @@ def _aplicar_item_validado(cursor, item):
     }
 
 
+def _normalizar_sku_manual(sku_manual):
+    sku = _normalizar(sku_manual)
+    if not sku:
+        raise ValueError("SKU Master manual nao pode estar vazio.")
+    if len(sku) < 3:
+        raise ValueError("SKU Master manual precisa ter pelo menos 3 caracteres.")
+    if sku.startswith("SKU PENDENTE"):
+        raise ValueError("SKU Master manual nao pode comecar com SKU PENDENTE.")
+    return sku
+
+
+def _buscar_produto_ativo_por_nome(cursor, produto_padrao):
+    cursor.execute(
+        """
+        SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+        FROM produtos
+        WHERE ativo = 1
+          AND UPPER(TRIM(produto_padrao)) = UPPER(TRIM(?))
+        ORDER BY id
+        LIMIT 1
+        """,
+        (produto_padrao,),
+    )
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def _criar_produto_manual(cursor, sku_manual, origem):
+    categoria = origem.get("categoria") or ""
+    if "SKU PENDENTE" in _normalizar(categoria):
+        categoria = ""
+    cursor.execute(
+        """
+        INSERT INTO produtos (sku, produto_padrao, fabricante, categoria, ativo)
+        VALUES (?, ?, ?, ?, 1)
+        """,
+        (
+            "",
+            sku_manual,
+            origem.get("fabricante") or "",
+            categoria,
+        ),
+    )
+    produto_id = cursor.lastrowid
+    return {
+        "id": produto_id,
+        "sku": "",
+        "produto_padrao": sku_manual,
+        "fabricante": origem.get("fabricante") or "",
+        "categoria": categoria,
+        "ativo": 1,
+    }
+
+
+def aplicar_correcao_manual_sku_master(
+    produto_origem_id,
+    sku_manual,
+    usuario="compras",
+    caminho_banco=None,
+    pasta_backups=None,
+    caminho_log=None,
+):
+    produto_origem_id = int(produto_origem_id)
+    sku_manual = _normalizar_sku_manual(sku_manual)
+    backup = ""
+
+    conn = _conectar_escrita(caminho_banco)
+    destino_criado = False
+    try:
+        cursor = conn.cursor()
+        origem = _buscar_produto(cursor, produto_origem_id)
+        if not origem:
+            raise ValueError("Produto origem nao encontrado.")
+        if int(origem.get("ativo") or 0) != 1:
+            raise ValueError("Produto origem precisa estar ativo.")
+
+        classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
+        if (
+            classificacao_origem == "CONTAMINADO_FORTE"
+            and _normalizar(origem.get("produto_padrao")) == sku_manual
+        ):
+            raise ValueError("SKU manual nao pode ser igual ao produto contaminado atual.")
+
+        destino = _buscar_produto_ativo_por_nome(cursor, sku_manual)
+
+        backup = criar_backup_banco(caminho_banco=caminho_banco, pasta_backups=pasta_backups)
+        conn.execute("BEGIN")
+        if destino:
+            destino_id = destino["id"]
+        else:
+            destino = _criar_produto_manual(cursor, sku_manual, origem)
+            destino_id = destino["id"]
+            destino_criado = True
+
+        if produto_origem_id == destino_id:
+            raise ValueError("Produto origem e destino nao podem ser iguais.")
+
+        contadores = _aplicar_item_validado(cursor, {
+            "produto_origem_id": produto_origem_id,
+            "produto_destino_id": destino_id,
+        })
+        conn.commit()
+
+        registro = {
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "usuario": usuario,
+            "status": "sucesso",
+            "tipo_correcao": "manual",
+            "produto_origem_id": produto_origem_id,
+            "produto_origem": origem["produto_padrao"],
+            "produto_destino_id": destino_id,
+            "produto_destino": destino["produto_padrao"],
+            "sku_manual": sku_manual,
+            "destino_criado": destino_criado,
+            "classificacao_origem": classificacao_origem,
+            "motivos_origem": motivos_origem,
+            "precos_migrados": contadores["precos_migrados"],
+            "equivalencias_migradas": contadores["equivalencias_migradas"],
+            "produtos_inativados": contadores["produtos_inativados"],
+            "backup": backup,
+        }
+        caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
+        registro["log"] = caminho_log_final
+        return registro
+    except Exception as erro:
+        conn.rollback()
+        if backup:
+            registrar_log_correcao({
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+                "usuario": usuario,
+                "status": "erro",
+                "tipo_correcao": "manual",
+                "produto_origem_id": produto_origem_id,
+                "sku_manual": sku_manual,
+                "erro": str(erro),
+                "backup": backup,
+            }, caminho_log=caminho_log)
+        raise
+    finally:
+        conn.close()
+
+
 def aplicar_correcao_sku_master(
     produto_origem_id,
     produto_destino_id,
