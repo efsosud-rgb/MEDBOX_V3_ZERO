@@ -355,6 +355,7 @@ def _grupo_sugestao(produto_padrao):
     if (
         "SORO FISIOLOGICO" in texto
         or "CLORETO DE SODIO 0,9" in texto
+        or "CLORETO DE SODIO 3" in texto
         or "CLORETO DE SODIO 20" in texto
     ):
         return "soro_fisiologico"
@@ -378,50 +379,108 @@ def _grupo_sugestao(produto_padrao):
     return "outros"
 
 
-def _sugestao_dicionario_medbox(produto_padrao):
-    texto = _normalizar(produto_padrao)
+def _extrair_percentual(texto, valores=None):
+    valores = valores or ("0,9", "3", "5", "10", "20", "25", "50")
+    texto = _normalizar(texto)
+    for valor in valores:
+        padrao = valor.replace(",", r"[,\.]")
+        if re.search(rf"\b{padrao}\s*%", texto):
+            return f"{valor}%"
+    return ""
+
+
+def _extrair_volume(texto):
+    match = re.search(r"\b(\d+(?:[,.]\d+)?)\s*ML\b", _normalizar(texto))
+    if not match:
+        return ""
+    volume = match.group(1).replace(",", ".")
+    if volume.endswith(".0"):
+        volume = volume[:-2]
+    return f"{volume}ML"
+
+
+def _extrair_dose_ondansetrona(texto):
+    texto = _normalizar(texto)
+    match = re.search(r"\b(\d+(?:[,.]\d+)?)\s*MG\s*/?\s*(\d+(?:[,.]\d+)?)?\s*ML\b", texto)
+    if match:
+        mg = match.group(1).replace(",", ".")
+        ml = match.group(2)
+        if ml:
+            ml = ml.replace(",", ".")
+            return f"{mg}MG/{ml}ML"
+        return f"{mg}MG"
+
+    match = re.search(r"\b(\d+(?:[,.]\d+)?)\s*MG\b", texto)
+    if match:
+        return f"{match.group(1).replace(',', '.')}MG"
+    return ""
+
+
+def sugerir_sku_medbox_oficial(descricao):
+    texto = _normalizar(descricao)
 
     if "ONDANSETRONA" in texto:
-        dose = re.search(r"\b(4|8)\s*MG\s*/?\s*(2|4)?\s*ML\b", texto)
+        dose = _extrair_dose_ondansetrona(texto)
+        partes = ["ONDANSETRONA"]
         if dose:
-            mg = dose.group(1)
-            ml = dose.group(2) or ("2" if mg == "4" else "4")
-            return f"ONDANSETRONA {mg}MG/{ml}ML", 91
-        return "ONDANSETRONA", 84
+            partes.append(dose)
+        return " ".join(partes), 94 if dose else 86
 
-    if "RINGER" in texto and "LACTATO" in texto:
-        volume = re.search(r"\b(\d+)\s*ML\b", texto)
-        if volume:
-            return f"SORO RINGER COM LACTATO {volume.group(1)}ML", 90
-        return "SORO RINGER COM LACTATO", 88
+    if "RINGER" in texto:
+        volume = _extrair_volume(texto)
+        if "LACTATO" in texto:
+            partes = ["SORO RINGER COM LACTATO"]
+        elif "SIMPLES" in texto:
+            partes = ["SORO RINGER"]
+        else:
+            partes = []
+        if partes:
+            if volume:
+                partes.append(volume)
+            return " ".join(partes), 94 if volume else 88
 
-    glicose = re.search(r"\bGLICOSE\s*(5|10|25|50)\s*%", texto)
-    if glicose or "SORO GLICOSADO" in texto or "DEXTROSE" in texto:
-        percentual = glicose.group(1) if glicose else ""
-        if not percentual:
-            percentual_match = re.search(r"\b(5|10|25|50)\s*%", texto)
-            percentual = percentual_match.group(1) if percentual_match else ""
-        volume = re.search(r"\b(\d+)\s*ML\b", texto)
-        partes = ["SORO GLICOSADO"]
+    if "GLICOSE" in texto or "SORO GLICOSADO" in texto or "DEXTROSE" in texto:
+        percentual = _extrair_percentual(texto, ("5", "10", "25", "50"))
+        volume = _extrair_volume(texto)
         if percentual:
-            partes.append(f"{percentual}%")
-        if volume:
-            partes.append(f"{volume.group(1)}ML")
-        return " ".join(partes), 88 if percentual else 82
+            partes = ["SORO GLICOSADO", percentual]
+            if volume:
+                partes.append(volume)
+            return " ".join(partes), 94 if volume else 88
 
-    cloreto = re.search(r"\bCLORETO DE SODIO\s*(0,9|20)\s*%", texto)
-    if cloreto or "SORO FISIOLOGICO" in texto:
-        percentual = cloreto.group(1) if cloreto else ""
-        if not percentual:
-            percentual_match = re.search(r"\b(0,9|20)\s*%", texto)
-            percentual = percentual_match.group(1) if percentual_match else "0,9"
-        volume = re.search(r"\b(\d+)\s*ML\b", texto)
-        partes = ["SORO FISIOLOGICO", f"{percentual}%"]
-        if volume:
-            partes.append(f"{volume.group(1)}ML")
-        return " ".join(partes), 88
+    if "CLORETO DE SODIO" in texto or "SORO FISIOLOGICO" in texto:
+        percentual = _extrair_percentual(texto, ("0,9", "3", "20"))
+        volume = _extrair_volume(texto)
+        if percentual:
+            partes = ["SORO FISIOLOGICO", percentual]
+            if volume:
+                partes.append(volume)
+            return " ".join(partes), 94 if volume else 88
 
     return "", 0
+
+
+def _sugestao_dicionario_medbox(produto_padrao):
+    return sugerir_sku_medbox_oficial(produto_padrao)
+
+
+def _buscar_sku_existente_exato(sku_sugerido, limpos):
+    sku_norm = _normalizar(sku_sugerido)
+    if not sku_norm:
+        return "", None, 0
+
+    candidatos = []
+    for item in limpos:
+        produto_norm = _normalizar(item["produto_padrao"])
+        if produto_norm == sku_norm:
+            candidatos.append((100.0, len(_tokens(item["produto_padrao"])), item["produto_padrao"], item["id"]))
+
+    if not candidatos:
+        return "", None, 0
+
+    candidatos.sort(key=lambda item: (-item[0], item[1], item[2]))
+    melhor = candidatos[0]
+    return melhor[2], melhor[3], round(float(melhor[0]), 2)
 
 
 def _limpar_por_regex(produto_padrao):
@@ -508,17 +567,22 @@ def _buscar_sku_existente(item, limpos, indice_limpos, sugestao_dicionario=""):
 
 def _sugerir_sku_assistido(item, limpos, indice_limpos):
     sugestao_dicionario, confianca_dicionario = _sugestao_dicionario_medbox(item["produto_padrao"])
+    if sugestao_dicionario:
+        sku_existente_oficial, produto_destino_id, confianca_existente = _buscar_sku_existente_exato(
+            sugestao_dicionario,
+            limpos,
+        )
+        if sku_existente_oficial:
+            return sku_existente_oficial, produto_destino_id, "existente", confianca_existente
+        return sugestao_dicionario, None, "dicionario_medbox", confianca_dicionario
+
     sku_existente, produto_destino_id, origem, confianca = _buscar_sku_existente(
         item,
         limpos,
         indice_limpos,
-        sugestao_dicionario,
     )
     if sku_existente:
         return sku_existente, produto_destino_id, origem, confianca
-
-    if sugestao_dicionario:
-        return sugestao_dicionario, None, "dicionario", confianca_dicionario
 
     sugestao_regex = _limpar_por_regex(item["produto_padrao"])
     if sugestao_regex and sugestao_regex != _normalizar(item["produto_padrao"]):
@@ -562,7 +626,11 @@ def gerar_sugestoes_sku_master(grupo="todos", limite=250):
     contadores = {
         "total": len(sugestoes),
         "existente": sum(1 for item in sugestoes if item["origem_sugestao"] == "existente"),
-        "dicionario": sum(1 for item in sugestoes if item["origem_sugestao"] == "dicionario"),
+        "dicionario": sum(
+            1 for item in sugestoes
+            if item["origem_sugestao"] in ("dicionario", "dicionario_medbox")
+        ),
+        "dicionario_medbox": sum(1 for item in sugestoes if item["origem_sugestao"] == "dicionario_medbox"),
         "regex": sum(1 for item in sugestoes if item["origem_sugestao"] == "regex"),
         "revisao": sum(1 for item in sugestoes if item["origem_sugestao"] == "revisao"),
     }

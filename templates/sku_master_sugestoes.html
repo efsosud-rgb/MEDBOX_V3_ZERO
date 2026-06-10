@@ -33,7 +33,7 @@
         </div>
         <div class="card">
             <div class="card-info">
-                <span>Dicionario</span>
+                <span>Dicionario MedBox</span>
                 <strong>{{ sugestoes.contadores.dicionario }}</strong>
             </div>
         </div>
@@ -135,6 +135,8 @@
                     <td>
                         {% if item.origem_sugestao == 'existente' %}
                             <span class="badge-verde">existente</span>
+                        {% elif item.origem_sugestao == 'dicionario_medbox' %}
+                            <span class="badge-blue">dicionario_medbox</span>
                         {% elif item.origem_sugestao == 'dicionario' %}
                             <span class="badge-blue">dicionario</span>
                         {% elif item.origem_sugestao == 'regex' %}
