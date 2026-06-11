@@ -129,17 +129,17 @@
 </style>
 
 <section class="panel large">
-    <h3>Importar Cotacao do Cliente</h3>
+    <h3>Importar Cotação do Cliente</h3>
     <form action="/cotacoes/lances/importar" method="POST" enctype="multipart/form-data" class="lances-toolbar">
         <div class="lances-upload-box">
-            <label>Arquivo da cotacao</label>
+            <label>Arquivo da cotação</label>
             <input type="file" name="arquivo" accept=".pdf,.xlsx,.xls,.doc,.docx,.csv,.png,.jpg,.jpeg" required>
         </div>
         <div class="markup-box">
             <label>Markup geral (%)</label>
             <input type="number" step="0.01" min="0" name="markup_percentual" id="markupGeral" value="{{ markup_percentual or 80 }}">
         </div>
-        <button type="submit" class="btn-primary">Importar Cotacao</button>
+        <button type="submit" class="btn-primary">Importar Cotação</button>
     </form>
     {% if arquivo_nome %}
         <p class="muted-small">Arquivo analisado: <strong>{{ arquivo_nome }}</strong></p>
@@ -151,22 +151,22 @@
 
 {% if analise %}
 <section class="panel large">
-    <h3>Resumo da Critica</h3>
+    <h3>Resumo da Crítica</h3>
     <div class="lances-summary" id="lancesResumo">
         <div class="lances-kpi"><span>Total de itens</span><strong data-kpi="total_itens">{{ analise.resumo.total_itens }}</strong></div>
         <div class="lances-kpi"><span>SKU encontrado</span><strong data-kpi="itens_com_sku">{{ analise.resumo.itens_com_sku }}</strong></div>
         <div class="lances-kpi"><span>Revisar SKU</span><strong data-kpi="itens_revisar_sku">{{ analise.resumo.itens_revisar_sku }}</strong></div>
-        <div class="lances-kpi"><span>Com preco MedBox</span><strong data-kpi="itens_com_preco_medbox">{{ analise.resumo.itens_com_preco_medbox }}</strong></div>
-        <div class="lances-kpi"><span>Sem preco</span><strong data-kpi="itens_sem_preco">{{ analise.resumo.itens_sem_preco }}</strong></div>
+        <div class="lances-kpi"><span>Com Preço MedBox</span><strong data-kpi="itens_com_preco_medbox">{{ analise.resumo.itens_com_preco_medbox }}</strong></div>
+        <div class="lances-kpi"><span>Sem Preço</span><strong data-kpi="itens_sem_preco">{{ analise.resumo.itens_sem_preco }}</strong></div>
         <div class="lances-kpi"><span>Competitivos</span><strong data-kpi="itens_competitivos">{{ analise.resumo.itens_competitivos }}</strong></div>
         <div class="lances-kpi"><span>Negociar</span><strong data-kpi="itens_negociar">{{ analise.resumo.itens_negociar }}</strong></div>
         <div class="lances-kpi"><span>Total OSINFO</span><strong data-kpi="total_osinfo">{{ analise.resumo.total_osinfo_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Total ultima compra</span><strong data-kpi="total_ultima_compra">{{ analise.resumo.total_ultima_compra_formatado }}</strong></div>
+        <div class="lances-kpi"><span>Total Última Compra</span><strong data-kpi="total_ultima_compra">{{ analise.resumo.total_ultima_compra_formatado }}</strong></div>
         <div class="lances-kpi"><span>Total MedBox</span><strong data-kpi="total_medbox">{{ analise.resumo.total_medbox_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Total menor lance</span><strong data-kpi="total_menor_lance">{{ analise.resumo.total_menor_lance_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Total menor valor</span><strong data-kpi="total_menor_valor">{{ analise.resumo.total_menor_valor_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Margem media MedBox</span><strong data-kpi="margem_media_medbox">{{ "%.2f"|format(analise.resumo.margem_media_medbox)|replace(".", ",") }}%</strong></div>
-        <div class="lances-kpi"><span>Total estimado</span><strong data-kpi="valor_total_estimado">{{ analise.resumo.valor_total_estimado_formatado }}</strong></div>
+        <div class="lances-kpi"><span>Total Menor Lance</span><strong data-kpi="total_menor_lance">{{ analise.resumo.total_menor_lance_formatado }}</strong></div>
+        <div class="lances-kpi"><span>Total Menor Valor</span><strong data-kpi="total_menor_valor">{{ analise.resumo.total_menor_valor_formatado }}</strong></div>
+        <div class="lances-kpi"><span>Margem Média MedBox</span><strong data-kpi="margem_media_medbox">{{ "%.2f"|format(analise.resumo.margem_media_medbox)|replace(".", ",") }}%</strong></div>
+        <div class="lances-kpi"><span>Total Estimado</span><strong data-kpi="valor_total_estimado">{{ analise.resumo.valor_total_estimado_formatado }}</strong></div>
     </div>
 </section>
 
@@ -177,14 +177,14 @@
             <thead>
                 <tr>
                     <th>Item</th>
-                    <th>Descricao do Produto</th>
+                    <th>Descrição do Produto</th>
                     <th>SKU_MASTER MedBox</th>
                     <th>Quantidade</th>
-                    <th>Preco OSINFO</th>
-                    <th>Ult Comp da Cotacao</th>
-                    <th>Preco MedBox</th>
+                    <th>Preço OSINFO</th>
+                    <th>Últ. Comp. da Cotação</th>
+                    <th>Preço MedBox</th>
                     <th>Markup Atual</th>
-                    <th>Menor Preco Ofertado</th>
+                    <th>Menor Preço Ofertado</th>
                     <th>Empresa Melhor Lance</th>
                     <th>Menor Valor / Vencedor</th>
                     <th>Menor Custo Encontrado</th>
@@ -205,7 +205,7 @@
                     <td><strong>{{ item.item }}</strong></td>
                     <td>
                         <strong>{{ item.descricao_original }}</strong>
-                        <span class="muted-small">Texto original da cotacao</span>
+                        <span class="muted-small">Texto original da cotação</span>
                     </td>
                     <td>
                         <strong>{{ item.sku_master }}</strong>
