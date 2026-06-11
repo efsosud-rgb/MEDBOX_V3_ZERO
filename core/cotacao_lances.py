@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 import re
 import unicodedata
 from datetime import datetime
@@ -31,10 +32,17 @@ COLUNAS_ULTIMA_COMPRA = (
     "ULTIMA AQUISICAO",
 )
 
+# Logger do módulo — será configurado externamente pela rota do Flask
+_log: logging.Logger = logging.getLogger("importacao")
 
-def _ts():
-    """Retorna timestamp atual formatado para logs."""
-    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+def configurar_logger_cotacao(logger: logging.Logger) -> None:
+    """
+    Recebe o logger já configurado pelo app.py e o usa em todo este módulo.
+    Deve ser chamado no início de cada requisição, antes de qualquer função deste módulo.
+    """
+    global _log
+    _log = logger
 
 
 def normalizar_texto(texto):
@@ -140,7 +148,10 @@ def _registros_para_itens(registros):
     coluna_osinfo = _coluna_por_sinonimos(colunas, COLUNAS_OSINFO)
     coluna_ultima = _coluna_por_sinonimos(colunas, COLUNAS_ULTIMA_COMPRA)
 
+    _log.debug(f"_registros_para_itens(): coluna_descricao='{coluna_descricao}' | coluna_quantidade='{coluna_quantidade}' | coluna_osinfo='{coluna_osinfo}' | coluna_ultima='{coluna_ultima}'")
+
     if not coluna_descricao:
+        _log.debug("_registros_para_itens(): coluna de descricao nao encontrada, usando fallback linha a linha")
         linhas = [" | ".join(str(v) for v in registro.values() if str(v).strip()) for registro in registros]
         return _linhas_para_itens(linhas, origem="tabela_sem_colunas")
 
@@ -160,91 +171,91 @@ def _registros_para_itens(registros):
 
 
 def extrair_itens_cotacao(caminho):
-    print(f"[{_ts()}] [cotacao_lances] extrair_itens_cotacao() iniciado para: {caminho}")
+    _log.debug(f"extrair_itens_cotacao(): iniciado para: {caminho}")
     caminho = Path(caminho)
     ext = caminho.suffix.lower()
-    print(f"[{_ts()}] [cotacao_lances] Extensao detectada: {ext}")
+    _log.debug(f"extrair_itens_cotacao(): extensao detectada: '{ext}'")
 
     if ext not in EXTENSOES_SUPORTADAS:
         raise ValueError(f"Formato nao suportado para cotacao: {ext}")
 
     if ext == ".csv":
-        print(f"[{_ts()}] [cotacao_lances] Chamando _extrair_csv() ...")
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_csv() ...")
         resultado = _extrair_csv(caminho)
     elif ext in (".xlsx", ".xls"):
-        print(f"[{_ts()}] [cotacao_lances] Chamando _extrair_excel() ...")
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_excel() ...")
         resultado = _extrair_excel(caminho)
     elif ext == ".docx":
-        print(f"[{_ts()}] [cotacao_lances] Chamando _extrair_docx() ...")
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_docx() ...")
         resultado = _extrair_docx(caminho)
     elif ext == ".doc":
-        print(f"[{_ts()}] [cotacao_lances] Chamando _extrair_doc() ...")
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_doc() ...")
         resultado = _extrair_doc(caminho)
     elif ext == ".pdf":
-        print(f"[{_ts()}] [cotacao_lances] Chamando _extrair_pdf() ...")
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_pdf() ...")
         resultado = _extrair_pdf(caminho)
     else:
-        print(f"[{_ts()}] [cotacao_lances] Chamando _extrair_imagem() ...")
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_imagem() ...")
         resultado = _extrair_imagem(caminho)
 
-    print(f"[{_ts()}] [cotacao_lances] extrair_itens_cotacao() concluido: {len(resultado)} itens extraidos")
+    _log.debug(f"extrair_itens_cotacao(): concluido — {len(resultado)} itens extraidos")
     return resultado
 
 
 def _extrair_csv(caminho):
-    print(f"[{_ts()}] [cotacao_lances] _extrair_csv(): lendo arquivo ...")
+    _log.debug("_extrair_csv(): lendo arquivo ...")
     texto = caminho.read_text(encoding="utf-8-sig", errors="ignore")
-    print(f"[{_ts()}] [cotacao_lances] _extrair_csv(): {len(texto)} caracteres lidos")
+    _log.debug(f"_extrair_csv(): {len(texto)} caracteres lidos")
     amostra = texto[:2048]
     try:
         dialect = csv.Sniffer().sniff(amostra, delimiters=",;|\t")
-        print(f"[{_ts()}] [cotacao_lances] _extrair_csv(): dialeto detectado: delimitador='{dialect.delimiter}'")
+        _log.debug(f"_extrair_csv(): dialeto detectado — delimitador='{dialect.delimiter}'")
     except csv.Error:
         dialect = csv.excel
         dialect.delimiter = ";"
-        print(f"[{_ts()}] [cotacao_lances] _extrair_csv(): dialeto padrao usado (;)")
+        _log.debug("_extrair_csv(): dialeto padrao usado (;)")
 
     reader = csv.DictReader(io.StringIO(texto), dialect=dialect)
     if reader.fieldnames:
-        print(f"[{_ts()}] [cotacao_lances] _extrair_csv(): colunas detectadas: {list(reader.fieldnames)}")
+        _log.debug(f"_extrair_csv(): colunas detectadas: {list(reader.fieldnames)}")
         registros = [dict(row) for row in reader]
-        print(f"[{_ts()}] [cotacao_lances] _extrair_csv(): {len(registros)} registros lidos")
+        _log.debug(f"_extrair_csv(): {len(registros)} registros lidos")
         itens = _registros_para_itens(registros)
         if itens:
-            print(f"[{_ts()}] [cotacao_lances] _extrair_csv(): {len(itens)} itens extraidos via registros")
+            _log.debug(f"_extrair_csv(): {len(itens)} itens extraidos via registros")
             return itens
-    print(f"[{_ts()}] [cotacao_lances] _extrair_csv(): fallback para leitura linha a linha")
+    _log.debug("_extrair_csv(): fallback para leitura linha a linha")
     return _linhas_para_itens(texto.splitlines(), origem="csv_texto")
 
 
 def _extrair_excel(caminho):
-    print(f"[{_ts()}] [cotacao_lances] _extrair_excel(): importando pandas ...")
+    _log.debug("_extrair_excel(): importando pandas ...")
     try:
         import pandas as pd
     except ImportError as erro:
         raise ValueError("Pandas nao esta disponivel para ler Excel.") from erro
 
-    print(f"[{_ts()}] [cotacao_lances] _extrair_excel(): pandas importado. Lendo planilha com pd.read_excel() ...")
+    _log.debug("_extrair_excel(): pandas importado. Chamando pd.read_excel() ...")
     planilhas = pd.read_excel(caminho, sheet_name=None, dtype=str)
-    print(f"[{_ts()}] [cotacao_lances] _extrair_excel(): {len(planilhas)} aba(s) encontrada(s): {list(planilhas.keys())}")
+    _log.debug(f"_extrair_excel(): {len(planilhas)} aba(s) encontrada(s): {list(planilhas.keys())}")
 
     registros = []
     for nome_aba, df in planilhas.items():
-        print(f"[{_ts()}] [cotacao_lances] _extrair_excel(): processando aba '{nome_aba}' ({len(df)} linhas x {len(df.columns)} colunas) ...")
+        _log.debug(f"_extrair_excel(): processando aba '{nome_aba}' — {len(df)} linhas x {len(df.columns)} colunas ...")
         df = df.dropna(how="all")
         df = df.fillna("")
         novos = df.to_dict(orient="records")
-        print(f"[{_ts()}] [cotacao_lances] _extrair_excel(): aba '{nome_aba}' gerou {len(novos)} registros")
+        _log.debug(f"_extrair_excel(): aba '{nome_aba}' gerou {len(novos)} registros")
         registros.extend(novos)
 
-    print(f"[{_ts()}] [cotacao_lances] _extrair_excel(): total de {len(registros)} registros. Chamando _registros_para_itens() ...")
+    _log.debug(f"_extrair_excel(): total {len(registros)} registros. Chamando _registros_para_itens() ...")
     itens = _registros_para_itens(registros)
-    print(f"[{_ts()}] [cotacao_lances] _extrair_excel(): {len(itens)} itens extraidos")
+    _log.debug(f"_extrair_excel(): {len(itens)} itens extraidos")
     return itens
 
 
 def _extrair_docx(caminho):
-    print(f"[{_ts()}] [cotacao_lances] _extrair_docx(): importando python-docx ...")
+    _log.debug("_extrair_docx(): importando python-docx ...")
     try:
         from docx import Document
     except ImportError as erro:
@@ -252,16 +263,16 @@ def _extrair_docx(caminho):
 
     doc = Document(caminho)
     linhas = [p.text for p in doc.paragraphs if p.text.strip()]
-    print(f"[{_ts()}] [cotacao_lances] _extrair_docx(): {len(linhas)} paragrafos, {len(doc.tables)} tabelas")
+    _log.debug(f"_extrair_docx(): {len(linhas)} paragrafos, {len(doc.tables)} tabelas")
     for tabela in doc.tables:
         for row in tabela.rows:
             linhas.append(" | ".join(cell.text.strip() for cell in row.cells))
-    print(f"[{_ts()}] [cotacao_lances] _extrair_docx(): total de {len(linhas)} linhas apos tabelas")
+    _log.debug(f"_extrair_docx(): total {len(linhas)} linhas apos tabelas")
     return _linhas_para_itens(linhas, origem="docx")
 
 
 def _extrair_doc(caminho):
-    print(f"[{_ts()}] [cotacao_lances] _extrair_doc(): lendo bytes do arquivo ...")
+    _log.debug("_extrair_doc(): lendo bytes do arquivo ...")
     dados = caminho.read_bytes()
     texto = dados.decode("latin-1", errors="ignore")
     linhas = []
@@ -269,7 +280,7 @@ def _extrair_doc(caminho):
         linha_limpa = re.sub(r"[^\x20-\x7E\u00C0-\u00FF]+", " ", linha).strip()
         if linha_limpa:
             linhas.append(linha_limpa)
-    print(f"[{_ts()}] [cotacao_lances] _extrair_doc(): {len(linhas)} linhas extraidas")
+    _log.debug(f"_extrair_doc(): {len(linhas)} linhas extraidas")
     itens = _linhas_para_itens(linhas, origem="doc")
     if not itens:
         raise ValueError("Nao foi possivel extrair itens do DOC. Salve como DOCX, PDF com texto, XLSX ou CSV.")
@@ -277,7 +288,7 @@ def _extrair_doc(caminho):
 
 
 def _extrair_pdf(caminho):
-    print(f"[{_ts()}] [cotacao_lances] _extrair_pdf(): importando pdfplumber ...")
+    _log.debug("_extrair_pdf(): importando pdfplumber ...")
     try:
         import pdfplumber
     except ImportError as erro:
@@ -285,23 +296,23 @@ def _extrair_pdf(caminho):
 
     linhas = []
     with pdfplumber.open(caminho) as pdf:
-        print(f"[{_ts()}] [cotacao_lances] _extrair_pdf(): {len(pdf.pages)} pagina(s) encontrada(s)")
+        _log.debug(f"_extrair_pdf(): {len(pdf.pages)} pagina(s) encontrada(s)")
         for i, pagina in enumerate(pdf.pages, start=1):
-            print(f"[{_ts()}] [cotacao_lances] _extrair_pdf(): processando pagina {i}/{len(pdf.pages)} ...")
+            _log.debug(f"_extrair_pdf(): processando pagina {i}/{len(pdf.pages)} ...")
             texto = pagina.extract_text() or ""
             linhas.extend(texto.splitlines())
             for tabela in pagina.extract_tables() or []:
                 for row in tabela:
                     linhas.append(" | ".join(str(cell or "").strip() for cell in row))
 
-    print(f"[{_ts()}] [cotacao_lances] _extrair_pdf(): {len(linhas)} linhas extraidas no total")
+    _log.debug(f"_extrair_pdf(): {len(linhas)} linhas extraidas no total")
     if not linhas:
         raise ValueError("PDF sem texto extraivel. Use arquivo com texto ou OCR disponivel.")
     return _linhas_para_itens(linhas, origem="pdf")
 
 
 def _extrair_imagem(caminho):
-    print(f"[{_ts()}] [cotacao_lances] _extrair_imagem(): importando PIL e pytesseract ...")
+    _log.debug("_extrair_imagem(): importando PIL e pytesseract ...")
     try:
         from PIL import Image
         import pytesseract
@@ -309,17 +320,17 @@ def _extrair_imagem(caminho):
         raise ValueError("OCR indisponivel para imagem. Envie XLSX, CSV, DOCX ou PDF com texto.") from erro
 
     try:
-        print(f"[{_ts()}] [cotacao_lances] _extrair_imagem(): executando OCR (lang=por) ...")
+        _log.debug("_extrair_imagem(): executando OCR (lang=por) ...")
         texto = pytesseract.image_to_string(Image.open(caminho), lang="por")
     except Exception:
         try:
-            print(f"[{_ts()}] [cotacao_lances] _extrair_imagem(): fallback OCR (lang=eng) ...")
+            _log.debug("_extrair_imagem(): fallback OCR (lang=eng) ...")
             texto = pytesseract.image_to_string(Image.open(caminho), lang="eng")
         except Exception as erro:
             raise ValueError(
                 "OCR indisponivel. Instale o idioma portugues do Tesseract ou envie XLSX/CSV/PDF com texto."
             ) from erro
-    print(f"[{_ts()}] [cotacao_lances] _extrair_imagem(): OCR concluido, {len(texto)} caracteres")
+    _log.debug(f"_extrair_imagem(): OCR concluido — {len(texto)} caracteres")
     return _linhas_para_itens(texto.splitlines(), origem="ocr")
 
 
@@ -416,33 +427,34 @@ def _assinatura_compativel(descricao, candidato):
 
 
 def buscar_sku_para_lance(descricao, score_minimo=70):
-    print(f"[{_ts()}] [cotacao_lances]   buscar_sku_para_lance(): descricao='{descricao[:60]}...' " if len(descricao) > 60 else f"[{_ts()}] [cotacao_lances]   buscar_sku_para_lance(): descricao='{descricao}'")
+    desc_curta = descricao[:60] + ("..." if len(descricao) > 60 else "")
+    _log.debug(f"  buscar_sku_para_lance(): '{desc_curta}'")
 
-    print(f"[{_ts()}] [cotacao_lances]     _termo_busca_tecnico() ...")
+    _log.debug("    _termo_busca_tecnico() ...")
     termo_tecnico = _termo_busca_tecnico(descricao)
-    print(f"[{_ts()}] [cotacao_lances]     termo_tecnico='{termo_tecnico}'")
+    _log.debug(f"    termo_tecnico='{termo_tecnico}'")
 
-    print(f"[{_ts()}] [cotacao_lances]     sugerir_sku_medbox_oficial() ...")
+    _log.debug("    sugerir_sku_medbox_oficial() ...")
     sku_oficial, confianca_oficial = sugerir_sku_medbox_oficial(descricao)
-    print(f"[{_ts()}] [cotacao_lances]     sku_oficial='{sku_oficial}' confianca={confianca_oficial}")
+    _log.debug(f"    sku_oficial='{sku_oficial}' confianca={confianca_oficial}")
 
     termos = [termo_tecnico, descricao]
     candidatos = []
     vistos = set()
 
     for idx_termo, termo in enumerate(termos, start=1):
-        print(f"[{_ts()}] [cotacao_lances]     buscar_produto_inteligente() termo {idx_termo}/{len(termos)}: '{termo[:50]}' ...")
+        _log.debug(f"    buscar_produto_inteligente() [{idx_termo}/{len(termos)}]: '{termo[:50]}' ...")
         resultados = buscar_produto_inteligente(termo, limite=8)
-        print(f"[{_ts()}] [cotacao_lances]     buscar_produto_inteligente() retornou {len(resultados)} resultados")
+        _log.debug(f"    buscar_produto_inteligente() retornou {len(resultados)} resultados")
         for candidato in resultados:
             if candidato["id"] in vistos:
                 continue
             vistos.add(candidato["id"])
             candidatos.append(candidato)
 
-    print(f"[{_ts()}] [cotacao_lances]     {len(candidatos)} candidatos unicos antes do filtro de assinatura")
+    _log.debug(f"    {len(candidatos)} candidatos unicos antes do filtro de assinatura")
     candidatos = [c for c in candidatos if _assinatura_compativel(descricao, c)]
-    print(f"[{_ts()}] [cotacao_lances]     {len(candidatos)} candidatos apos filtro de assinatura")
+    _log.debug(f"    {len(candidatos)} candidatos apos filtro de assinatura")
 
     candidatos.sort(key=lambda c: (
         -(c.get("score_busca") or 0),
@@ -452,11 +464,11 @@ def buscar_sku_para_lance(descricao, score_minimo=70):
     ))
 
     if not candidatos:
-        print(f"[{_ts()}] [cotacao_lances]     sem candidatos, tentando _sku_tecnico_derivado()")
+        _log.debug("    sem candidatos — tentando _sku_tecnico_derivado()")
         return _sku_tecnico_derivado(descricao)
 
     melhor = candidatos[0]
-    print(f"[{_ts()}] [cotacao_lances]     melhor candidato: '{melhor.get('produto_padrao')}' score={melhor.get('score_busca')}")
+    _log.debug(f"    melhor candidato: '{melhor.get('produto_padrao')}' score={melhor.get('score_busca')}")
 
     if sku_oficial and confianca_oficial >= 88:
         melhor = dict(melhor)
@@ -468,14 +480,14 @@ def buscar_sku_para_lance(descricao, score_minimo=70):
         sku_norm = normalizar_texto(melhor.get("sku_master_exibicao") or melhor.get("produto_padrao"))
         medida_derivada = re.search(r"\d{1,2}X\d{1,2}(?:[,.]\d+)?", derivado["sku_master_exibicao"].replace(" ", ""))
         if medida_derivada and medida_derivada.group(0) not in sku_norm.replace(" ", ""):
-            print(f"[{_ts()}] [cotacao_lances]     usando derivado tecnico: '{derivado['sku_master_exibicao']}'")
+            _log.debug(f"    usando derivado tecnico: '{derivado['sku_master_exibicao']}'")
             return derivado
 
     if (melhor.get("score_busca") or 0) < score_minimo:
-        print(f"[{_ts()}] [cotacao_lances]     score abaixo do minimo ({melhor.get('score_busca')} < {score_minimo}), retornando None")
+        _log.debug(f"    score abaixo do minimo ({melhor.get('score_busca')} < {score_minimo}) — retornando None")
         return None
 
-    print(f"[{_ts()}] [cotacao_lances]     retornando melhor candidato")
+    _log.debug("    retornando melhor candidato")
     return melhor
 
 
@@ -506,16 +518,15 @@ def _status_item(sku_encontrado, menor_custo, preco_medbox, preco_osinfo, menor_
 
 
 def analisar_itens_lances(itens, markup_percentual=80, score_minimo=70):
-    print(f"[{_ts()}] [cotacao_lances] analisar_itens_lances(): {len(itens)} itens para analisar, markup={markup_percentual}%")
+    _log.debug(f"analisar_itens_lances(): {len(itens)} itens para analisar — markup={markup_percentual}%")
     markup_percentual = numero_br(markup_percentual, 80.0)
     analisados = []
 
     for indice, item in enumerate(itens, start=1):
-        print(f"[{_ts()}] [cotacao_lances] --- Item {indice}/{len(itens)}: '{item['descricao_original'][:60]}' ---")
-
-        print(f"[{_ts()}] [cotacao_lances]   Buscando SKU para lance ...")
+        _log.debug(f"--- Item {indice}/{len(itens)}: '{item['descricao_original'][:60]}' ---")
+        _log.debug("  Buscando SKU para lance ...")
         candidato = buscar_sku_para_lance(item["descricao_original"], score_minimo=score_minimo)
-        print(f"[{_ts()}] [cotacao_lances]   SKU encontrado: {bool(candidato)} | produto='{(candidato or {}).get('produto_padrao', 'N/A')}'")
+        _log.debug(f"  SKU encontrado: {bool(candidato)} | produto='{(candidato or {}).get('produto_padrao', 'N/A')}'")
 
         preco_menor = _menor_preco(candidato) if candidato else None
         menor_custo = preco_menor.get("preco") if preco_menor else None
@@ -530,7 +541,7 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=70):
         status = _status_item(bool(candidato), menor_custo, preco_medbox, item["preco_osinfo"], menor_lance)
         quantidade = item["quantidade"] or 1.0
 
-        print(f"[{_ts()}] [cotacao_lances]   menor_custo={menor_custo} | preco_medbox={preco_medbox} | status={status}")
+        _log.debug(f"  menor_custo={menor_custo} | preco_medbox={preco_medbox} | status={status}")
 
         analisado = {
             "item": indice,
@@ -565,9 +576,9 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=70):
             "total_menor_valor": menor_valor * quantidade,
         }
         analisados.append(analisado)
-        print(f"[{_ts()}] [cotacao_lances]   Item {indice} concluido.")
+        _log.debug(f"  Item {indice} concluido.")
 
-    print(f"[{_ts()}] [cotacao_lances] analisar_itens_lances(): todos os {len(analisados)} itens processados")
+    _log.debug(f"analisar_itens_lances(): todos os {len(analisados)} itens processados")
     return {
         "markup_percentual": markup_percentual,
         "itens": analisados,
@@ -614,12 +625,12 @@ def montar_resumo_lances(itens):
 
 
 def analisar_arquivo_cotacao(caminho, markup_percentual=80):
-    print(f"[{_ts()}] [cotacao_lances] analisar_arquivo_cotacao(): caminho={caminho} markup={markup_percentual}%")
-    print(f"[{_ts()}] [cotacao_lances] Passo 1/2: extraindo itens do arquivo ...")
+    _log.debug(f"analisar_arquivo_cotacao(): caminho={caminho} markup={markup_percentual}%")
+    _log.debug("Passo 1/2: extraindo itens do arquivo ...")
     itens = extrair_itens_cotacao(caminho)
-    print(f"[{_ts()}] [cotacao_lances] Passo 1/2 concluido: {len(itens)} itens extraidos")
-    print(f"[{_ts()}] [cotacao_lances] Passo 2/2: analisando itens (busca de SKU + calculo de precos) ...")
+    _log.debug(f"Passo 1/2 concluido: {len(itens)} itens extraidos")
+    _log.debug("Passo 2/2: analisando itens (busca de SKU + calculo de precos) ...")
     resultado = analisar_itens_lances(itens, markup_percentual=markup_percentual)
-    print(f"[{_ts()}] [cotacao_lances] Passo 2/2 concluido.")
-    print(f"[{_ts()}] [cotacao_lances] analisar_arquivo_cotacao() finalizado.")
+    _log.debug("Passo 2/2 concluido.")
+    _log.debug("analisar_arquivo_cotacao() finalizado.")
     return resultado
