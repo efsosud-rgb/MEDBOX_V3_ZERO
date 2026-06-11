@@ -13,6 +13,7 @@ from core.banco import (
 
 PESOS_CAMPOS = {
     "produto_padrao": 1.00,
+    "sku": 0.95,
     "equivalencia": 0.95,
     "descricao_original": 0.80,
     "fabricante": 0.55,
@@ -347,6 +348,7 @@ def _recuperar_candidatos(cursor, termos):
         _buscar_por_campo_produto(
             cursor, candidatos, "produto_padrao", "produto_padrao", termo
         )
+        _buscar_por_campo_produto(cursor, candidatos, "sku", "sku", termo)
         _buscar_por_campo_produto(cursor, candidatos, "fabricante", "fabricante", termo)
         _buscar_por_equivalencias(cursor, candidatos, termo)
         _buscar_por_precos(

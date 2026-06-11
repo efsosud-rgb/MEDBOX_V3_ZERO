@@ -519,6 +519,40 @@ def configuracoes():
     )
 
 
+@app.route("/sku-master/skus-json")
+def sku_master_skus_json():
+    conn = conectar()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT produto_padrao FROM produtos WHERE ativo = 1 AND produto_padrao IS NOT NULL ORDER BY produto_padrao"
+    )
+    skus = [row["produto_padrao"] for row in cursor.fetchall() if row["produto_padrao"]]
+    conn.close()
+    return Response(json.dumps(skus, ensure_ascii=False), content_type="application/json")
+
+
+@app.route("/sku-master/auditoria/salvar-sku", methods=["POST"])
+def sku_master_auditoria_salvar_sku():
+    produto_id = request.form.get("produto_id")
+    sku_manual = request.form.get("sku_manual", "").strip()
+    filtro = request.form.get("filtro", "todos")
+    try:
+        resultado = aplicar_correcao_manual_sku_master(
+            produto_origem_id=produto_id,
+            sku_manual=sku_manual,
+            usuario="compras",
+        )
+        acao = "criado" if resultado["destino_criado"] else "existente"
+        flash(
+            f"SKU salvo: destino {acao}, "
+            f"{resultado['precos_migrados']} precos e "
+            f"{resultado['equivalencias_migradas']} equivalencias migrados."
+        )
+    except Exception as erro:
+        flash(f"Erro ao salvar SKU: {erro}")
+    return redirect(url_for("sku_master_auditoria", filtro=filtro))
+
+
 if __name__ == "__main__":
     print("MEDBOX V3 rodando em http://127.0.0.1:5000")
     app.run(debug=True)

@@ -241,6 +241,9 @@
                                         <td class="position-cell">{{ loop.index + 1 }}</td>
                                         <td>
                                             <strong>{{ item.sku_master_exibicao if item.sku_master_exibicao else item.produto_padrao }}</strong>
+                                            {% if item.sku %}
+                                            <small style="display:block; color:var(--muted); font-size:0.78rem;">{{ item.sku }}</small>
+                                            {% endif %}
                                             {% if item.suspeito_contaminado and item.sku_pendente_padronizacao %}
                                             <small style="display:block; color:#b45309; font-weight:700;">SKU pendente</small>
                                             {% endif %}
@@ -297,6 +300,12 @@
                                     {{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}
                                 </strong>
                             </div>
+                            {% if principal.sku %}
+                            <div>
+                                <span>Código SKU:</span>
+                                <strong>{{ principal.sku }}</strong>
+                            </div>
+                            {% endif %}
                             <div>
                                 <span>Nome Padronizado:</span>
                                 <strong style="word-break:break-word; overflow-wrap:anywhere;">

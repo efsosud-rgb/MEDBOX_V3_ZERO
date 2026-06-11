@@ -96,9 +96,10 @@
                     <th>Categoria</th>
                     <th>Classificacao</th>
                     <th>Motivo</th>
-                    <th>Sugestao SKU limpo</th>
+                    <th>SKU Sugerido</th>
                     <th>Precos</th>
                     <th>Equivalencias</th>
+                    <th>Acao</th>
                 </tr>
             </thead>
             <tbody>
@@ -124,18 +125,74 @@
                         {% endif %}
                     </td>
                     <td>{{ item.motivo }}</td>
-                    <td>{{ item.sugestao_sku_limpo or "-" }}</td>
+                    <td>
+                        {% if item.classificacao != 'LIMPO' %}
+                        <input
+                            type="text"
+                            class="sku-sugerido-input"
+                            data-produto-id="{{ item.id }}"
+                            value="{{ item.sugestao_sku_limpo or '' }}"
+                            list="sku-datalist"
+                            placeholder="Digite ou selecione..."
+                            style="width:220px; padding:4px 6px; border:1px solid var(--border,#d1d5db); border-radius:4px; font-size:0.82rem;"
+                        >
+                        {% else %}
+                        <span style="color:var(--muted)">—</span>
+                        {% endif %}
+                    </td>
                     <td>{{ item.total_precos }}</td>
                     <td>{{ item.total_equivalencias }}</td>
+                    <td>
+                        {% if item.classificacao != 'LIMPO' %}
+                        <form method="POST" action="{{ url_for('sku_master_auditoria_salvar_sku') }}" class="form-salvar-sku">
+                            <input type="hidden" name="produto_id" value="{{ item.id }}">
+                            <input type="hidden" name="filtro" value="{{ auditoria.filtro }}">
+                            <input type="hidden" name="sku_manual" class="sku-manual-hidden" value="{{ item.sugestao_sku_limpo or '' }}">
+                            <button type="submit" class="btn-primary" style="padding:4px 14px; font-size:0.82rem;">Salvar</button>
+                        </form>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9">Nenhum registro encontrado para o filtro selecionado.</td>
+                    <td colspan="10">Nenhum registro encontrado para o filtro selecionado.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </section>
+
+<datalist id="sku-datalist"></datalist>
+
+<script>
+(function () {
+    fetch('/sku-master/skus-json')
+        .then(function (r) { return r.json(); })
+        .then(function (skus) {
+            var dl = document.getElementById('sku-datalist');
+            skus.forEach(function (sku) {
+                var opt = document.createElement('option');
+                opt.value = sku;
+                dl.appendChild(opt);
+            });
+        });
+
+    document.querySelectorAll('.sku-sugerido-input').forEach(function (input) {
+        input.addEventListener('input', function () {
+            var form = document.querySelector('.form-salvar-sku[data-pid="' + input.dataset.produtoId + '"]');
+            if (!form) {
+                var row = input.closest('tr');
+                if (row) {
+                    form = row.querySelector('.form-salvar-sku');
+                }
+            }
+            if (form) {
+                form.querySelector('.sku-manual-hidden').value = input.value;
+            }
+        });
+    });
+})();
+</script>
 
 {% endblock %}
