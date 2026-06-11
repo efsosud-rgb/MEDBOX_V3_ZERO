@@ -590,6 +590,145 @@ def configuracoes():
     )
 
 
+@app.route("/sku-master/marcas-json")
+def sku_master_marcas_json():
+    conn = conectar()
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT DISTINCT fabricante FROM produtos
+           WHERE ativo = 1 AND fabricante IS NOT NULL AND TRIM(fabricante) != ''
+           ORDER BY fabricante"""
+    )
+    marcas = [row["fabricante"] for row in cursor.fetchall()]
+    conn.close()
+    return Response(json.dumps(marcas, ensure_ascii=False), content_type="application/json")
+
+
+@app.route("/sku-master/categorias-json")
+def sku_master_categorias_json():
+    conn = conectar()
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT DISTINCT categoria FROM produtos
+           WHERE ativo = 1 AND categoria IS NOT NULL AND TRIM(categoria) != ''
+           ORDER BY categoria"""
+    )
+    categorias = [row["categoria"] for row in cursor.fetchall()]
+    conn.close()
+    return Response(json.dumps(categorias, ensure_ascii=False), content_type="application/json")
+
+
+@app.route("/sku-master/auditoria/salvar-campo", methods=["POST"])
+def sku_master_auditoria_salvar_campo():
+    data = request.get_json(force=True) or {}
+    campo = data.get("campo", "")
+    produto_id = data.get("produto_id")
+    valor = str(data.get("valor", "")).strip()
+
+    if campo not in ("fabricante", "categoria"):
+        return Response(
+            json.dumps({"ok": False, "erro": "Campo invalido."}, ensure_ascii=False),
+            content_type="application/json",
+        )
+    if not produto_id:
+        return Response(
+            json.dumps({"ok": False, "erro": "produto_id ausente."}, ensure_ascii=False),
+            content_type="application/json",
+        )
+    try:
+        conn = conectar()
+        cursor = conn.cursor()
+        if campo == "fabricante":
+            cursor.execute(
+                "UPDATE produtos SET fabricante = ? WHERE id = ? AND ativo = 1",
+                (valor, int(produto_id)),
+            )
+        else:
+            cursor.execute(
+                "UPDATE produtos SET categoria = ? WHERE id = ? AND ativo = 1",
+                (valor, int(produto_id)),
+            )
+        conn.commit()
+        affected = cursor.rowcount
+        conn.close()
+        if affected == 0:
+            return Response(
+                json.dumps({"ok": False, "erro": "Produto nao encontrado ou inativo."}, ensure_ascii=False),
+                content_type="application/json",
+            )
+        return Response(
+            json.dumps({"ok": True, "campo": campo, "valor": valor}, ensure_ascii=False),
+            content_type="application/json",
+        )
+    except Exception as e:
+        return Response(
+            json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False),
+            content_type="application/json",
+        )
+
+
+@app.route("/sku-master/auditoria/salvar-sku-ajax", methods=["POST"])
+def sku_master_auditoria_salvar_sku_ajax():
+    data = request.get_json(force=True) or {}
+    produto_id = data.get("produto_id")
+    sku_manual = str(data.get("sku_manual", "")).strip()
+    try:
+        resultado = aplicar_correcao_manual_sku_master(
+            produto_origem_id=produto_id,
+            sku_manual=sku_manual,
+            usuario="compras",
+        )
+        acao = "criado" if resultado["destino_criado"] else "existente"
+        return Response(
+            json.dumps({
+                "ok": True,
+                "mensagem": (
+                    f"SKU salvo: destino {acao}, "
+                    f"{resultado['precos_migrados']} precos e "
+                    f"{resultado['equivalencias_migradas']} equivalencias migrados."
+                ),
+                "sku_novo": sku_manual,
+            }, ensure_ascii=False),
+            content_type="application/json",
+        )
+    except Exception as e:
+        return Response(
+            json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False),
+            content_type="application/json",
+        )
+
+
+@app.route("/sku-master/auditoria/corrigir-todos", methods=["POST"])
+def sku_master_auditoria_corrigir_todos():
+    filtro = request.form.get("filtro", "todos")
+    itens_raw = request.form.get("itens", "[]")
+    try:
+        itens = json.loads(itens_raw)
+        aplicados = 0
+        erros = []
+        for item in itens:
+            pid = item.get("produto_id")
+            sku = str(item.get("sku_manual", "")).strip()
+            if not sku:
+                continue
+            try:
+                aplicar_correcao_manual_sku_master(
+                    produto_origem_id=pid,
+                    sku_manual=sku,
+                    usuario="compras",
+                )
+                aplicados += 1
+            except Exception as e:
+                erros.append(f"id={pid}: {str(e)[:60]}")
+        msg = f"Corrigir Todos: {aplicados} SKU(s) aplicado(s)."
+        if erros:
+            msg += f" {len(erros)} erro(s): " + "; ".join(erros[:3])
+        flash(msg)
+    except Exception as e:
+        flash(f"Erro em Corrigir Todos: {e}")
+    return redirect(url_for("sku_master_auditoria", filtro=filtro))
+
+
 @app.route("/sku-master/skus-json")
 def sku_master_skus_json():
     conn = conectar()
