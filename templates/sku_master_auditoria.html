@@ -5,6 +5,16 @@
 
 {% block content %}
 
+{% with mensagens = get_flashed_messages() %}
+    {% if mensagens %}
+        <section class="panel">
+            {% for mensagem in mensagens %}
+                <p>{{ mensagem }}</p>
+            {% endfor %}
+        </section>
+    {% endif %}
+{% endwith %}
+
 <section class="panel">
     <h3>Resumo da Auditoria</h3>
 
@@ -126,7 +136,7 @@
                     </td>
                     <td>{{ item.motivo }}</td>
                     <td>
-                        {% if item.classificacao != 'LIMPO' %}
+                        {% if item.classificacao != 'LIMPO' and item.ativo %}
                         <input
                             type="text"
                             class="sku-sugerido-input"
@@ -143,13 +153,15 @@
                     <td>{{ item.total_precos }}</td>
                     <td>{{ item.total_equivalencias }}</td>
                     <td>
-                        {% if item.classificacao != 'LIMPO' %}
+                        {% if item.classificacao != 'LIMPO' and item.ativo %}
                         <form method="POST" action="{{ url_for('sku_master_auditoria_salvar_sku') }}" class="form-salvar-sku">
                             <input type="hidden" name="produto_id" value="{{ item.id }}">
                             <input type="hidden" name="filtro" value="{{ auditoria.filtro }}">
                             <input type="hidden" name="sku_manual" class="sku-manual-hidden" value="{{ item.sugestao_sku_limpo or '' }}">
                             <button type="submit" class="btn-primary" style="padding:4px 14px; font-size:0.82rem;">Salvar</button>
                         </form>
+                        {% elif item.classificacao != 'LIMPO' %}
+                        <span style="color:var(--muted); font-size:0.78rem;">inativo</span>
                         {% endif %}
                     </td>
                 </tr>
