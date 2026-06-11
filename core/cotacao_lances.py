@@ -1,13 +1,16 @@
 import csv
 import io
+import logging
 import re
 import unicodedata
+from datetime import datetime
 from pathlib import Path
 
 from rapidfuzz import fuzz
 
 from core.auditoria_sku_master import sugerir_sku_medbox_oficial
 from core.busca_inteligente import buscar_produto_inteligente
+from core.critica_cotacao_fornecedor import analisar_cotacao_por_fornecedor
 from core.formatadores import moeda_br
 
 
@@ -29,6 +32,23 @@ COLUNAS_ULTIMA_COMPRA = (
     "ULTIMA COMPRA DA COTACAO",
     "ULTIMA AQUISICAO",
 )
+
+# Logger do módulo — será configurado externamente pela rota do Flask
+_log: logging.Logger = logging.getLogger("importacao")
+
+# Cache de busca com escopo de importação — zerado a cada analisar_arquivo_cotacao().
+# Evita chamar buscar_produto_inteligente() múltiplas vezes com o mesmo termo dentro
+# de uma única requisição (424 itens podem compartilhar dezenas de descrições idênticas).
+_busca_cache: dict = {}
+
+
+def configurar_logger_cotacao(logger: logging.Logger) -> None:
+    """
+    Recebe o logger já configurado pelo app.py e o usa em todo este módulo.
+    Deve ser chamado no início de cada requisição, antes de qualquer função deste módulo.
+    """
+    global _log
+    _log = logger
 
 
 def normalizar_texto(texto):
@@ -134,7 +154,10 @@ def _registros_para_itens(registros):
     coluna_osinfo = _coluna_por_sinonimos(colunas, COLUNAS_OSINFO)
     coluna_ultima = _coluna_por_sinonimos(colunas, COLUNAS_ULTIMA_COMPRA)
 
+    _log.debug(f"_registros_para_itens(): coluna_descricao='{coluna_descricao}' | coluna_quantidade='{coluna_quantidade}' | coluna_osinfo='{coluna_osinfo}' | coluna_ultima='{coluna_ultima}'")
+
     if not coluna_descricao:
+        _log.debug("_registros_para_itens(): coluna de descricao nao encontrada, usando fallback linha a linha")
         linhas = [" | ".join(str(v) for v in registro.values() if str(v).strip()) for registro in registros]
         return _linhas_para_itens(linhas, origem="tabela_sem_colunas")
 
@@ -154,58 +177,91 @@ def _registros_para_itens(registros):
 
 
 def extrair_itens_cotacao(caminho):
+    _log.debug(f"extrair_itens_cotacao(): iniciado para: {caminho}")
     caminho = Path(caminho)
     ext = caminho.suffix.lower()
+    _log.debug(f"extrair_itens_cotacao(): extensao detectada: '{ext}'")
+
     if ext not in EXTENSOES_SUPORTADAS:
         raise ValueError(f"Formato nao suportado para cotacao: {ext}")
 
     if ext == ".csv":
-        return _extrair_csv(caminho)
-    if ext in (".xlsx", ".xls"):
-        return _extrair_excel(caminho)
-    if ext == ".docx":
-        return _extrair_docx(caminho)
-    if ext == ".doc":
-        return _extrair_doc(caminho)
-    if ext == ".pdf":
-        return _extrair_pdf(caminho)
-    return _extrair_imagem(caminho)
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_csv() ...")
+        resultado = _extrair_csv(caminho)
+    elif ext in (".xlsx", ".xls"):
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_excel() ...")
+        resultado = _extrair_excel(caminho)
+    elif ext == ".docx":
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_docx() ...")
+        resultado = _extrair_docx(caminho)
+    elif ext == ".doc":
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_doc() ...")
+        resultado = _extrair_doc(caminho)
+    elif ext == ".pdf":
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_pdf() ...")
+        resultado = _extrair_pdf(caminho)
+    else:
+        _log.debug("extrair_itens_cotacao(): chamando _extrair_imagem() ...")
+        resultado = _extrair_imagem(caminho)
+
+    _log.debug(f"extrair_itens_cotacao(): concluido — {len(resultado)} itens extraidos")
+    return resultado
 
 
 def _extrair_csv(caminho):
+    _log.debug("_extrair_csv(): lendo arquivo ...")
     texto = caminho.read_text(encoding="utf-8-sig", errors="ignore")
+    _log.debug(f"_extrair_csv(): {len(texto)} caracteres lidos")
     amostra = texto[:2048]
     try:
         dialect = csv.Sniffer().sniff(amostra, delimiters=",;|\t")
+        _log.debug(f"_extrair_csv(): dialeto detectado — delimitador='{dialect.delimiter}'")
     except csv.Error:
         dialect = csv.excel
         dialect.delimiter = ";"
+        _log.debug("_extrair_csv(): dialeto padrao usado (;)")
 
     reader = csv.DictReader(io.StringIO(texto), dialect=dialect)
     if reader.fieldnames:
+        _log.debug(f"_extrair_csv(): colunas detectadas: {list(reader.fieldnames)}")
         registros = [dict(row) for row in reader]
+        _log.debug(f"_extrair_csv(): {len(registros)} registros lidos")
         itens = _registros_para_itens(registros)
         if itens:
+            _log.debug(f"_extrair_csv(): {len(itens)} itens extraidos via registros")
             return itens
+    _log.debug("_extrair_csv(): fallback para leitura linha a linha")
     return _linhas_para_itens(texto.splitlines(), origem="csv_texto")
 
 
 def _extrair_excel(caminho):
+    _log.debug("_extrair_excel(): importando pandas ...")
     try:
         import pandas as pd
     except ImportError as erro:
         raise ValueError("Pandas nao esta disponivel para ler Excel.") from erro
 
+    _log.debug("_extrair_excel(): pandas importado. Chamando pd.read_excel() ...")
     planilhas = pd.read_excel(caminho, sheet_name=None, dtype=str)
+    _log.debug(f"_extrair_excel(): {len(planilhas)} aba(s) encontrada(s): {list(planilhas.keys())}")
+
     registros = []
-    for _, df in planilhas.items():
+    for nome_aba, df in planilhas.items():
+        _log.debug(f"_extrair_excel(): processando aba '{nome_aba}' — {len(df)} linhas x {len(df.columns)} colunas ...")
         df = df.dropna(how="all")
         df = df.fillna("")
-        registros.extend(df.to_dict(orient="records"))
-    return _registros_para_itens(registros)
+        novos = df.to_dict(orient="records")
+        _log.debug(f"_extrair_excel(): aba '{nome_aba}' gerou {len(novos)} registros")
+        registros.extend(novos)
+
+    _log.debug(f"_extrair_excel(): total {len(registros)} registros. Chamando _registros_para_itens() ...")
+    itens = _registros_para_itens(registros)
+    _log.debug(f"_extrair_excel(): {len(itens)} itens extraidos")
+    return itens
 
 
 def _extrair_docx(caminho):
+    _log.debug("_extrair_docx(): importando python-docx ...")
     try:
         from docx import Document
     except ImportError as erro:
@@ -213,13 +269,16 @@ def _extrair_docx(caminho):
 
     doc = Document(caminho)
     linhas = [p.text for p in doc.paragraphs if p.text.strip()]
+    _log.debug(f"_extrair_docx(): {len(linhas)} paragrafos, {len(doc.tables)} tabelas")
     for tabela in doc.tables:
         for row in tabela.rows:
             linhas.append(" | ".join(cell.text.strip() for cell in row.cells))
+    _log.debug(f"_extrair_docx(): total {len(linhas)} linhas apos tabelas")
     return _linhas_para_itens(linhas, origem="docx")
 
 
 def _extrair_doc(caminho):
+    _log.debug("_extrair_doc(): lendo bytes do arquivo ...")
     dados = caminho.read_bytes()
     texto = dados.decode("latin-1", errors="ignore")
     linhas = []
@@ -227,6 +286,7 @@ def _extrair_doc(caminho):
         linha_limpa = re.sub(r"[^\x20-\x7E\u00C0-\u00FF]+", " ", linha).strip()
         if linha_limpa:
             linhas.append(linha_limpa)
+    _log.debug(f"_extrair_doc(): {len(linhas)} linhas extraidas")
     itens = _linhas_para_itens(linhas, origem="doc")
     if not itens:
         raise ValueError("Nao foi possivel extrair itens do DOC. Salve como DOCX, PDF com texto, XLSX ou CSV.")
@@ -234,6 +294,7 @@ def _extrair_doc(caminho):
 
 
 def _extrair_pdf(caminho):
+    _log.debug("_extrair_pdf(): importando pdfplumber ...")
     try:
         import pdfplumber
     except ImportError as erro:
@@ -241,19 +302,23 @@ def _extrair_pdf(caminho):
 
     linhas = []
     with pdfplumber.open(caminho) as pdf:
-        for pagina in pdf.pages:
+        _log.debug(f"_extrair_pdf(): {len(pdf.pages)} pagina(s) encontrada(s)")
+        for i, pagina in enumerate(pdf.pages, start=1):
+            _log.debug(f"_extrair_pdf(): processando pagina {i}/{len(pdf.pages)} ...")
             texto = pagina.extract_text() or ""
             linhas.extend(texto.splitlines())
             for tabela in pagina.extract_tables() or []:
                 for row in tabela:
                     linhas.append(" | ".join(str(cell or "").strip() for cell in row))
 
+    _log.debug(f"_extrair_pdf(): {len(linhas)} linhas extraidas no total")
     if not linhas:
         raise ValueError("PDF sem texto extraivel. Use arquivo com texto ou OCR disponivel.")
     return _linhas_para_itens(linhas, origem="pdf")
 
 
 def _extrair_imagem(caminho):
+    _log.debug("_extrair_imagem(): importando PIL e pytesseract ...")
     try:
         from PIL import Image
         import pytesseract
@@ -261,14 +326,17 @@ def _extrair_imagem(caminho):
         raise ValueError("OCR indisponivel para imagem. Envie XLSX, CSV, DOCX ou PDF com texto.") from erro
 
     try:
+        _log.debug("_extrair_imagem(): executando OCR (lang=por) ...")
         texto = pytesseract.image_to_string(Image.open(caminho), lang="por")
     except Exception:
         try:
+            _log.debug("_extrair_imagem(): fallback OCR (lang=eng) ...")
             texto = pytesseract.image_to_string(Image.open(caminho), lang="eng")
         except Exception as erro:
             raise ValueError(
                 "OCR indisponivel. Instale o idioma portugues do Tesseract ou envie XLSX/CSV/PDF com texto."
             ) from erro
+    _log.debug(f"_extrair_imagem(): OCR concluido — {len(texto)} caracteres")
     return _linhas_para_itens(texto.splitlines(), origem="ocr")
 
 
@@ -365,19 +433,49 @@ def _assinatura_compativel(descricao, candidato):
 
 
 def buscar_sku_para_lance(descricao, score_minimo=70):
+    desc_curta = descricao[:60] + ("..." if len(descricao) > 60 else "")
+    _log.debug(f"  buscar_sku_para_lance(): '{desc_curta}'")
+
+    _log.debug("    _termo_busca_tecnico() ...")
     termo_tecnico = _termo_busca_tecnico(descricao)
+    _log.debug(f"    termo_tecnico='{termo_tecnico}'")
+
+    _log.debug("    sugerir_sku_medbox_oficial() ...")
     sku_oficial, confianca_oficial = sugerir_sku_medbox_oficial(descricao)
-    termos = [termo_tecnico, descricao]
+    _log.debug(f"    sku_oficial='{sku_oficial}' confianca={confianca_oficial}")
+
+    # Remove termos duplicados (ocorre quando _termo_busca_tecnico devolve o mesmo texto
+    # que a descrição original), preservando a ordem de prioridade.
+    _vistos_termos: set = set()
+    termos: list = []
+    for t in [termo_tecnico, descricao]:
+        t_key = normalizar_texto(t)
+        if t_key and t_key not in _vistos_termos:
+            _vistos_termos.add(t_key)
+            termos.append(t)
+
     candidatos = []
     vistos = set()
-    for termo in termos:
-        for candidato in buscar_produto_inteligente(termo, limite=8):
+
+    for idx_termo, termo in enumerate(termos, start=1):
+        if termo in _busca_cache:
+            resultados = _busca_cache[termo]
+            _log.debug(f"    buscar_produto_inteligente() [{idx_termo}/{len(termos)}]: cache HIT ({len(resultados)} resultados)")
+        else:
+            _log.debug(f"    buscar_produto_inteligente() [{idx_termo}/{len(termos)}]: '{termo[:50]}' ...")
+            resultados = buscar_produto_inteligente(termo, limite=8)
+            _busca_cache[termo] = resultados
+            _log.debug(f"    buscar_produto_inteligente() retornou {len(resultados)} resultados")
+        for candidato in resultados:
             if candidato["id"] in vistos:
                 continue
             vistos.add(candidato["id"])
             candidatos.append(candidato)
 
+    _log.debug(f"    {len(candidatos)} candidatos unicos antes do filtro de assinatura")
     candidatos = [c for c in candidatos if _assinatura_compativel(descricao, c)]
+    _log.debug(f"    {len(candidatos)} candidatos apos filtro de assinatura")
+
     candidatos.sort(key=lambda c: (
         -(c.get("score_busca") or 0),
         -int(bool(c.get("tem_preco"))),
@@ -386,9 +484,12 @@ def buscar_sku_para_lance(descricao, score_minimo=70):
     ))
 
     if not candidatos:
+        _log.debug("    sem candidatos — tentando _sku_tecnico_derivado()")
         return _sku_tecnico_derivado(descricao)
 
     melhor = candidatos[0]
+    _log.debug(f"    melhor candidato: '{melhor.get('produto_padrao')}' score={melhor.get('score_busca')}")
+
     if sku_oficial and confianca_oficial >= 88:
         melhor = dict(melhor)
         melhor["sku_master_lances"] = sku_oficial
@@ -399,10 +500,14 @@ def buscar_sku_para_lance(descricao, score_minimo=70):
         sku_norm = normalizar_texto(melhor.get("sku_master_exibicao") or melhor.get("produto_padrao"))
         medida_derivada = re.search(r"\d{1,2}X\d{1,2}(?:[,.]\d+)?", derivado["sku_master_exibicao"].replace(" ", ""))
         if medida_derivada and medida_derivada.group(0) not in sku_norm.replace(" ", ""):
+            _log.debug(f"    usando derivado tecnico: '{derivado['sku_master_exibicao']}'")
             return derivado
 
     if (melhor.get("score_busca") or 0) < score_minimo:
+        _log.debug(f"    score abaixo do minimo ({melhor.get('score_busca')} < {score_minimo}) — retornando None")
         return None
+
+    _log.debug("    retornando melhor candidato")
     return melhor
 
 
@@ -433,11 +538,16 @@ def _status_item(sku_encontrado, menor_custo, preco_medbox, preco_osinfo, menor_
 
 
 def analisar_itens_lances(itens, markup_percentual=80, score_minimo=70):
+    _log.debug(f"analisar_itens_lances(): {len(itens)} itens para analisar — markup={markup_percentual}%")
     markup_percentual = numero_br(markup_percentual, 80.0)
     analisados = []
 
     for indice, item in enumerate(itens, start=1):
+        _log.debug(f"--- Item {indice}/{len(itens)}: '{item['descricao_original'][:60]}' ---")
+        _log.debug("  Buscando SKU para lance ...")
         candidato = buscar_sku_para_lance(item["descricao_original"], score_minimo=score_minimo)
+        _log.debug(f"  SKU encontrado: {bool(candidato)} | produto='{(candidato or {}).get('produto_padrao', 'N/A')}'")
+
         preco_menor = _menor_preco(candidato) if candidato else None
         menor_custo = preco_menor.get("preco") if preco_menor else None
         preco_medbox = round(float(menor_custo) * (1 + markup_percentual / 100), 4) if menor_custo is not None else 0.0
@@ -450,6 +560,8 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=70):
         ])
         status = _status_item(bool(candidato), menor_custo, preco_medbox, item["preco_osinfo"], menor_lance)
         quantidade = item["quantidade"] or 1.0
+
+        _log.debug(f"  menor_custo={menor_custo} | preco_medbox={preco_medbox} | status={status}")
 
         analisado = {
             "item": indice,
@@ -484,7 +596,9 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=70):
             "total_menor_valor": menor_valor * quantidade,
         }
         analisados.append(analisado)
+        _log.debug(f"  Item {indice} concluido.")
 
+    _log.debug(f"analisar_itens_lances(): todos os {len(analisados)} itens processados")
     return {
         "markup_percentual": markup_percentual,
         "itens": analisados,
@@ -531,5 +645,29 @@ def montar_resumo_lances(itens):
 
 
 def analisar_arquivo_cotacao(caminho, markup_percentual=80):
+    global _busca_cache
+    _busca_cache = {}  # Zera cache a cada importação para não vazar dados entre requisições
+
+    _log.debug(f"analisar_arquivo_cotacao(): caminho={caminho} markup={markup_percentual}%")
+    _log.debug("Passo 1/3: extraindo itens do arquivo ...")
     itens = extrair_itens_cotacao(caminho)
-    return analisar_itens_lances(itens, markup_percentual=markup_percentual)
+    _log.debug(f"Passo 1/3 concluido: {len(itens)} itens extraidos")
+
+    _log.debug("Passo 2/3: analisando itens (busca de SKU + calculo de precos) ...")
+    resultado = analisar_itens_lances(itens, markup_percentual=markup_percentual)
+    _log.debug("Passo 2/3 concluido.")
+
+    _log.debug("Passo 3/3: critica de cotacao por fornecedor ...")
+    descricoes = [item["descricao_original"] for item in itens]
+    try:
+        critica = analisar_cotacao_por_fornecedor(descricoes)
+        resultado["critica_fornecedor"] = critica
+        _log.debug(
+            f"Passo 3/3 concluido: {critica['resumo']['total_fornecedores_encontrados']} fornecedor(es) mapeados"
+        )
+    except Exception as exc:
+        _log.warning(f"Passo 3/3 falhou (nao critico): {exc}")
+        resultado["critica_fornecedor"] = None
+
+    _log.debug("analisar_arquivo_cotacao() finalizado.")
+    return resultado

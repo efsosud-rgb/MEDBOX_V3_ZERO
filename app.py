@@ -1,4 +1,6 @@
 import json
+import logging
+import traceback
 from flask import Flask, Response, render_template, request, redirect, url_for, flash
 from datetime import datetime
 from pathlib import Path
@@ -28,7 +30,7 @@ from core.auditoria_sku_master import (
     gerar_sugestoes_sku_master,
     previsualizar_lote_correcoes_sku_master,
 )
-from core.cotacao_lances import analisar_arquivo_cotacao
+from core.cotacao_lances import analisar_arquivo_cotacao, configurar_logger_cotacao
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
@@ -43,7 +45,48 @@ PASTA_UPLOADS.mkdir(exist_ok=True)
 PASTA_UPLOADS_LANCES = PASTA_UPLOADS / "cotacoes_lances"
 PASTA_UPLOADS_LANCES.mkdir(exist_ok=True)
 
+LOG_PATH = BASE_DIR / "debug_importacao.txt"
+
 DATA_ATUAL = datetime.now().strftime("%d/%m/%Y")
+
+
+def _criar_logger_requisicao() -> logging.Logger:
+    """
+    Cria (ou recria) o logger 'importacao' apontando para debug_importacao.txt.
+    Limpa o arquivo no início de cada requisição e força flush após cada linha.
+    """
+    logger = logging.getLogger("importacao")
+    logger.setLevel(logging.DEBUG)
+
+    # Remove handlers antigos para evitar duplicação entre requisições
+    for handler in logger.handlers[:]:
+        handler.close()
+        logger.removeHandler(handler)
+
+    # Abre o arquivo em modo 'w' para limpar o conteúdo anterior
+    file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s.%(msecs)03d | %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    file_handler.setFormatter(formatter)
+
+    # Força flush após cada registro
+    class FlushFileHandler(logging.FileHandler):
+        def emit(self, record):
+            super().emit(record)
+            self.flush()
+
+    logger.handlers = []
+    fh = FlushFileHandler(LOG_PATH, mode="w", encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.propagate = False
+
+    return logger
 
 
 def contar_produtos():
@@ -326,10 +369,25 @@ def cotacoes_lances():
 
 @app.route("/cotacoes/lances/importar", methods=["POST"])
 def importar_cotacao_lances():
+    # ------------------------------------------------------------------ #
+    # Cria o logger com arquivo físico limpo a cada requisição             #
+    # ------------------------------------------------------------------ #
+    log = _criar_logger_requisicao()
+    configurar_logger_cotacao(log)
+
+    log.debug("=" * 70)
+    log.debug("INICIO: Rota /cotacoes/lances/importar chamada")
+    log.debug("=" * 70)
+
     arquivo = request.files.get("arquivo")
     markup_percentual = request.form.get("markup_percentual", 80)
 
+    log.debug(f"Arquivo recebido: {arquivo}")
+    log.debug(f"Nome do arquivo : {arquivo.filename if arquivo else 'None'}")
+    log.debug(f"Markup          : {markup_percentual}")
+
     if not arquivo or arquivo.filename == "":
+        log.debug("ERRO: Nenhum arquivo selecionado")
         return render_template(
             "cotacao_lances.html",
             data_atual=DATA_ATUAL,
@@ -342,11 +400,18 @@ def importar_cotacao_lances():
 
     nome_seguro = secure_filename(arquivo.filename)
     caminho = PASTA_UPLOADS_LANCES / nome_seguro
+    log.debug(f"Salvando arquivo em: {caminho}")
     arquivo.save(caminho)
+    tamanho = caminho.stat().st_size
+    log.debug(f"Arquivo salvo. Tamanho: {tamanho} bytes ({tamanho / 1024:.1f} KB)")
 
     try:
+        log.debug("Chamando analisar_arquivo_cotacao() ...")
         analise = analisar_arquivo_cotacao(caminho, markup_percentual=markup_percentual)
-        return render_template(
+        total_itens = len(analise.get("itens", []))
+        log.debug(f"analisar_arquivo_cotacao() concluiu. Total de itens: {total_itens}")
+        log.debug("Renderizando template cotacao_lances.html ...")
+        resposta = render_template(
             "cotacao_lances.html",
             data_atual=DATA_ATUAL,
             resumo=resumo_dashboard(),
@@ -355,7 +420,13 @@ def importar_cotacao_lances():
             arquivo_nome=arquivo.filename,
             markup_percentual=analise["markup_percentual"],
         )
+        log.debug("Template renderizado. Enviando resposta ao cliente.")
+        return resposta
+
     except Exception as erro:
+        log.debug(f"EXCECAO capturada: {type(erro).__name__}: {erro}")
+        log.debug("Traceback completo:")
+        log.debug(traceback.format_exc())
         return render_template(
             "cotacao_lances.html",
             data_atual=DATA_ATUAL,
