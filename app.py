@@ -326,10 +326,19 @@ def cotacoes_lances():
 
 @app.route("/cotacoes/lances/importar", methods=["POST"])
 def importar_cotacao_lances():
+    print("\n" + "="*80)
+    print("DEBUG: Rota /cotacoes/lances/importar foi chamada")
+    print("="*80)
+    
     arquivo = request.files.get("arquivo")
     markup_percentual = request.form.get("markup_percentual", 80)
+    
+    print(f"DEBUG: Arquivo recebido: {arquivo}")
+    print(f"DEBUG: Nome do arquivo: {arquivo.filename if arquivo else 'None'}")
+    print(f"DEBUG: Markup percentual: {markup_percentual}")
 
     if not arquivo or arquivo.filename == "":
+        print("DEBUG: Nenhum arquivo selecionado - retornando erro")
         return render_template(
             "cotacao_lances.html",
             data_atual=DATA_ATUAL,
@@ -342,10 +351,15 @@ def importar_cotacao_lances():
 
     nome_seguro = secure_filename(arquivo.filename)
     caminho = PASTA_UPLOADS_LANCES / nome_seguro
+    print(f"DEBUG: Salvando arquivo em: {caminho}")
     arquivo.save(caminho)
+    print(f"DEBUG: Arquivo salvo com sucesso")
 
     try:
+        print(f"DEBUG: Iniciando análise do arquivo...")
         analise = analisar_arquivo_cotacao(caminho, markup_percentual=markup_percentual)
+        print(f"DEBUG: Análise concluída com sucesso!")
+        print(f"DEBUG: Total de itens analisados: {len(analise.get('itens', []))}")
         return render_template(
             "cotacao_lances.html",
             data_atual=DATA_ATUAL,
@@ -356,6 +370,10 @@ def importar_cotacao_lances():
             markup_percentual=analise["markup_percentual"],
         )
     except Exception as erro:
+        print(f"DEBUG: ERRO durante análise: {type(erro).__name__}: {erro}")
+        import traceback
+        print(f"DEBUG: Traceback completo:")
+        traceback.print_exc()
         return render_template(
             "cotacao_lances.html",
             data_atual=DATA_ATUAL,
