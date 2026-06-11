@@ -278,13 +278,20 @@ def _adicionar_candidato(candidatos, row, campo, texto):
         candidatos[produto_id]["evidencias_busca"][campo].add(texto_norm)
 
 
+def _like_escape(termo):
+    # Escapa wildcards SQL para que '%' e '_' no termo sejam buscados literalmente.
+    # Sem isso, termos como "10%" viram "%10%%" que é um wildcard e causa full table scan.
+    escaped = termo.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 def _buscar_por_campo_produto(cursor, candidatos, campo_sql, campo_evidencia, termo):
-    like = f"%{termo}%"
+    like = _like_escape(termo)
     cursor.execute(
         f"""
         SELECT id, sku, produto_padrao, fabricante, categoria, {campo_sql} AS texto_match
         FROM produtos
-        WHERE UPPER({campo_sql}) LIKE ? AND ativo = 1
+        WHERE UPPER({campo_sql}) LIKE ? ESCAPE '\\' AND ativo = 1
         """,
         (like,),
     )
@@ -293,14 +300,14 @@ def _buscar_por_campo_produto(cursor, candidatos, campo_sql, campo_evidencia, te
 
 
 def _buscar_por_equivalencias(cursor, candidatos, termo):
-    like = f"%{termo}%"
+    like = _like_escape(termo)
     cursor.execute(
         """
         SELECT p.id, p.sku, p.produto_padrao, p.fabricante, p.categoria,
                e.descricao_equivalente AS texto_match
         FROM produtos p
         JOIN equivalencias e ON e.produto_id = p.id
-        WHERE UPPER(e.descricao_equivalente) LIKE ? AND p.ativo = 1
+        WHERE UPPER(e.descricao_equivalente) LIKE ? ESCAPE '\\' AND p.ativo = 1
         """,
         (like,),
     )
@@ -309,14 +316,14 @@ def _buscar_por_equivalencias(cursor, candidatos, termo):
 
 
 def _buscar_por_precos(cursor, candidatos, campo_sql, campo_evidencia, termo):
-    like = f"%{termo}%"
+    like = _like_escape(termo)
     cursor.execute(
         f"""
         SELECT p.id, p.sku, p.produto_padrao, p.fabricante, p.categoria,
                pf.{campo_sql} AS texto_match
         FROM produtos p
         JOIN precos_fornecedores pf ON pf.produto_id = p.id
-        WHERE UPPER(pf.{campo_sql}) LIKE ? AND p.ativo = 1
+        WHERE UPPER(pf.{campo_sql}) LIKE ? ESCAPE '\\' AND p.ativo = 1
         """,
         (like,),
     )
@@ -325,7 +332,7 @@ def _buscar_por_precos(cursor, candidatos, campo_sql, campo_evidencia, termo):
 
 
 def _buscar_por_fornecedor(cursor, candidatos, termo):
-    like = f"%{termo}%"
+    like = _like_escape(termo)
     cursor.execute(
         """
         SELECT p.id, p.sku, p.produto_padrao, p.fabricante, p.categoria,
@@ -333,7 +340,7 @@ def _buscar_por_fornecedor(cursor, candidatos, termo):
         FROM produtos p
         JOIN precos_fornecedores pf ON pf.produto_id = p.id
         JOIN fornecedores f ON f.id = pf.fornecedor_id
-        WHERE UPPER(f.nome) LIKE ? AND p.ativo = 1
+        WHERE UPPER(f.nome) LIKE ? ESCAPE '\\' AND p.ativo = 1
         """,
         (like,),
     )

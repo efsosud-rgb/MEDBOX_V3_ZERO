@@ -10,6 +10,7 @@ from rapidfuzz import fuzz
 
 from core.auditoria_sku_master import sugerir_sku_medbox_oficial
 from core.busca_inteligente import buscar_produto_inteligente
+from core.critica_cotacao_fornecedor import analisar_cotacao_por_fornecedor
 from core.formatadores import moeda_br
 
 
@@ -34,6 +35,11 @@ COLUNAS_ULTIMA_COMPRA = (
 
 # Logger do módulo — será configurado externamente pela rota do Flask
 _log: logging.Logger = logging.getLogger("importacao")
+
+# Cache de busca com escopo de importação — zerado a cada analisar_arquivo_cotacao().
+# Evita chamar buscar_produto_inteligente() múltiplas vezes com o mesmo termo dentro
+# de uma única requisição (424 itens podem compartilhar dezenas de descrições idênticas).
+_busca_cache: dict = {}
 
 
 def configurar_logger_cotacao(logger: logging.Logger) -> None:
@@ -438,14 +444,28 @@ def buscar_sku_para_lance(descricao, score_minimo=70):
     sku_oficial, confianca_oficial = sugerir_sku_medbox_oficial(descricao)
     _log.debug(f"    sku_oficial='{sku_oficial}' confianca={confianca_oficial}")
 
-    termos = [termo_tecnico, descricao]
+    # Remove termos duplicados (ocorre quando _termo_busca_tecnico devolve o mesmo texto
+    # que a descrição original), preservando a ordem de prioridade.
+    _vistos_termos: set = set()
+    termos: list = []
+    for t in [termo_tecnico, descricao]:
+        t_key = normalizar_texto(t)
+        if t_key and t_key not in _vistos_termos:
+            _vistos_termos.add(t_key)
+            termos.append(t)
+
     candidatos = []
     vistos = set()
 
     for idx_termo, termo in enumerate(termos, start=1):
-        _log.debug(f"    buscar_produto_inteligente() [{idx_termo}/{len(termos)}]: '{termo[:50]}' ...")
-        resultados = buscar_produto_inteligente(termo, limite=8)
-        _log.debug(f"    buscar_produto_inteligente() retornou {len(resultados)} resultados")
+        if termo in _busca_cache:
+            resultados = _busca_cache[termo]
+            _log.debug(f"    buscar_produto_inteligente() [{idx_termo}/{len(termos)}]: cache HIT ({len(resultados)} resultados)")
+        else:
+            _log.debug(f"    buscar_produto_inteligente() [{idx_termo}/{len(termos)}]: '{termo[:50]}' ...")
+            resultados = buscar_produto_inteligente(termo, limite=8)
+            _busca_cache[termo] = resultados
+            _log.debug(f"    buscar_produto_inteligente() retornou {len(resultados)} resultados")
         for candidato in resultados:
             if candidato["id"] in vistos:
                 continue
@@ -625,12 +645,29 @@ def montar_resumo_lances(itens):
 
 
 def analisar_arquivo_cotacao(caminho, markup_percentual=80):
+    global _busca_cache
+    _busca_cache = {}  # Zera cache a cada importação para não vazar dados entre requisições
+
     _log.debug(f"analisar_arquivo_cotacao(): caminho={caminho} markup={markup_percentual}%")
-    _log.debug("Passo 1/2: extraindo itens do arquivo ...")
+    _log.debug("Passo 1/3: extraindo itens do arquivo ...")
     itens = extrair_itens_cotacao(caminho)
-    _log.debug(f"Passo 1/2 concluido: {len(itens)} itens extraidos")
-    _log.debug("Passo 2/2: analisando itens (busca de SKU + calculo de precos) ...")
+    _log.debug(f"Passo 1/3 concluido: {len(itens)} itens extraidos")
+
+    _log.debug("Passo 2/3: analisando itens (busca de SKU + calculo de precos) ...")
     resultado = analisar_itens_lances(itens, markup_percentual=markup_percentual)
-    _log.debug("Passo 2/2 concluido.")
+    _log.debug("Passo 2/3 concluido.")
+
+    _log.debug("Passo 3/3: critica de cotacao por fornecedor ...")
+    descricoes = [item["descricao_original"] for item in itens]
+    try:
+        critica = analisar_cotacao_por_fornecedor(descricoes)
+        resultado["critica_fornecedor"] = critica
+        _log.debug(
+            f"Passo 3/3 concluido: {critica['resumo']['total_fornecedores_encontrados']} fornecedor(es) mapeados"
+        )
+    except Exception as exc:
+        _log.warning(f"Passo 3/3 falhou (nao critico): {exc}")
+        resultado["critica_fornecedor"] = None
+
     _log.debug("analisar_arquivo_cotacao() finalizado.")
     return resultado
