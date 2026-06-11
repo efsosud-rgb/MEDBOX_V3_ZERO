@@ -229,6 +229,7 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Produto (SKU Master)</th>
+                                        <th>SKU_MASTER</th>
                                         <th>Categoria</th>
                                         <th>Marca</th>
                                         <th>Menor Preço</th>
@@ -247,6 +248,10 @@
                                             {% if item.suspeito_contaminado and item.sku_pendente_padronizacao %}
                                             <small style="display:block; color:#b45309; font-weight:700;">SKU pendente</small>
                                             {% endif %}
+                                        </td>
+                                        <td style="font-size:0.80rem; color:var(--text2);"
+                                            title="{{ item.produto_padrao }}">
+                                            {{ item.produto_padrao if item.produto_padrao else '—' }}
                                         </td>
                                         <td style="font-size:0.82rem;">
                                             {{ item.categoria if item.categoria and item.categoria != 'NONE' else '—' }}
@@ -307,9 +312,9 @@
                             </div>
                             {% endif %}
                             <div>
-                                <span>Nome Padronizado:</span>
-                                <strong style="word-break:break-word; overflow-wrap:anywhere;">
-                                    {{ principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao }}
+                                <span>produto_padrao:</span>
+                                <strong style="word-break:break-word; overflow-wrap:anywhere; font-size:0.82rem;">
+                                    {{ principal.produto_padrao if principal.produto_padrao else '—' }}
                                 </strong>
                             </div>
                             <div>
