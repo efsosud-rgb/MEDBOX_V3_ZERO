@@ -1069,6 +1069,8 @@ def garantir_produto(cursor, sku_master, categoria, fabricante):
     maior_score = 0
 
     for p in todos_produtos:
+        if not p["produto_padrao"]:
+            continue
         score = fuzz.token_set_ratio(sku_master, p["produto_padrao"].upper())
         if score >= 92 and score > maior_score:
             maior_score = score
@@ -1373,8 +1375,6 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
                 INSERT INTO equivalencias (produto_id, descricao_equivalente)
                 VALUES (?, ?)
             """, (produto_id, item["descricao_orig"]))
-
-        conn.commit()
 
         registrar_preco_fornecedor(
             fornecedor_id=fid,

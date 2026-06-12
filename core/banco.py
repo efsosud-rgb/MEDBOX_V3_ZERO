@@ -771,22 +771,6 @@ def registrar_preco_fornecedor(
     conn = conn_existente or conectar()
     cursor = conn.cursor()
 
-    try:
-        cursor.execute("""
-            INSERT INTO precos_fornecedores_historico (
-                fornecedor_id, produto_id, descricao_original,
-                codigo_fornecedor, marca, preco, data_importacao,
-                arquivo_origem, origem_importacao, data_registro
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            fornecedor_id, produto_id, descricao_original,
-            codigo_fornecedor, marca, preco, data_importacao,
-            arquivo_origem, origem_importacao,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ))
-    except Exception:
-        pass
-
     cursor.execute("""
         SELECT id, preco, data_importacao, marca, codigo_fornecedor, arquivo_origem, descricao_original
         FROM precos_fornecedores
