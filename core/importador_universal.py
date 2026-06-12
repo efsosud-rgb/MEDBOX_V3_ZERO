@@ -7,6 +7,8 @@ import unicodedata
 from pathlib import Path
 from datetime import datetime
 
+from rapidfuzz import fuzz
+
 from core.banco import conectar, registrar_preco_fornecedor
 from core.formatadores import moeda_br
 
@@ -1044,12 +1046,12 @@ def garantir_produto(cursor, sku_master, categoria, fabricante):
     if not sku_master:
         return None
 
+    # 1. Match exato
     cursor.execute("SELECT id FROM produtos WHERE UPPER(produto_padrao) = ?", (sku_master,))
     row = cursor.fetchone()
 
     if row:
         produto_id = row["id"]
-
         cursor.execute("""
             UPDATE produtos
             SET fabricante = COALESCE(NULLIF(?, ''), fabricante),
@@ -1057,9 +1059,32 @@ def garantir_produto(cursor, sku_master, categoria, fabricante):
                 ativo = 1
             WHERE id = ?
         """, (fabricante, categoria, produto_id))
-
         return produto_id
 
+    # 2. Match fuzzy (se não encontrou exato)
+    cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1")
+    todos_produtos = cursor.fetchall()
+
+    melhor_match = None
+    maior_score = 0
+
+    for p in todos_produtos:
+        score = fuzz.token_set_ratio(sku_master, p["produto_padrao"].upper())
+        if score >= 92 and score > maior_score:
+            maior_score = score
+            melhor_match = p["id"]
+
+    if melhor_match:
+        cursor.execute("""
+            UPDATE produtos
+            SET fabricante = CASE WHEN fabricante IS NULL OR fabricante = '' THEN ? ELSE fabricante END,
+                categoria = CASE WHEN categoria IS NULL OR categoria = '' THEN ? ELSE categoria END,
+                ativo = 1
+            WHERE id = ?
+        """, (fabricante, categoria, melhor_match))
+        return melhor_match
+
+    # 3. Cria novo se nada for encontrado
     cursor.execute("""
         INSERT INTO produtos (sku, produto_padrao, fabricante, categoria, ativo)
         VALUES ('', ?, ?, ?, 1)
@@ -1360,7 +1385,8 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
             preco=item["preco"],
             data_importacao=data_hoje,
             arquivo_origem=caminho.name,
-            origem_importacao="IMPORTADOR_UNIVERSAL"
+            origem_importacao="IMPORTADOR_UNIVERSAL",
+            conn_existente=conn
         )
 
         importados += 1

@@ -1094,6 +1094,51 @@ def aplicar_correcao_manual_sku_master(
             "produto_origem_id": produto_origem_id,
             "produto_destino_id": destino_id,
         })
+
+        # Propagação em cascata
+        cursor.execute(
+            """
+            SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+            FROM produtos
+            WHERE ativo = 1 AND id != ? AND id != ?
+            """,
+            (produto_origem_id, destino_id),
+        )
+        candidatos = [dict(row) for row in cursor.fetchall()]
+
+        itens_cascata = []
+        for cand in candidatos:
+            score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
+            if score >= 88:
+                classificacao_cand, _ = _classificar_produto_no_banco(cursor, cand)
+                if classificacao_cand in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
+                    contadores_casc = _aplicar_item_validado(cursor, {
+                        "produto_origem_id": cand["id"],
+                        "produto_destino_id": destino_id,
+                    })
+
+                    registro_cascata = {
+                        "timestamp": datetime.now().isoformat(timespec="seconds"),
+                        "usuario": usuario,
+                        "status": "sucesso",
+                        "tipo_correcao": "cascata",
+                        "produto_origem_id": cand["id"],
+                        "produto_origem": cand["produto_padrao"],
+                        "produto_destino_id": destino_id,
+                        "produto_destino": destino["produto_padrao"],
+                        "sku_manual": sku_manual,
+                        "precos_migrados": contadores_casc["precos_migrados"],
+                        "equivalencias_migradas": contadores_casc["equivalencias_migradas"],
+                        "produtos_inativados": contadores_casc["produtos_inativados"],
+                    }
+                    registrar_log_correcao(registro_cascata, caminho_log=caminho_log)
+
+                    itens_cascata.append({
+                        "produto_id": cand["id"],
+                        "produto_padrao": cand["produto_padrao"],
+                        "precos_migrados": contadores_casc["precos_migrados"],
+                    })
+
         conn.commit()
 
         registro = {
@@ -1112,6 +1157,7 @@ def aplicar_correcao_manual_sku_master(
             "precos_migrados": contadores["precos_migrados"],
             "equivalencias_migradas": contadores["equivalencias_migradas"],
             "produtos_inativados": contadores["produtos_inativados"],
+            "cascata": itens_cascata,
             "backup": backup,
         }
         caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
