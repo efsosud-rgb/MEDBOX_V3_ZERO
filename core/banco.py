@@ -83,7 +83,8 @@ def criar_banco():
         produto_padrao TEXT,
         fabricante TEXT,
         categoria TEXT,
-        ativo INTEGER DEFAULT 1
+        ativo INTEGER DEFAULT 1,
+        observacoes TEXT
     )""")
 
     cursor.execute("""
@@ -153,7 +154,25 @@ def criar_banco():
         total_itens INTEGER DEFAULT 0
     )""")
 
-    # Migração: Adiciona coluna arquivo_origem se não existir
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS auditoria_sku (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        produto_id INTEGER,
+        campo TEXT,
+        valor_antigo TEXT,
+        valor_novo TEXT,
+        data_hora TEXT,
+        tipo_correcao TEXT,
+        origem_correcao TEXT,
+        usuario TEXT
+    )""")
+
+    # Migração: Adiciona colunas se não existirem
+    try:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN observacoes TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     try:
         cursor.execute("ALTER TABLE precos_fornecedores ADD COLUMN arquivo_origem TEXT")
     except sqlite3.OperationalError:

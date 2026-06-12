@@ -1038,7 +1038,15 @@ def garantir_fornecedor(cursor, nome, tipo):
 # GARANTE PRODUTO NO SKU MASTER
 # ================================================
 
-def garantir_produto(cursor, sku_master, categoria, fabricante):
+def _extrair_numeros_unidades(texto):
+    """Extrai números seguidos de unidades comuns para evitar match errado."""
+    if not texto: return []
+    # Busca por 500MG, 10ML, 0.9%, etc e normaliza removendo espaços
+    encontrados = re.findall(r'(\d+(?:[.,]\d+)?\s*(?:MG|ML|G|MCG|UI|%))', texto.upper())
+    return [re.sub(r'\s+', '', e) for e in encontrados]
+
+
+def garantir_produto(cursor, sku_master, categoria, fabricante, cache_produtos=None):
     sku_master = str(sku_master or "").strip().upper()
     categoria = str(categoria or "").strip().upper()
     fabricante = str(fabricante or "").strip().upper()
@@ -1054,25 +1062,45 @@ def garantir_produto(cursor, sku_master, categoria, fabricante):
         produto_id = row["id"]
         cursor.execute("""
             UPDATE produtos
-            SET fabricante = COALESCE(NULLIF(?, ''), fabricante),
-                categoria = COALESCE(NULLIF(?, ''), categoria),
+            SET fabricante = CASE WHEN fabricante IS NULL OR fabricante = '' THEN ? ELSE fabricante END,
+                categoria = CASE WHEN categoria IS NULL OR categoria = '' THEN ? ELSE categoria END,
                 ativo = 1
             WHERE id = ?
         """, (fabricante, categoria, produto_id))
         return produto_id
 
     # 2. Match fuzzy (se não encontrou exato)
-    cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1")
-    todos_produtos = cursor.fetchall()
+    # Usa cache se disponível para performance
+    if cache_produtos is not None:
+        todos_produtos = cache_produtos
+    else:
+        cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1")
+        todos_produtos = [{"id": r[0], "produto_padrao": r[1]} for r in cursor.fetchall()]
 
     melhor_match = None
     maior_score = 0
+    num_origem = _extrair_numeros_unidades(sku_master)
 
     for p in todos_produtos:
         if not p["produto_padrao"]:
             continue
-        score = fuzz.token_set_ratio(sku_master, p["produto_padrao"].upper())
+
+        p_nome = p["produto_padrao"].upper()
+        # Se os nomes normalizados sem espaços/pontuação forem iguais, match imediato 100%
+        # Isso ajuda muito em casos como "DIPIRONA 500MG" vs "DIPIRONA 500 MG"
+        if re.sub(r'[^A-Z0-9]', '', sku_master) == re.sub(r'[^A-Z0-9]', '', p_nome):
+            score = 100.0
+        else:
+            score = fuzz.token_set_ratio(sku_master, p_nome)
+
         if score >= 92 and score > maior_score:
+            # Segurança extra: se tem números/unidades, eles PRECISAM bater
+            num_destino = _extrair_numeros_unidades(p_nome)
+            if num_origem or num_destino:
+                # Se os conjuntos de concentrações/volumes são diferentes, ignora o fuzzy
+                if set(num_origem) != set(num_destino):
+                    continue
+
             maior_score = score
             melhor_match = p["id"]
 
@@ -1321,6 +1349,10 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
     conn = conectar()
     cursor = conn.cursor()
 
+    # Cache de produtos ativos para evitar SELECTs repetidos no fuzzy
+    cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1")
+    cache_produtos = [{"id": r[0], "produto_padrao": r[1]} for r in cursor.fetchall()]
+
     importados = 0
 
     for item in itens:
@@ -1358,7 +1390,8 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
             cursor,
             sku_master,
             categoria,
-            marca
+            marca,
+            cache_produtos=cache_produtos
         )
 
         if not produto_id:
