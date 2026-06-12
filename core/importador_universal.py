@@ -7,7 +7,7 @@ import unicodedata
 from pathlib import Path
 from datetime import datetime
 
-from core.banco import conectar, registrar_preco_fornecedor
+from core.banco import conectar, registrar_preco_fornecedor, normalizar_texto
 from core.formatadores import moeda_br
 
 
@@ -1327,12 +1327,26 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
                 if categoria else "SKU PENDENTE DE PADRONIZACAO"
             )
 
-        produto_id = garantir_produto(
-            cursor,
-            sku_master,
-            categoria,
-            marca
-        )
+        # Anti-duplicação: se este fornecedor já tem um preço registrado para
+        # esta mesma descrição (normalizada), reaproveita o produto já vinculado
+        # em vez de criar um novo. Isso evita que variações no SKU gerado entre
+        # importações criem um segundo produto/preço para o mesmo item.
+        descricao_norm = normalizar_texto(item["descricao_orig"])
+        cursor.execute("""
+            SELECT produto_id FROM precos_fornecedores
+            WHERE fornecedor_id = ? AND UPPER(descricao_original) = ?
+        """, (fid, descricao_norm))
+        preco_existente = cursor.fetchone()
+
+        if preco_existente and preco_existente["produto_id"]:
+            produto_id = preco_existente["produto_id"]
+        else:
+            produto_id = garantir_produto(
+                cursor,
+                sku_master,
+                categoria,
+                marca
+            )
 
         if not produto_id:
             continue
