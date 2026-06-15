@@ -824,11 +824,6 @@ def _validar_correcao_sku_com_cursor(
     classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
     classificacao_destino, motivos_destino = _classificar_produto_no_banco(cursor, destino)
 
-    # Removida restrição de classificação para permitir correção de qualquer produto
-    # if classificacao_origem not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
-    #     raise ValueError("Produto origem nao esta classificado como contaminado forte ou SKU pendente.")
-    # if classificacao_destino == "CONTAMINADO_FORTE":
-    #     raise ValueError("Produto destino nao pode estar classificado como contaminado forte.")
 
     cursor.execute(
         "SELECT COUNT(*) AS total FROM precos_fornecedores WHERE produto_id = ?",
@@ -1073,11 +1068,6 @@ def aplicar_correcao_manual_sku_master(
             raise ValueError("Produto origem precisa estar ativo.")
 
         classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
-        # if (
-        #     classificacao_origem == "CONTAMINADO_FORTE"
-        #     and _normalizar(origem.get("produto_padrao")) == sku_manual
-        # ):
-        #     raise ValueError("SKU manual nao pode ser igual ao produto contaminado atual.")
 
         destino = _buscar_produto_ativo_por_nome(cursor, sku_manual)
 
@@ -1363,6 +1353,7 @@ def salvar_edicao_manual_produto(
     produto_id = int(produto_id)
     opcoes_cascata = opcoes_cascata or []
 
+    criar_backup_banco(caminho_banco=caminho_banco)
     conn = _conectar_escrita(caminho_banco)
     try:
         cursor = conn.cursor()
@@ -1437,6 +1428,7 @@ def excluir_produto_logico(produto_id, usuario="sistema", caminho_banco=None):
     Inativa um produto, move preços para histórico e registra auditoria.
     """
     produto_id = int(produto_id)
+    criar_backup_banco(caminho_banco=caminho_banco)
     conn = _conectar_escrita(caminho_banco)
     try:
         cursor = conn.cursor()

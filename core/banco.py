@@ -868,6 +868,23 @@ def registrar_preco_fornecedor(
                 """, (preco, data_importacao, marca,
                       codigo_fornecedor, descricao_original,
                       arquivo_origem, geral["id"]))
+            else:
+                # Preço importado é mais antigo que o atual. Vai direto para o histórico.
+                try:
+                    cursor.execute("""
+                        INSERT INTO precos_fornecedores_historico (
+                            fornecedor_id, produto_id, descricao_original,
+                            codigo_fornecedor, marca, preco, data_importacao,
+                            arquivo_origem, origem_importacao, data_registro
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        fornecedor_id, produto_id, descricao_original,
+                        codigo_fornecedor, marca, preco, data_importacao,
+                        arquivo_origem, "IMPORTACAO_ANTIGA",
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ))
+                except Exception:
+                    pass
         else:
             cursor.execute("""
                 INSERT INTO precos_fornecedores (

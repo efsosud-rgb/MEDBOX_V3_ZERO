@@ -57,8 +57,16 @@ def importar_produtos():
     # Junta tudo num set para busca O(1) exata
     cache_total = set(cache_desc + cache_padrao)
 
-    # Para fuzzy, precisamos da lista completa
-    # Mas como são 8k novos vs o que já tem no banco, vamos ser estratégicos
+    # Otimização Fuzzy: Indexa por primeira palavra
+    # Isso evita O(N^2) no fuzzy matching
+    indice_primeira_palavra = {}
+    for p in cache_total:
+        palavras = p.split()
+        if palavras:
+            primeira = palavras[0]
+            if primeira not in indice_primeira_palavra:
+                indice_primeira_palavra[primeira] = []
+            indice_primeira_palavra[primeira].append(p)
 
     for desc in descricoes:
         desc_limpa = str(desc).strip()
@@ -73,18 +81,17 @@ def importar_produtos():
             total_ignorado += 1
             continue
 
-        # 2. Match fuzzy (mais lento, >= 95)
+        # 2. Match fuzzy otimizado (apenas se a primeira palavra bater)
         is_dupe = False
-        # Para otimizar o fuzzy, só comparamos se houver suspeita,
-        # mas a regra pede detectar duplicatas >= 95.
-        # Com 8k itens, fazer 8k * N_banco token_set_ratio pode demorar.
-        # Vamos usar uma abordagem de filtro por tokens comuns se necessário,
-        # mas vamos tentar direto primeiro.
+        palavras_novo = desc_upper.split()
+        if palavras_novo:
+            primeira_novo = palavras_novo[0]
+            candidatos_fuzzy = indice_primeira_palavra.get(primeira_novo, [])
 
-        for p_existente in cache_total:
-            if fuzz.token_set_ratio(desc_upper, p_existente) >= 95:
-                is_dupe = True
-                break
+            for p_existente in candidatos_fuzzy:
+                if fuzz.token_set_ratio(desc_upper, p_existente) >= 95:
+                    is_dupe = True
+                    break
 
         if is_dupe:
             total_ignorado += 1
@@ -108,6 +115,13 @@ def importar_produtos():
 
             # Atualiza caches para evitar duplicar itens da própria planilha entre si
             cache_total.add(desc_upper)
+            palavras_i = desc_upper.split()
+            if palavras_i:
+                p_i = palavras_i[0]
+                if p_i not in indice_primeira_palavra:
+                    indice_primeira_palavra[p_i] = []
+                indice_primeira_palavra[p_i].append(desc_upper)
+
             total_inserido += 1
 
             if total_inserido % 100 == 0:
