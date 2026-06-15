@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Auditoria SKU Master{% endblock %}
-{% block subtitle %}Analise em modo leitura da qualidade dos produtos padronizados.{% endblock %}
+{% block subtitle %}Analise e correção manual da qualidade dos produtos padronizados.{% endblock %}
 
 {% block content %}
 
@@ -89,83 +89,34 @@
 
     <p style="margin-top: 16px; color: var(--muted);">
         Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros filtrados.
-        A auditoria e somente leitura e nao altera produtos, equivalencias ou precos.
     </p>
 </section>
 
 <section class="panel large">
-    <h3>Exemplos Encontrados</h3>
-
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-        <button id="btn-corrigir-todos" class="btn-primary"
-            style="padding:6px 18px;font-weight:700;">
-            ⚡ Corrigir Todos os SKUs visíveis
-        </button>
-        <span id="corrigir-todos-status" style="font-size:0.83rem;color:var(--muted);"></span>
-    </div>
-    <form id="form-corrigir-todos" method="POST"
-          action="{{ url_for('sku_master_auditoria_corrigir_todos') }}"
-          style="display:none;">
-        <input type="hidden" name="filtro" value="{{ auditoria.filtro }}">
-        <input type="hidden" id="itens-corrigir-todos" name="itens" value="[]">
-    </form>
+    <h3>Produtos</h3>
 
     <div class="comparison-table-wrap">
         <table class="comparison-table">
             <thead>
                 <tr>
-                    <th>Produto ID</th>
-                    <th>Produto padrao atual</th>
+                    <th>ID</th>
+                    <th>SKU Master / Produto Padrao</th>
                     <th>Fabricante</th>
                     <th>Categoria</th>
                     <th>Classificacao</th>
-                    <th>Motivo</th>
-                    <th>SKU Sugerido</th>
                     <th>Precos</th>
-                    <th>Equivalencias</th>
                     <th>Acao</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in auditoria.itens %}
-                <tr data-produto-id="{{ item.id }}" data-ativo="{{ item.ativo }}"
-                    data-sku-sugerido="{{ item.sugestao_sku_limpo or '' }}">
+                <tr data-produto-json='{{ item|tojson|safe }}'>
                     <td>{{ item.id }}</td>
                     <td class="produto-padrao-cell">
-                        <strong>{{ item.produto_padrao }}</strong>
+                        <strong>{{ item.produto_padrao or "-" }}</strong>
                     </td>
-                    <td>
-                        {% if item.ativo %}
-                        <div style="display:flex;gap:4px;align-items:center;">
-                            <input type="text" data-campo="fabricante"
-                                value="{{ item.fabricante or '' }}"
-                                list="marca-datalist"
-                                placeholder="Marca..."
-                                style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
-                            <button class="btn-primary"
-                                style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;"
-                                onclick="salvarCampo(this,{{ item.id }},'fabricante')">✓</button>
-                        </div>
-                        {% else %}
-                        {{ item.fabricante or "-" }}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if item.ativo %}
-                        <div style="display:flex;gap:4px;align-items:center;">
-                            <input type="text" data-campo="categoria"
-                                value="{{ item.categoria or '' }}"
-                                list="categoria-datalist"
-                                placeholder="Categoria..."
-                                style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
-                            <button class="btn-primary"
-                                style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;"
-                                onclick="salvarCampo(this,{{ item.id }},'categoria')">✓</button>
-                        </div>
-                        {% else %}
-                        {{ item.categoria or "-" }}
-                        {% endif %}
-                    </td>
+                    <td>{{ item.fabricante or "-" }}</td>
+                    <td>{{ item.categoria or "-" }}</td>
                     <td>
                         {% if item.classificacao == 'LIMPO' %}
                             <span class="badge-verde">LIMPO</span>
@@ -179,37 +130,15 @@
                             <span class="badge-cinza">{{ item.classificacao }}</span>
                         {% endif %}
                     </td>
-                    <td>{{ item.motivo }}</td>
-                    <td>
-                        {% if item.classificacao != 'LIMPO' and item.ativo %}
-                        <input
-                            type="text"
-                            class="sku-sugerido-input"
-                            data-produto-id="{{ item.id }}"
-                            value="{{ item.sugestao_sku_limpo or '' }}"
-                            list="sku-datalist"
-                            placeholder="Digite ou selecione..."
-                            style="width:220px; padding:4px 6px; border:1px solid var(--border,#d1d5db); border-radius:4px; font-size:0.82rem;"
-                        >
-                        {% else %}
-                        <span style="color:var(--muted)">—</span>
-                        {% endif %}
-                    </td>
                     <td>{{ item.total_precos }}</td>
-                    <td>{{ item.total_equivalencias }}</td>
                     <td>
-                        {% if item.classificacao != 'LIMPO' and item.ativo %}
-                        <button class="btn-primary"
-                            style="padding:4px 14px;font-size:0.82rem;"
-                            onclick="salvarSku(this,{{ item.id }})">Salvar SKU</button>
-                        {% elif item.classificacao != 'LIMPO' %}
-                        <span style="color:var(--muted);font-size:0.78rem;">inativo</span>
-                        {% endif %}
+                        <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem;"
+                                onclick="abrirModalEdicao(this)">Editar</button>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="10">Nenhum registro encontrado para o filtro selecionado.</td>
+                    <td colspan="7">Nenhum registro encontrado.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -217,19 +146,201 @@
     </div>
 </section>
 
+<!-- MODAL DE EDIÇÃO -->
+<div id="modal-edicao" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background-color:white; margin:5% auto; padding:20px; border-radius:8px; width:600px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:20px;">
+            <h3 style="margin:0;">Editar Produto <span id="modal-produto-id"></span></h3>
+            <button onclick="fecharModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <form id="form-edicao">
+            <input type="hidden" id="edit-id">
+
+            <div style="margin-bottom:15px;">
+                <label style="display:block; font-weight:700; margin-bottom:5px;">SKU Master / Produto Padrao</label>
+                <input type="text" id="edit-produto-padrao" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;" list="sku-datalist">
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="display:block; font-weight:700; margin-bottom:5px;">Fabricante / Marca</label>
+                    <input type="text" id="edit-fabricante" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;" list="marca-datalist">
+                </div>
+                <div>
+                    <label style="display:block; font-weight:700; margin-bottom:5px;">Categoria</label>
+                    <input type="text" id="edit-categoria" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;" list="categoria-datalist">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="display:block; font-weight:700; margin-bottom:5px;">Status</label>
+                    <select id="edit-ativo" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        <option value="1">Ativo</option>
+                        <option value="0">Inativo</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <label style="display:block; font-weight:700; margin-bottom:5px;">Observações</label>
+                <textarea id="edit-observacoes" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px;"></textarea>
+            </div>
+
+            <div style="background:#f9f9f9; padding:15px; border-radius:6px; margin-bottom:20px; border:1px solid #eee;">
+                <label style="display:block; font-weight:800; margin-bottom:10px; color:#c62828;">Propagação em Cascata (Opcional)</label>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" name="cascata" value="semelhante" onchange="previewCascata()">
+                        Aplicar a produtos semelhantes (score >= 88)
+                    </label>
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" name="cascata" value="mesmo_sku" onchange="previewCascata()">
+                        Aplicar ao mesmo SKU Master atual
+                    </label>
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" name="cascata" value="mesmo_fornecedor" onchange="previewCascata()">
+                        Aplicar a outros produtos dos mesmos fornecedores
+                    </label>
+                </div>
+                <div id="cascata-preview-box" style="margin-top:10px; font-size:0.8rem; color:#666; display:none;">
+                    <hr style="border:0; border-top:1px solid #ddd; margin:10px 0;">
+                    <div id="cascata-lista-afetados" style="max-height:80px; overflow-y:auto; border:1px solid #eee; padding:5px; background:white;">
+                    </div>
+                    <div style="margin-top:5px; font-weight:700;" id="cascata-total"></div>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" onclick="fecharModal()" class="btn-primary" style="background:#6b7280;">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar Alterações</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <datalist id="sku-datalist"></datalist>
 <datalist id="marca-datalist"></datalist>
 <datalist id="categoria-datalist"></datalist>
 
 <script>
 (function () {
+    const modal = document.getElementById('modal-edicao');
+    const form = document.getElementById('form-edicao');
+
+    window.abrirModalEdicao = function(btn) {
+        const tr = btn.closest('tr');
+        const data = JSON.parse(tr.dataset.produtoJson);
+
+        document.getElementById('modal-produto-id').textContent = '#' + data.id;
+        document.getElementById('edit-id').value = data.id;
+        document.getElementById('edit-produto-padrao').value = data.produto_padrao || '';
+        document.getElementById('edit-fabricante').value = data.fabricante || '';
+        document.getElementById('edit-categoria').value = data.categoria || '';
+        document.getElementById('edit-ativo').value = data.ativo;
+        document.getElementById('edit-observacoes').value = data.observacoes || '';
+
+        // Reset checkboxes
+        document.querySelectorAll('input[name="cascata"]').forEach(c => c.checked = false);
+        document.getElementById('cascata-preview-box').style.display = 'none';
+
+        modal.style.display = 'block';
+    }
+
+    window.fecharModal = function() {
+        modal.style.display = 'none';
+    }
+
+    window.previewCascata = function() {
+        const produtoId = document.getElementById('edit-id').value;
+        const tipos = Array.from(document.querySelectorAll('input[name="cascata"]:checked')).map(c => c.value);
+        const previewBox = document.getElementById('cascata-preview-box');
+        const listaDiv = document.getElementById('cascata-lista-afetados');
+        const totalDiv = document.getElementById('cascata-total');
+
+        if (tipos.length === 0) {
+            previewBox.style.display = 'none';
+            return;
+        }
+
+        previewBox.style.display = 'block';
+        listaDiv.innerHTML = '<span style="color:#999">Calculando impacto...</span>';
+        totalDiv.innerHTML = '';
+
+        fetch('/sku-master/auditoria/preview-cascata', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({produto_id: produtoId, tipos: tipos})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.total > 0) {
+                listaDiv.innerHTML = data.itens.map(i => `<div>• ID ${i.id}: ${i.produto_padrao}</div>`).join('');
+                totalDiv.innerHTML = `Impacto estimado: ${data.total} produto(s) extra(s)`;
+            } else {
+                listaDiv.innerHTML = 'Nenhum outro produto afetado por estas opções.';
+                totalDiv.innerHTML = '';
+            }
+        });
+    }
+
+    form.onsubmit = function(e) {
+        e.preventDefault();
+        const produtoId = document.getElementById('edit-id').value;
+        const tipos = Array.from(document.querySelectorAll('input[name="cascata"]:checked')).map(c => c.value);
+
+        const payload = {
+            produto_id: produtoId,
+            dados: {
+                produto_padrao: document.getElementById('edit-produto-padrao').value.trim(),
+                fabricante: document.getElementById('edit-fabricante').value.trim(),
+                categoria: document.getElementById('edit-categoria').value.trim(),
+                ativo: parseInt(document.getElementById('edit-ativo').value, 10),
+                observacoes: document.getElementById('edit-observacoes').value.trim()
+            },
+            opcoes_cascata: tipos
+        };
+
+        const btnSubmit = form.querySelector('button[type="submit"]');
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Salvando...';
+
+        fetch('/sku-master/auditoria/salvar-edicao', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                alert('Produto atualizado com sucesso!' + (data.afetados_cascata > 0 ? ` (${data.afetados_cascata} em cascata)` : ''));
+                window.location.reload();
+            } else {
+                alert('Erro ao salvar: ' + data.erro);
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Salvar Alterações';
+            }
+        })
+        .catch(err => {
+            alert('Erro de rede ao salvar.');
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = 'Salvar Alterações';
+        });
+    }
+
+    // Fechar modal ao clicar fora
+    window.onclick = function(event) {
+        if (event.target == modal) fecharModal();
+    }
+
     /* ── popular datalists ── */
     function popularDatalist(url, id) {
-        fetch(url).then(function (r) { return r.json(); }).then(function (itens) {
-            var dl = document.getElementById(id);
+        fetch(url).then(r => r.json()).then(itens => {
+            const dl = document.getElementById(id);
             if (!dl) return;
-            itens.forEach(function (v) {
-                var o = document.createElement('option'); o.value = v; dl.appendChild(o);
+            itens.forEach(v => {
+                const o = document.createElement('option'); o.value = v; dl.appendChild(o);
             });
         });
     }
@@ -237,116 +348,20 @@
     popularDatalist('/sku-master/marcas-json',      'marca-datalist');
     popularDatalist('/sku-master/categorias-json',  'categoria-datalist');
 
-    /* ── manter data-sku-sugerido sincronizado ── */
-    document.querySelectorAll('.sku-sugerido-input').forEach(function (inp) {
-        inp.addEventListener('input', function () {
-            var tr = inp.closest('tr');
-            if (tr) tr.dataset.skuSugerido = inp.value;
-        });
-    });
-
-    /* ── feedback inline ── */
-    function showFeedback(btn, msg, ok) {
-        var old = btn.parentElement.querySelector('.fb-msg');
-        if (old) old.remove();
-        var s = document.createElement('span');
-        s.className = 'fb-msg';
-        s.textContent = msg;
-        s.style.cssText = 'font-size:0.74rem;margin-left:5px;font-weight:700;color:' +
-                          (ok ? '#059669' : '#dc2626');
-        btn.parentElement.appendChild(s);
-        if (ok) setTimeout(function () { s.remove(); }, 3000);
-    }
-
-    /* ── salvar fabricante / categoria (AJAX) ── */
-    window.salvarCampo = function (btn, produtoId, campo) {
-        var td  = btn.closest('td');
-        var inp = td.querySelector('input[data-campo]');
-        var val = inp.value.trim();
-        if (!val) { showFeedback(btn, 'Valor vazio', false); return; }
-        btn.disabled = true;
-        fetch('/sku-master/auditoria/salvar-campo', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({produto_id: produtoId, campo: campo, valor: val})
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            btn.disabled = false;
-            if (d.ok) {
-                showFeedback(btn, '✓ Salvo', true);
-                inp.style.borderColor = '#059669';
-                setTimeout(function () { inp.style.borderColor = ''; }, 2500);
-            } else {
-                showFeedback(btn, '✗ ' + d.erro, false);
-            }
-        })
-        .catch(function () { btn.disabled = false; showFeedback(btn, '✗ Erro de rede', false); });
-    };
-
-    /* ── salvar SKU (AJAX) ── */
-    window.salvarSku = function (btn, produtoId) {
-        var tr  = btn.closest('tr');
-        var inp = tr ? tr.querySelector('.sku-sugerido-input') : null;
-        var val = inp ? inp.value.trim() : '';
-        if (!val) { showFeedback(btn, 'SKU vazio', false); return; }
-        btn.disabled = true;
-        btn.textContent = '…';
-        fetch('/sku-master/auditoria/salvar-sku-ajax', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({produto_id: produtoId, sku_manual: val})
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            if (d.ok) {
-                var cel = tr.querySelector('.produto-padrao-cell');
-                if (cel) cel.innerHTML = '<strong>' + d.sku_novo + '</strong>';
-                if (inp) { inp.value = d.sku_novo; inp.disabled = true; }
-                btn.textContent = '✓';
-                tr.style.opacity = '0.45';
-                tr.dataset.skuSugerido = '';
-                showFeedback(btn, d.mensagem, true);
-            } else {
-                btn.disabled = false;
-                btn.textContent = 'Salvar SKU';
-                showFeedback(btn, '✗ ' + d.erro, false);
-            }
-        })
-        .catch(function () {
-            btn.disabled = false;
-            btn.textContent = 'Salvar SKU';
-            showFeedback(btn, '✗ Erro de rede', false);
-        });
-    };
-
-    /* ── Corrigir Todos ── */
-    var btnCT = document.getElementById('btn-corrigir-todos');
-    if (btnCT) {
-        btnCT.addEventListener('click', function () {
-            var itens = [];
-            document.querySelectorAll('tr[data-produto-id][data-ativo="1"]').forEach(function (tr) {
-                var inp = tr.querySelector('.sku-sugerido-input');
-                if (inp && inp.value.trim() && !inp.disabled) {
-                    itens.push({
-                        produto_id: parseInt(tr.dataset.produtoId, 10),
-                        sku_manual: inp.value.trim()
-                    });
-                }
-            });
-            if (!itens.length) {
-                alert('Nenhum SKU sugerido disponível nas linhas ativas visíveis.');
-                return;
-            }
-            if (!confirm('Aplicar ' + itens.length + ' correção(ões) de SKU? Esta ação não pode ser desfeita.')) return;
-            document.getElementById('itens-corrigir-todos').value = JSON.stringify(itens);
-            var st = document.getElementById('corrigir-todos-status');
-            if (st) st.textContent = 'Processando ' + itens.length + ' item(ns)…';
-            btnCT.disabled = true;
-            document.getElementById('form-corrigir-todos').submit();
-        });
-    }
 })();
 </script>
+
+<style>
+/* Estilos para badges e badges do sistema */
+.badge-verde { background:#dcfce7; color:#166534; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
+.badge-red { background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
+.badge-blue { background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
+.badge-cinza { background:#f3f4f6; color:#374151; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
+
+.modal-content input, .modal-content select, .modal-content textarea {
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+</style>
 
 {% endblock %}

@@ -141,7 +141,9 @@ def _conectar_leitura():
 
 
 def _normalizar(texto):
-    texto = str(texto or "").strip().upper()
+    if texto is None:
+        return ""
+    texto = str(texto).strip().upper()
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     texto = re.sub(r"[^A-Z0-9%+/,.-]+", " ", texto)
@@ -273,7 +275,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+            SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
             FROM produtos
             ORDER BY produto_padrao
             """
@@ -752,7 +754,7 @@ def _conectar_escrita(caminho_banco=None):
 def _buscar_produto(cursor, produto_id):
     cursor.execute(
         """
-        SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+        SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
         FROM produtos
         WHERE id = ?
         """,
@@ -1094,6 +1096,51 @@ def aplicar_correcao_manual_sku_master(
             "produto_origem_id": produto_origem_id,
             "produto_destino_id": destino_id,
         })
+
+        # Propagação em cascata
+        cursor.execute(
+            """
+            SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+            FROM produtos
+            WHERE ativo = 1 AND id != ? AND id != ?
+            """,
+            (produto_origem_id, destino_id),
+        )
+        candidatos = [dict(row) for row in cursor.fetchall()]
+
+        itens_cascata = []
+        for cand in candidatos:
+            score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
+            if score >= 88:
+                classificacao_cand, _ = _classificar_produto_no_banco(cursor, cand)
+                if classificacao_cand in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
+                    contadores_casc = _aplicar_item_validado(cursor, {
+                        "produto_origem_id": cand["id"],
+                        "produto_destino_id": destino_id,
+                    })
+
+                    registro_cascata = {
+                        "timestamp": datetime.now().isoformat(timespec="seconds"),
+                        "usuario": usuario,
+                        "status": "sucesso",
+                        "tipo_correcao": "cascata",
+                        "produto_origem_id": cand["id"],
+                        "produto_origem": cand["produto_padrao"],
+                        "produto_destino_id": destino_id,
+                        "produto_destino": destino["produto_padrao"],
+                        "sku_manual": sku_manual,
+                        "precos_migrados": contadores_casc["precos_migrados"],
+                        "equivalencias_migradas": contadores_casc["equivalencias_migradas"],
+                        "produtos_inativados": contadores_casc["produtos_inativados"],
+                    }
+                    registrar_log_correcao(registro_cascata, caminho_log=caminho_log)
+
+                    itens_cascata.append({
+                        "produto_id": cand["id"],
+                        "produto_padrao": cand["produto_padrao"],
+                        "precos_migrados": contadores_casc["precos_migrados"],
+                    })
+
         conn.commit()
 
         registro = {
@@ -1112,6 +1159,7 @@ def aplicar_correcao_manual_sku_master(
             "precos_migrados": contadores["precos_migrados"],
             "equivalencias_migradas": contadores["equivalencias_migradas"],
             "produtos_inativados": contadores["produtos_inativados"],
+            "cascata": itens_cascata,
             "backup": backup,
         }
         caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
@@ -1204,6 +1252,181 @@ def aplicar_correcao_sku_master(
         }
         registrar_log_correcao(registro, caminho_log=caminho_log)
         raise
+    finally:
+        conn.close()
+
+
+def registrar_auditoria_sku(
+    cursor,
+    produto_id,
+    campo,
+    valor_antigo,
+    valor_novo,
+    tipo_correcao="manual",
+    origem_correcao="auditoria",
+    usuario="sistema",
+):
+    cursor.execute(
+        """
+        INSERT INTO auditoria_sku (
+            produto_id, campo, valor_antigo, valor_novo,
+            data_hora, tipo_correcao, origem_correcao, usuario
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            produto_id,
+            campo,
+            str(valor_antigo or ""),
+            str(valor_novo or ""),
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            tipo_correcao,
+            origem_correcao,
+            usuario,
+        ),
+    )
+
+
+def buscar_produtos_afetados_cascata(
+    produto_id,
+    tipo_cascata,
+    sku_master_novo=None,
+    caminho_banco=None,
+):
+    """
+    Retorna lista de produtos que seriam afetados pela cascata.
+    Tipos: 'semelhante', 'mesmo_sku', 'mesmo_fornecedor'
+    """
+    conn = _conectar_leitura()
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.cursor()
+        origem = _buscar_produto(cursor, produto_id)
+        if not origem:
+            return []
+
+        if tipo_cascata == "mesmo_sku":
+            cursor.execute(
+                "SELECT id, produto_padrao, ativo FROM produtos WHERE produto_padrao = ? AND id != ?",
+                (origem["produto_padrao"], produto_id),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+        if tipo_cascata == "semelhante":
+            cursor.execute("SELECT id, produto_padrao, ativo FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
+            candidatos = [dict(row) for row in cursor.fetchall()]
+            afetados = []
+            for cand in candidatos:
+                if not cand["produto_padrao"]:
+                    continue
+                score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
+                if score >= 88:
+                    afetados.append(cand)
+            return afetados
+
+        if tipo_cascata == "mesmo_fornecedor":
+            # Busca fornecedores que vendem o produto origem
+            cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
+            fids = [row["fornecedor_id"] for row in cursor.fetchall()]
+            if not fids:
+                return []
+
+            placeholders = ",".join(["?"] * len(fids))
+            cursor.execute(
+                f"""
+                SELECT DISTINCT p.id, p.produto_padrao, p.ativo
+                FROM produtos p
+                JOIN precos_fornecedores pf ON pf.produto_id = p.id
+                WHERE pf.fornecedor_id IN ({placeholders}) AND p.id != ?
+                """,
+                (*fids, produto_id),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+        return []
+    finally:
+        conn.close()
+
+
+def salvar_edicao_manual_produto(
+    produto_id,
+    dados_novos,
+    opcoes_cascata=None,
+    usuario="sistema",
+    caminho_banco=None,
+):
+    """
+    Salva alterações manuais em um produto e opcionalmente aplica em cascata.
+    dados_novos: {produto_padrao, fabricante, categoria, ativo, observacoes}
+    opcoes_cascata: list de ['semelhante', 'mesmo_sku', 'mesmo_fornecedor']
+    """
+    produto_id = int(produto_id)
+    opcoes_cascata = opcoes_cascata or []
+
+    conn = _conectar_escrita(caminho_banco)
+    try:
+        cursor = conn.cursor()
+        origem = _buscar_produto(cursor, produto_id)
+        if not origem:
+            raise ValueError("Produto nao encontrado.")
+
+        # Identifica produtos afetados pela cascata ANTES de alterar o origem
+        ids_afetados = set()
+        for tipo in opcoes_cascata:
+            # Reutiliza lógica de busca mas agora dentro da transação de escrita
+            # (Simplificado aqui para brevidade, ideal seria ter funções internas secas)
+            if tipo == "mesmo_sku":
+                cursor.execute("SELECT id FROM produtos WHERE produto_padrao = ? AND id != ?", (origem["produto_padrao"], produto_id))
+                ids_afetados.update(row[0] for row in cursor.fetchall())
+            elif tipo == "semelhante":
+                cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
+                for cand in cursor.fetchall():
+                    if cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
+                        ids_afetados.add(cand[0])
+            elif tipo == "mesmo_fornecedor":
+                cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
+                fids = [row[0] for row in cursor.fetchall()]
+                if fids:
+                    placeholders = ",".join(["?"] * len(fids))
+                    cursor.execute(f"SELECT DISTINCT produto_id FROM precos_fornecedores WHERE fornecedor_id IN ({placeholders}) AND produto_id != ?", (*fids, produto_id))
+                    ids_afetados.update(row[0] for row in cursor.fetchall())
+
+        conn.execute("BEGIN")
+
+        # 1. Atualiza o produto origem
+        campos_editaveis = ["produto_padrao", "fabricante", "categoria", "ativo", "observacoes"]
+        for campo in campos_editaveis:
+            novo_valor = dados_novos.get(campo)
+            if novo_valor is not None and str(novo_valor) != str(origem.get(campo) or ""):
+                cursor.execute(f"UPDATE produtos SET {campo} = ? WHERE id = ?", (novo_valor, produto_id))
+                registrar_auditoria_sku(cursor, produto_id, campo, origem.get(campo), novo_valor, usuario=usuario)
+
+        # 2. Aplica cascata nos afetados
+        # Cascata só altera SKU_MASTER, fabricante e categoria se o usuário mudou
+        sku_novo = dados_novos.get("produto_padrao")
+        fab_novo = dados_novos.get("fabricante")
+        cat_novo = dados_novos.get("categoria")
+
+        for aid in ids_afetados:
+            afetado = _buscar_produto(cursor, aid)
+            if not afetado: continue
+
+            if sku_novo and sku_novo != afetado["produto_padrao"]:
+                cursor.execute("UPDATE produtos SET produto_padrao = ? WHERE id = ?", (sku_novo, aid))
+                registrar_auditoria_sku(cursor, aid, "produto_padrao", afetado["produto_padrao"], sku_novo, tipo_correcao="cascata", usuario=usuario)
+
+            if fab_novo and fab_novo != afetado["fabricante"]:
+                cursor.execute("UPDATE produtos SET fabricante = ? WHERE id = ?", (fab_novo, aid))
+                registrar_auditoria_sku(cursor, aid, "fabricante", afetado["fabricante"], fab_novo, tipo_correcao="cascata", usuario=usuario)
+
+            if cat_novo and cat_novo != afetado["categoria"]:
+                cursor.execute("UPDATE produtos SET categoria = ? WHERE id = ?", (cat_novo, aid))
+                registrar_auditoria_sku(cursor, aid, "categoria", afetado["categoria"], cat_novo, tipo_correcao="cascata", usuario=usuario)
+
+        conn.commit()
+        return {"ok": True, "afetados_cascata": len(ids_afetados)}
+    except Exception as e:
+        conn.rollback()
+        raise e
     finally:
         conn.close()
 
