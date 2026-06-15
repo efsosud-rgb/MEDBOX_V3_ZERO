@@ -83,12 +83,8 @@ def criar_banco():
         produto_padrao TEXT,
         fabricante TEXT,
         categoria TEXT,
-<<<<<<< HEAD
         ativo INTEGER DEFAULT 1,
         observacoes TEXT
-=======
-        ativo INTEGER DEFAULT 1
->>>>>>> origin/main
     )""")
 
     cursor.execute("""
@@ -111,12 +107,8 @@ def criar_banco():
         codigo_fornecedor TEXT,
         marca TEXT,
         preco REAL,
-<<<<<<< HEAD
         data_importacao TEXT,
         arquivo_origem TEXT
-=======
-        data_importacao TEXT
->>>>>>> origin/main
     )""")
 
     cursor.execute("""
@@ -162,7 +154,6 @@ def criar_banco():
         total_itens INTEGER DEFAULT 0
     )""")
 
-<<<<<<< HEAD
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS auditoria_sku (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,8 +183,6 @@ def criar_banco():
     except sqlite3.OperationalError:
         pass
 
-=======
->>>>>>> origin/main
     conn.commit()
     conn.close()
     print("BANCO MEDBOX V3 CRIADO/VERIFICADO COM SUCESSO")
@@ -784,12 +773,8 @@ def listar_cotacoes():
 def registrar_preco_fornecedor(
     fornecedor_id, produto_id, descricao_original,
     codigo_fornecedor="", marca="", preco=0,
-<<<<<<< HEAD
     data_importacao=None, arquivo_origem="", origem_importacao="IMPORTACAO",
     conn_existente=None
-=======
-    data_importacao=None, arquivo_origem="", origem_importacao="IMPORTACAO"
->>>>>>> origin/main
 ):
     preco = converter_float(preco)
     if preco <= 0:
@@ -802,7 +787,6 @@ def registrar_preco_fornecedor(
     arquivo_origem     = str(arquivo_origem or "").strip()
     origem_importacao  = normalizar_texto(origem_importacao or "IMPORTACAO")
 
-<<<<<<< HEAD
     conn = conn_existente or conectar()
     cursor = conn.cursor()
 
@@ -811,62 +795,43 @@ def registrar_preco_fornecedor(
         FROM precos_fornecedores
         WHERE fornecedor_id = ? AND produto_id = ? AND data_importacao = ?
     """, (fornecedor_id, produto_id, data_importacao))
-=======
-    conn = conectar()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute("""
-            INSERT INTO precos_fornecedores_historico (
-                fornecedor_id, produto_id, descricao_original,
-                codigo_fornecedor, marca, preco, data_importacao,
-                arquivo_origem, origem_importacao, data_registro
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            fornecedor_id, produto_id, descricao_original,
-            codigo_fornecedor, marca, preco, data_importacao,
-            arquivo_origem, origem_importacao,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ))
-    except Exception:
-        pass
-
-    cursor.execute("""
-        SELECT id, data_importacao FROM precos_fornecedores
-        WHERE fornecedor_id = ? AND produto_id = ?
-        AND UPPER(descricao_original) = ?
-    """, (fornecedor_id, produto_id, descricao_original))
->>>>>>> origin/main
 
     existente = cursor.fetchone()
 
     if existente:
-<<<<<<< HEAD
-        # Move atual para histórico antes do UPDATE
-        try:
-            cursor.execute("""
-                INSERT INTO precos_fornecedores_historico (
-                    fornecedor_id, produto_id, descricao_original,
-                    codigo_fornecedor, marca, preco, data_importacao,
-                    arquivo_origem, origem_importacao, data_registro
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                fornecedor_id, produto_id, existente["descricao_original"],
-                existente["codigo_fornecedor"], existente["marca"],
-                existente["preco"], existente["data_importacao"],
-                existente["arquivo_origem"], "SOBREPOSTO",
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            ))
-        except Exception:
-            pass
+        # Só arquiva no histórico e atualiza se houver mudança real
+        mudou = (
+            preco != existente["preco"] or
+            marca != existente["marca"] or
+            codigo_fornecedor != existente["codigo_fornecedor"] or
+            descricao_original != existente["descricao_original"]
+        )
 
-        cursor.execute("""
-            UPDATE precos_fornecedores
-            SET preco = ?, marca = ?, codigo_fornecedor = ?,
-                descricao_original = ?, arquivo_origem = ?
-            WHERE id = ?
-        """, (preco, marca, codigo_fornecedor, descricao_original,
-              arquivo_origem, existente["id"]))
+        if mudou:
+            try:
+                cursor.execute("""
+                    INSERT INTO precos_fornecedores_historico (
+                        fornecedor_id, produto_id, descricao_original,
+                        codigo_fornecedor, marca, preco, data_importacao,
+                        arquivo_origem, origem_importacao, data_registro
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    fornecedor_id, produto_id, existente["descricao_original"],
+                    existente["codigo_fornecedor"], existente["marca"],
+                    existente["preco"], existente["data_importacao"],
+                    existente["arquivo_origem"], "SOBREPOSTO",
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
+            except Exception:
+                pass
+
+            cursor.execute("""
+                UPDATE precos_fornecedores
+                SET preco = ?, marca = ?, codigo_fornecedor = ?,
+                    descricao_original = ?, arquivo_origem = ?
+                WHERE id = ?
+            """, (preco, marca, codigo_fornecedor, descricao_original,
+                  arquivo_origem, existente["id"]))
     else:
         # Se não existe no mesmo dia, verifica se existe em outro dia para decidir se faz INSERT ou UPDATE no quadro geral
         cursor.execute("""
@@ -878,39 +843,48 @@ def registrar_preco_fornecedor(
 
         if geral:
             if data_importacao >= geral["data_importacao"]:
-                # Antes de atualizar registro mais antigo por um novo, move o antigo para histórico
+                # Só arquiva e atualiza se houver mudança real
+                # Se for o mesmo dia, já foi tratado acima. Aqui é data_importacao > geral["data_importacao"]
                 cursor.execute("""
                     SELECT preco, data_importacao, marca, codigo_fornecedor, arquivo_origem, descricao_original
                     FROM precos_fornecedores WHERE id = ?
                 """, (geral["id"],))
                 velho = cursor.fetchone()
 
-                try:
-                    cursor.execute("""
-                        INSERT INTO precos_fornecedores_historico (
-                            fornecedor_id, produto_id, descricao_original,
-                            codigo_fornecedor, marca, preco, data_importacao,
-                            arquivo_origem, origem_importacao, data_registro
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        fornecedor_id, produto_id, velho["descricao_original"],
-                        velho["codigo_fornecedor"], velho["marca"],
-                        velho["preco"], velho["data_importacao"],
-                        velho["arquivo_origem"], "SOBREPOSTO_NOVA_DATA",
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    ))
-                except Exception:
-                    pass
+                mudou = (
+                    preco != velho["preco"] or
+                    marca != velho["marca"] or
+                    codigo_fornecedor != velho["codigo_fornecedor"] or
+                    descricao_original != velho["descricao_original"]
+                )
 
-                cursor.execute("""
-                    UPDATE precos_fornecedores
-                    SET preco = ?, data_importacao = ?,
-                        marca = ?, codigo_fornecedor = ?,
-                        descricao_original = ?, arquivo_origem = ?
-                    WHERE id = ?
-                """, (preco, data_importacao, marca,
-                      codigo_fornecedor, descricao_original,
-                      arquivo_origem, geral["id"]))
+                if mudou:
+                    try:
+                        cursor.execute("""
+                            INSERT INTO precos_fornecedores_historico (
+                                fornecedor_id, produto_id, descricao_original,
+                                codigo_fornecedor, marca, preco, data_importacao,
+                                arquivo_origem, origem_importacao, data_registro
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            fornecedor_id, produto_id, velho["descricao_original"],
+                            velho["codigo_fornecedor"], velho["marca"],
+                            velho["preco"], velho["data_importacao"],
+                            velho["arquivo_origem"], "SOBREPOSTO_NOVA_DATA",
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+                    except Exception:
+                        pass
+
+                    cursor.execute("""
+                        UPDATE precos_fornecedores
+                        SET preco = ?, data_importacao = ?,
+                            marca = ?, codigo_fornecedor = ?,
+                            descricao_original = ?, arquivo_origem = ?
+                        WHERE id = ?
+                    """, (preco, data_importacao, marca,
+                          codigo_fornecedor, descricao_original,
+                          arquivo_origem, geral["id"]))
             else:
                 # Preço importado é mais antigo que o atual. Vai direto para o histórico.
                 try:
@@ -944,29 +918,6 @@ def registrar_preco_fornecedor(
     if not conn_existente:
         conn.commit()
         conn.close()
-=======
-        if data_importacao >= existente["data_importacao"]:
-            cursor.execute("""
-                UPDATE precos_fornecedores
-                SET preco = ?, data_importacao = ?,
-                    marca = ?, codigo_fornecedor = ?
-                WHERE id = ?
-            """, (preco, data_importacao, marca,
-                  codigo_fornecedor, existente["id"]))
-    else:
-        cursor.execute("""
-            INSERT INTO precos_fornecedores (
-                fornecedor_id, produto_id, descricao_original,
-                codigo_fornecedor, marca, preco, data_importacao
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            fornecedor_id, produto_id, descricao_original,
-            codigo_fornecedor, marca, preco, data_importacao
-        ))
-
-    conn.commit()
-    conn.close()
->>>>>>> origin/main
 
 
 # ============================================================

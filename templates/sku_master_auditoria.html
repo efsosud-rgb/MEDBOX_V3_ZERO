@@ -1,11 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Auditoria SKU Master{% endblock %}
-<<<<<<< HEAD
 {% block subtitle %}Analise e correção manual da qualidade dos produtos padronizados.{% endblock %}
-=======
-{% block subtitle %}Analise em modo leitura da qualidade dos produtos padronizados.{% endblock %}
->>>>>>> origin/main
 
 {% block content %}
 
@@ -93,77 +89,33 @@
 
     <p style="margin-top: 16px; color: var(--muted);">
         Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros filtrados.
-<<<<<<< HEAD
-=======
-        A auditoria e somente leitura e nao altera produtos, equivalencias ou precos.
->>>>>>> origin/main
     </p>
 </section>
 
 <section class="panel large">
-<<<<<<< HEAD
     <h3>Produtos</h3>
-=======
-    <h3>Exemplos Encontrados</h3>
-
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-        <button id="btn-corrigir-todos" class="btn-primary"
-            style="padding:6px 18px;font-weight:700;">
-            ⚡ Corrigir Todos os SKUs visíveis
-        </button>
-        <span id="corrigir-todos-status" style="font-size:0.83rem;color:var(--muted);"></span>
-    </div>
-    <form id="form-corrigir-todos" method="POST"
-          action="{{ url_for('sku_master_auditoria_corrigir_todos') }}"
-          style="display:none;">
-        <input type="hidden" name="filtro" value="{{ auditoria.filtro }}">
-        <input type="hidden" id="itens-corrigir-todos" name="itens" value="[]">
-    </form>
->>>>>>> origin/main
 
     <div class="comparison-table-wrap">
         <table class="comparison-table">
             <thead>
                 <tr>
-<<<<<<< HEAD
                     <th>ID</th>
                     <th>SKU Master / Produto Padrao</th>
-=======
-                    <th>Produto ID</th>
-                    <th>Produto padrao atual</th>
->>>>>>> origin/main
                     <th>Fabricante</th>
                     <th>Categoria</th>
                     <th>Classificacao</th>
                     <th>Motivo</th>
-<<<<<<< HEAD
-=======
-                    <th>SKU Sugerido</th>
-                    <th>Precos</th>
-                    <th>Equivalencias</th>
->>>>>>> origin/main
                     <th>Acao</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in auditoria.itens %}
-<<<<<<< HEAD
                 <tr data-produto-json='{{ item|tojson|safe }}'>
                     <td>{{ item.id }}</td>
                     <td class="produto-padrao-cell">
                         <strong>{{ item.produto_padrao or "-" }}</strong>
                     </td>
                     <td>
-=======
-                <tr data-produto-id="{{ item.id }}" data-ativo="{{ item.ativo }}"
-                    data-sku-sugerido="{{ item.sugestao_sku_limpo or '' }}">
-                    <td>{{ item.id }}</td>
-                    <td class="produto-padrao-cell">
-                        <strong>{{ item.produto_padrao }}</strong>
-                    </td>
-                    <td>
-                        {% if item.ativo %}
->>>>>>> origin/main
                         <div style="display:flex;gap:4px;align-items:center;">
                             <input type="text" data-campo="fabricante"
                                 value="{{ item.fabricante or '' }}"
@@ -172,21 +124,10 @@
                                 style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
                             <button class="btn-primary"
                                 style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;"
-<<<<<<< HEAD
                                 onclick="salvarCampoRapido(this,{{ item.id }},'fabricante')">✓</button>
                         </div>
                     </td>
                     <td>
-=======
-                                onclick="salvarCampo(this,{{ item.id }},'fabricante')">✓</button>
-                        </div>
-                        {% else %}
-                        {{ item.fabricante or "-" }}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if item.ativo %}
->>>>>>> origin/main
                         <div style="display:flex;gap:4px;align-items:center;">
                             <input type="text" data-campo="categoria"
                                 value="{{ item.categoria or '' }}"
@@ -195,16 +136,8 @@
                                 style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
                             <button class="btn-primary"
                                 style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;"
-<<<<<<< HEAD
                                 onclick="salvarCampoRapido(this,{{ item.id }},'categoria')">✓</button>
                         </div>
-=======
-                                onclick="salvarCampo(this,{{ item.id }},'categoria')">✓</button>
-                        </div>
-                        {% else %}
-                        {{ item.categoria or "-" }}
-                        {% endif %}
->>>>>>> origin/main
                     </td>
                     <td>
                         {% if item.classificacao == 'LIMPO' %}
@@ -221,48 +154,17 @@
                     </td>
                     <td>{{ item.motivo }}</td>
                     <td>
-<<<<<<< HEAD
                         <div style="display:flex; gap:5px;">
                             <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem;"
                                     onclick="abrirModalEdicao(this)">Editar</button>
                             <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem; background:#dc2626;"
                                     onclick="excluirProduto(this, {{ item.id }})">Excluir</button>
                         </div>
-=======
-                        {% if item.classificacao != 'LIMPO' and item.ativo %}
-                        <input
-                            type="text"
-                            class="sku-sugerido-input"
-                            data-produto-id="{{ item.id }}"
-                            value="{{ item.sugestao_sku_limpo or '' }}"
-                            list="sku-datalist"
-                            placeholder="Digite ou selecione..."
-                            style="width:220px; padding:4px 6px; border:1px solid var(--border,#d1d5db); border-radius:4px; font-size:0.82rem;"
-                        >
-                        {% else %}
-                        <span style="color:var(--muted)">—</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ item.total_precos }}</td>
-                    <td>{{ item.total_equivalencias }}</td>
-                    <td>
-                        {% if item.classificacao != 'LIMPO' and item.ativo %}
-                        <button class="btn-primary"
-                            style="padding:4px 14px;font-size:0.82rem;"
-                            onclick="salvarSku(this,{{ item.id }})">Salvar SKU</button>
-                        {% elif item.classificacao != 'LIMPO' %}
-                        <span style="color:var(--muted);font-size:0.78rem;">inativo</span>
-                        {% endif %}
->>>>>>> origin/main
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-<<<<<<< HEAD
                     <td colspan="7">Nenhum registro encontrado.</td>
-=======
-                    <td colspan="10">Nenhum registro encontrado para o filtro selecionado.</td>
->>>>>>> origin/main
                 </tr>
                 {% endfor %}
             </tbody>
@@ -270,7 +172,6 @@
     </div>
 </section>
 
-<<<<<<< HEAD
 <!-- MODAL DE EDIÇÃO -->
 <div id="modal-edicao" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
     <div class="modal-content" style="background-color:white; margin:5% auto; padding:20px; border-radius:8px; width:600px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
@@ -345,15 +246,12 @@
     </div>
 </div>
 
-=======
->>>>>>> origin/main
 <datalist id="sku-datalist"></datalist>
 <datalist id="marca-datalist"></datalist>
 <datalist id="categoria-datalist"></datalist>
 
 <script>
 (function () {
-<<<<<<< HEAD
     const modal = document.getElementById('modal-edicao');
     const form = document.getElementById('form-edicao');
 
@@ -542,15 +440,6 @@
             if (!dl) return;
             itens.forEach(v => {
                 const o = document.createElement('option'); o.value = v; dl.appendChild(o);
-=======
-    /* ── popular datalists ── */
-    function popularDatalist(url, id) {
-        fetch(url).then(function (r) { return r.json(); }).then(function (itens) {
-            var dl = document.getElementById(id);
-            if (!dl) return;
-            itens.forEach(function (v) {
-                var o = document.createElement('option'); o.value = v; dl.appendChild(o);
->>>>>>> origin/main
             });
         });
     }
@@ -558,7 +447,6 @@
     popularDatalist('/sku-master/marcas-json',      'marca-datalist');
     popularDatalist('/sku-master/categorias-json',  'categoria-datalist');
 
-<<<<<<< HEAD
     // Fechar modal ao clicar fora
     window.onclick = function(event) {
         if (event.target == modal) fecharModal();
@@ -579,118 +467,4 @@
 }
 </style>
 
-=======
-    /* ── manter data-sku-sugerido sincronizado ── */
-    document.querySelectorAll('.sku-sugerido-input').forEach(function (inp) {
-        inp.addEventListener('input', function () {
-            var tr = inp.closest('tr');
-            if (tr) tr.dataset.skuSugerido = inp.value;
-        });
-    });
-
-    /* ── feedback inline ── */
-    function showFeedback(btn, msg, ok) {
-        var old = btn.parentElement.querySelector('.fb-msg');
-        if (old) old.remove();
-        var s = document.createElement('span');
-        s.className = 'fb-msg';
-        s.textContent = msg;
-        s.style.cssText = 'font-size:0.74rem;margin-left:5px;font-weight:700;color:' +
-                          (ok ? '#059669' : '#dc2626');
-        btn.parentElement.appendChild(s);
-        if (ok) setTimeout(function () { s.remove(); }, 3000);
-    }
-
-    /* ── salvar fabricante / categoria (AJAX) ── */
-    window.salvarCampo = function (btn, produtoId, campo) {
-        var td  = btn.closest('td');
-        var inp = td.querySelector('input[data-campo]');
-        var val = inp.value.trim();
-        if (!val) { showFeedback(btn, 'Valor vazio', false); return; }
-        btn.disabled = true;
-        fetch('/sku-master/auditoria/salvar-campo', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({produto_id: produtoId, campo: campo, valor: val})
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            btn.disabled = false;
-            if (d.ok) {
-                showFeedback(btn, '✓ Salvo', true);
-                inp.style.borderColor = '#059669';
-                setTimeout(function () { inp.style.borderColor = ''; }, 2500);
-            } else {
-                showFeedback(btn, '✗ ' + d.erro, false);
-            }
-        })
-        .catch(function () { btn.disabled = false; showFeedback(btn, '✗ Erro de rede', false); });
-    };
-
-    /* ── salvar SKU (AJAX) ── */
-    window.salvarSku = function (btn, produtoId) {
-        var tr  = btn.closest('tr');
-        var inp = tr ? tr.querySelector('.sku-sugerido-input') : null;
-        var val = inp ? inp.value.trim() : '';
-        if (!val) { showFeedback(btn, 'SKU vazio', false); return; }
-        btn.disabled = true;
-        btn.textContent = '…';
-        fetch('/sku-master/auditoria/salvar-sku-ajax', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({produto_id: produtoId, sku_manual: val})
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            if (d.ok) {
-                var cel = tr.querySelector('.produto-padrao-cell');
-                if (cel) cel.innerHTML = '<strong>' + d.sku_novo + '</strong>';
-                if (inp) { inp.value = d.sku_novo; inp.disabled = true; }
-                btn.textContent = '✓';
-                tr.style.opacity = '0.45';
-                tr.dataset.skuSugerido = '';
-                showFeedback(btn, d.mensagem, true);
-            } else {
-                btn.disabled = false;
-                btn.textContent = 'Salvar SKU';
-                showFeedback(btn, '✗ ' + d.erro, false);
-            }
-        })
-        .catch(function () {
-            btn.disabled = false;
-            btn.textContent = 'Salvar SKU';
-            showFeedback(btn, '✗ Erro de rede', false);
-        });
-    };
-
-    /* ── Corrigir Todos ── */
-    var btnCT = document.getElementById('btn-corrigir-todos');
-    if (btnCT) {
-        btnCT.addEventListener('click', function () {
-            var itens = [];
-            document.querySelectorAll('tr[data-produto-id][data-ativo="1"]').forEach(function (tr) {
-                var inp = tr.querySelector('.sku-sugerido-input');
-                if (inp && inp.value.trim() && !inp.disabled) {
-                    itens.push({
-                        produto_id: parseInt(tr.dataset.produtoId, 10),
-                        sku_manual: inp.value.trim()
-                    });
-                }
-            });
-            if (!itens.length) {
-                alert('Nenhum SKU sugerido disponível nas linhas ativas visíveis.');
-                return;
-            }
-            if (!confirm('Aplicar ' + itens.length + ' correção(ões) de SKU? Esta ação não pode ser desfeita.')) return;
-            document.getElementById('itens-corrigir-todos').value = JSON.stringify(itens);
-            var st = document.getElementById('corrigir-todos-status');
-            if (st) st.textContent = 'Processando ' + itens.length + ' item(ns)…';
-            btnCT.disabled = true;
-            document.getElementById('form-corrigir-todos').submit();
-        });
-    }
-})();
-</script>
-
->>>>>>> origin/main
 {% endblock %}
