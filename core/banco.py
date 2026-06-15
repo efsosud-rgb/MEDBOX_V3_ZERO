@@ -83,8 +83,12 @@ def criar_banco():
         produto_padrao TEXT,
         fabricante TEXT,
         categoria TEXT,
+<<<<<<< HEAD
         ativo INTEGER DEFAULT 1,
         observacoes TEXT
+=======
+        ativo INTEGER DEFAULT 1
+>>>>>>> origin/main
     )""")
 
     cursor.execute("""
@@ -107,8 +111,12 @@ def criar_banco():
         codigo_fornecedor TEXT,
         marca TEXT,
         preco REAL,
+<<<<<<< HEAD
         data_importacao TEXT,
         arquivo_origem TEXT
+=======
+        data_importacao TEXT
+>>>>>>> origin/main
     )""")
 
     cursor.execute("""
@@ -154,6 +162,7 @@ def criar_banco():
         total_itens INTEGER DEFAULT 0
     )""")
 
+<<<<<<< HEAD
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS auditoria_sku (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,6 +192,8 @@ def criar_banco():
     except sqlite3.OperationalError:
         pass
 
+=======
+>>>>>>> origin/main
     conn.commit()
     conn.close()
     print("BANCO MEDBOX V3 CRIADO/VERIFICADO COM SUCESSO")
@@ -773,8 +784,12 @@ def listar_cotacoes():
 def registrar_preco_fornecedor(
     fornecedor_id, produto_id, descricao_original,
     codigo_fornecedor="", marca="", preco=0,
+<<<<<<< HEAD
     data_importacao=None, arquivo_origem="", origem_importacao="IMPORTACAO",
     conn_existente=None
+=======
+    data_importacao=None, arquivo_origem="", origem_importacao="IMPORTACAO"
+>>>>>>> origin/main
 ):
     preco = converter_float(preco)
     if preco <= 0:
@@ -787,6 +802,7 @@ def registrar_preco_fornecedor(
     arquivo_origem     = str(arquivo_origem or "").strip()
     origem_importacao  = normalizar_texto(origem_importacao or "IMPORTACAO")
 
+<<<<<<< HEAD
     conn = conn_existente or conectar()
     cursor = conn.cursor()
 
@@ -795,10 +811,37 @@ def registrar_preco_fornecedor(
         FROM precos_fornecedores
         WHERE fornecedor_id = ? AND produto_id = ? AND data_importacao = ?
     """, (fornecedor_id, produto_id, data_importacao))
+=======
+    conn = conectar()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO precos_fornecedores_historico (
+                fornecedor_id, produto_id, descricao_original,
+                codigo_fornecedor, marca, preco, data_importacao,
+                arquivo_origem, origem_importacao, data_registro
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            fornecedor_id, produto_id, descricao_original,
+            codigo_fornecedor, marca, preco, data_importacao,
+            arquivo_origem, origem_importacao,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ))
+    except Exception:
+        pass
+
+    cursor.execute("""
+        SELECT id, data_importacao FROM precos_fornecedores
+        WHERE fornecedor_id = ? AND produto_id = ?
+        AND UPPER(descricao_original) = ?
+    """, (fornecedor_id, produto_id, descricao_original))
+>>>>>>> origin/main
 
     existente = cursor.fetchone()
 
     if existente:
+<<<<<<< HEAD
         # Move atual para histórico antes do UPDATE
         try:
             cursor.execute("""
@@ -901,6 +944,29 @@ def registrar_preco_fornecedor(
     if not conn_existente:
         conn.commit()
         conn.close()
+=======
+        if data_importacao >= existente["data_importacao"]:
+            cursor.execute("""
+                UPDATE precos_fornecedores
+                SET preco = ?, data_importacao = ?,
+                    marca = ?, codigo_fornecedor = ?
+                WHERE id = ?
+            """, (preco, data_importacao, marca,
+                  codigo_fornecedor, existente["id"]))
+    else:
+        cursor.execute("""
+            INSERT INTO precos_fornecedores (
+                fornecedor_id, produto_id, descricao_original,
+                codigo_fornecedor, marca, preco, data_importacao
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            fornecedor_id, produto_id, descricao_original,
+            codigo_fornecedor, marca, preco, data_importacao
+        ))
+
+    conn.commit()
+    conn.close()
+>>>>>>> origin/main
 
 
 # ============================================================

@@ -7,8 +7,11 @@ import unicodedata
 from pathlib import Path
 from datetime import datetime
 
+<<<<<<< HEAD
 from rapidfuzz import fuzz
 
+=======
+>>>>>>> origin/main
 from core.banco import conectar, registrar_preco_fornecedor
 from core.formatadores import moeda_br
 
@@ -1038,6 +1041,7 @@ def garantir_fornecedor(cursor, nome, tipo):
 # GARANTE PRODUTO NO SKU MASTER
 # ================================================
 
+<<<<<<< HEAD
 def _extrair_numeros_unidades(texto):
     """Extrai números seguidos de unidades comuns para evitar match errado."""
     if not texto: return []
@@ -1047,6 +1051,9 @@ def _extrair_numeros_unidades(texto):
 
 
 def garantir_produto(cursor, sku_master, categoria, fabricante, cache_produtos=None):
+=======
+def garantir_produto(cursor, sku_master, categoria, fabricante):
+>>>>>>> origin/main
     sku_master = str(sku_master or "").strip().upper()
     categoria = str(categoria or "").strip().upper()
     fabricante = str(fabricante or "").strip().upper()
@@ -1054,12 +1061,16 @@ def garantir_produto(cursor, sku_master, categoria, fabricante, cache_produtos=N
     if not sku_master:
         return None
 
+<<<<<<< HEAD
     # 1. Match exato
+=======
+>>>>>>> origin/main
     cursor.execute("SELECT id FROM produtos WHERE UPPER(produto_padrao) = ?", (sku_master,))
     row = cursor.fetchone()
 
     if row:
         produto_id = row["id"]
+<<<<<<< HEAD
         cursor.execute("""
             UPDATE produtos
             SET fabricante = CASE WHEN fabricante IS NULL OR fabricante = '' THEN ? ELSE fabricante END,
@@ -1115,6 +1126,19 @@ def garantir_produto(cursor, sku_master, categoria, fabricante, cache_produtos=N
         return melhor_match
 
     # 3. Cria novo se nada for encontrado
+=======
+
+        cursor.execute("""
+            UPDATE produtos
+            SET fabricante = COALESCE(NULLIF(?, ''), fabricante),
+                categoria = COALESCE(NULLIF(?, ''), categoria),
+                ativo = 1
+            WHERE id = ?
+        """, (fabricante, categoria, produto_id))
+
+        return produto_id
+
+>>>>>>> origin/main
     cursor.execute("""
         INSERT INTO produtos (sku, produto_padrao, fabricante, categoria, ativo)
         VALUES ('', ?, ?, ?, 1)
@@ -1348,10 +1372,13 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
 
     conn = conectar()
     cursor = conn.cursor()
+<<<<<<< HEAD
 
     # Cache de produtos ativos para evitar SELECTs repetidos no fuzzy
     cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1")
     cache_produtos = [{"id": r[0], "produto_padrao": r[1]} for r in cursor.fetchall()]
+=======
+>>>>>>> origin/main
 
     importados = 0
 
@@ -1390,8 +1417,12 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
             cursor,
             sku_master,
             categoria,
+<<<<<<< HEAD
             marca,
             cache_produtos=cache_produtos
+=======
+            marca
+>>>>>>> origin/main
         )
 
         if not produto_id:
@@ -1409,6 +1440,11 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
                 VALUES (?, ?)
             """, (produto_id, item["descricao_orig"]))
 
+<<<<<<< HEAD
+=======
+        conn.commit()
+
+>>>>>>> origin/main
         registrar_preco_fornecedor(
             fornecedor_id=fid,
             produto_id=produto_id,
@@ -1418,8 +1454,12 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
             preco=item["preco"],
             data_importacao=data_hoje,
             arquivo_origem=caminho.name,
+<<<<<<< HEAD
             origem_importacao="IMPORTADOR_UNIVERSAL",
             conn_existente=conn
+=======
+            origem_importacao="IMPORTADOR_UNIVERSAL"
+>>>>>>> origin/main
         )
 
         importados += 1

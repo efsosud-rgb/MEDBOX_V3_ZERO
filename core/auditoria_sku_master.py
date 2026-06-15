@@ -141,9 +141,13 @@ def _conectar_leitura():
 
 
 def _normalizar(texto):
+<<<<<<< HEAD
     if texto is None:
         return ""
     texto = str(texto).strip().upper()
+=======
+    texto = str(texto or "").strip().upper()
+>>>>>>> origin/main
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     texto = re.sub(r"[^A-Z0-9%+/,.-]+", " ", texto)
@@ -275,7 +279,11 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
         cursor = conn.cursor()
         cursor.execute(
             """
+<<<<<<< HEAD
             SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
+=======
+            SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+>>>>>>> origin/main
             FROM produtos
             ORDER BY produto_padrao
             """
@@ -754,7 +762,11 @@ def _conectar_escrita(caminho_banco=None):
 def _buscar_produto(cursor, produto_id):
     cursor.execute(
         """
+<<<<<<< HEAD
         SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
+=======
+        SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+>>>>>>> origin/main
         FROM produtos
         WHERE id = ?
         """,
@@ -824,6 +836,13 @@ def _validar_correcao_sku_com_cursor(
     classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
     classificacao_destino, motivos_destino = _classificar_produto_no_banco(cursor, destino)
 
+<<<<<<< HEAD
+=======
+    if classificacao_origem not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
+        raise ValueError("Produto origem nao esta classificado como contaminado forte ou SKU pendente.")
+    if classificacao_destino == "CONTAMINADO_FORTE":
+        raise ValueError("Produto destino nao pode estar classificado como contaminado forte.")
+>>>>>>> origin/main
 
     cursor.execute(
         "SELECT COUNT(*) AS total FROM precos_fornecedores WHERE produto_id = ?",
@@ -1068,6 +1087,14 @@ def aplicar_correcao_manual_sku_master(
             raise ValueError("Produto origem precisa estar ativo.")
 
         classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
+<<<<<<< HEAD
+=======
+        if (
+            classificacao_origem == "CONTAMINADO_FORTE"
+            and _normalizar(origem.get("produto_padrao")) == sku_manual
+        ):
+            raise ValueError("SKU manual nao pode ser igual ao produto contaminado atual.")
+>>>>>>> origin/main
 
         destino = _buscar_produto_ativo_por_nome(cursor, sku_manual)
 
@@ -1087,6 +1114,7 @@ def aplicar_correcao_manual_sku_master(
             "produto_origem_id": produto_origem_id,
             "produto_destino_id": destino_id,
         })
+<<<<<<< HEAD
 
         # Propagação em cascata
         cursor.execute(
@@ -1132,6 +1160,8 @@ def aplicar_correcao_manual_sku_master(
                         "precos_migrados": contadores_casc["precos_migrados"],
                     })
 
+=======
+>>>>>>> origin/main
         conn.commit()
 
         registro = {
@@ -1150,7 +1180,10 @@ def aplicar_correcao_manual_sku_master(
             "precos_migrados": contadores["precos_migrados"],
             "equivalencias_migradas": contadores["equivalencias_migradas"],
             "produtos_inativados": contadores["produtos_inativados"],
+<<<<<<< HEAD
             "cascata": itens_cascata,
+=======
+>>>>>>> origin/main
             "backup": backup,
         }
         caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
@@ -1247,6 +1280,7 @@ def aplicar_correcao_sku_master(
         conn.close()
 
 
+<<<<<<< HEAD
 def registrar_auditoria_sku(
     cursor,
     produto_id,
@@ -1477,6 +1511,8 @@ def excluir_produto_logico(produto_id, usuario="sistema", caminho_banco=None):
         conn.close()
 
 
+=======
+>>>>>>> origin/main
 def aplicar_lote_correcoes_sku_master(
     itens,
     usuario="sistema",
