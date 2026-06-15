@@ -824,10 +824,11 @@ def _validar_correcao_sku_com_cursor(
     classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
     classificacao_destino, motivos_destino = _classificar_produto_no_banco(cursor, destino)
 
-    if classificacao_origem not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
-        raise ValueError("Produto origem nao esta classificado como contaminado forte ou SKU pendente.")
-    if classificacao_destino == "CONTAMINADO_FORTE":
-        raise ValueError("Produto destino nao pode estar classificado como contaminado forte.")
+    # Removida restrição de classificação para permitir correção de qualquer produto
+    # if classificacao_origem not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
+    #     raise ValueError("Produto origem nao esta classificado como contaminado forte ou SKU pendente.")
+    # if classificacao_destino == "CONTAMINADO_FORTE":
+    #     raise ValueError("Produto destino nao pode estar classificado como contaminado forte.")
 
     cursor.execute(
         "SELECT COUNT(*) AS total FROM precos_fornecedores WHERE produto_id = ?",
@@ -1072,11 +1073,11 @@ def aplicar_correcao_manual_sku_master(
             raise ValueError("Produto origem precisa estar ativo.")
 
         classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
-        if (
-            classificacao_origem == "CONTAMINADO_FORTE"
-            and _normalizar(origem.get("produto_padrao")) == sku_manual
-        ):
-            raise ValueError("SKU manual nao pode ser igual ao produto contaminado atual.")
+        # if (
+        #     classificacao_origem == "CONTAMINADO_FORTE"
+        #     and _normalizar(origem.get("produto_padrao")) == sku_manual
+        # ):
+        #     raise ValueError("SKU manual nao pode ser igual ao produto contaminado atual.")
 
         destino = _buscar_produto_ativo_por_nome(cursor, sku_manual)
 
@@ -1424,6 +1425,59 @@ def salvar_edicao_manual_produto(
 
         conn.commit()
         return {"ok": True, "afetados_cascata": len(ids_afetados)}
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+
+def excluir_produto_logico(produto_id, usuario="sistema", caminho_banco=None):
+    """
+    Inativa um produto, move preços para histórico e registra auditoria.
+    """
+    produto_id = int(produto_id)
+    conn = _conectar_escrita(caminho_banco)
+    try:
+        cursor = conn.cursor()
+        origem = _buscar_produto(cursor, produto_id)
+        if not origem:
+            raise ValueError("Produto nao encontrado.")
+
+        conn.execute("BEGIN")
+
+        # 1. Move preços para histórico
+        cursor.execute(
+            """
+            INSERT INTO precos_fornecedores_historico (
+                fornecedor_id, produto_id, descricao_original,
+                codigo_fornecedor, marca, preco, data_importacao,
+                arquivo_origem, origem_importacao, data_registro
+            )
+            SELECT
+                fornecedor_id, produto_id, descricao_original,
+                codigo_fornecedor, marca, preco, data_importacao,
+                arquivo_origem, 'PRODUTO_EXCLUIDO', ?
+            FROM precos_fornecedores
+            WHERE produto_id = ?
+            """,
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), produto_id),
+        )
+
+        # 2. Deleta preços vigentes
+        cursor.execute("DELETE FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
+
+        # 3. Inativa produto
+        cursor.execute("UPDATE produtos SET ativo = 0 WHERE id = ?", (produto_id,))
+
+        # 4. Registra auditoria
+        registrar_auditoria_sku(
+            cursor, produto_id, "ativo", "1", "0",
+            tipo_correcao="exclusao", usuario=usuario
+        )
+
+        conn.commit()
+        return {"ok": True}
     except Exception as e:
         conn.rollback()
         raise e

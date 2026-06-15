@@ -31,6 +31,7 @@ from core.auditoria_sku_master import (
     previsualizar_lote_correcoes_sku_master,
     buscar_produtos_afetados_cascata,
     salvar_edicao_manual_produto,
+    excluir_produto_logico,
 )
 from core.cotacao_lances import analisar_arquivo_cotacao, configurar_logger_cotacao
 from core.formatadores import moeda_br
@@ -654,6 +655,24 @@ def sku_master_auditoria_salvar_edicao():
             produto_id=produto_id,
             dados_novos=dados,
             opcoes_cascata=opcoes_cascata,
+            usuario="compras"
+        )
+        return Response(
+            json.dumps(resultado, ensure_ascii=False),
+            content_type="application/json",
+        )
+    except Exception as e:
+        return Response(
+            json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False),
+            content_type="application/json",
+        ), 400
+
+
+@app.route("/sku-master/auditoria/excluir/<int:produto_id>", methods=["POST"])
+def sku_master_auditoria_excluir(produto_id):
+    try:
+        resultado = excluir_produto_logico(
+            produto_id=produto_id,
             usuario="compras"
         )
         return Response(

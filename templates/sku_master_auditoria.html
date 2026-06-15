@@ -104,7 +104,7 @@
                     <th>Fabricante</th>
                     <th>Categoria</th>
                     <th>Classificacao</th>
-                    <th>Precos</th>
+                    <th>Motivo</th>
                     <th>Acao</th>
                 </tr>
             </thead>
@@ -115,8 +115,30 @@
                     <td class="produto-padrao-cell">
                         <strong>{{ item.produto_padrao or "-" }}</strong>
                     </td>
-                    <td>{{ item.fabricante or "-" }}</td>
-                    <td>{{ item.categoria or "-" }}</td>
+                    <td>
+                        <div style="display:flex;gap:4px;align-items:center;">
+                            <input type="text" data-campo="fabricante"
+                                value="{{ item.fabricante or '' }}"
+                                list="marca-datalist"
+                                placeholder="Marca..."
+                                style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
+                            <button class="btn-primary"
+                                style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;"
+                                onclick="salvarCampoRapido(this,{{ item.id }},'fabricante')">✓</button>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:4px;align-items:center;">
+                            <input type="text" data-campo="categoria"
+                                value="{{ item.categoria or '' }}"
+                                list="categoria-datalist"
+                                placeholder="Categoria..."
+                                style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
+                            <button class="btn-primary"
+                                style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;"
+                                onclick="salvarCampoRapido(this,{{ item.id }},'categoria')">✓</button>
+                        </div>
+                    </td>
                     <td>
                         {% if item.classificacao == 'LIMPO' %}
                             <span class="badge-verde">LIMPO</span>
@@ -130,10 +152,14 @@
                             <span class="badge-cinza">{{ item.classificacao }}</span>
                         {% endif %}
                     </td>
-                    <td>{{ item.total_precos }}</td>
+                    <td>{{ item.motivo }}</td>
                     <td>
-                        <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem;"
-                                onclick="abrirModalEdicao(this)">Editar</button>
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem;"
+                                    onclick="abrirModalEdicao(this)">Editar</button>
+                            <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem; background:#dc2626;"
+                                    onclick="excluirProduto(this, {{ item.id }})">Excluir</button>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
@@ -329,12 +355,85 @@
         });
     }
 
-    // Fechar modal ao clicar fora
-    window.onclick = function(event) {
-        if (event.target == modal) fecharModal();
+    // Feedback visual
+    function showFeedback(btn, msg, ok) {
+        const old = btn.parentElement.querySelector('.fb-msg');
+        if (old) old.remove();
+        const s = document.createElement('span');
+        s.className = 'fb-msg';
+        s.textContent = msg;
+        s.style.cssText = 'font-size:0.74rem;margin-left:5px;font-weight:700;color:' + (ok ? '#059669' : '#dc2626');
+        btn.parentElement.appendChild(s);
+        if (ok) setTimeout(() => s.remove(), 3000);
     }
 
-    /* ── popular datalists ── */
+    // Salvar campo individual (inline)
+    window.salvarCampoRapido = function(btn, produtoId, campo) {
+        const td = btn.closest('td');
+        const inp = td.querySelector('input');
+        const val = inp.value.trim();
+
+        btn.disabled = true;
+
+        const payload = {
+            produto_id: produtoId,
+            dados: {},
+            opcoes_cascata: []
+        };
+        payload.dados[campo] = val;
+
+        fetch('/sku-master/auditoria/salvar-edicao', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(d => {
+            btn.disabled = false;
+            if (d.ok) {
+                showFeedback(btn, '✓', true);
+                inp.style.borderColor = '#059669';
+                setTimeout(() => inp.style.borderColor = '', 2500);
+            } else {
+                showFeedback(btn, '✗', false);
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            showFeedback(btn, '!', false);
+        });
+    };
+
+    window.excluirProduto = function(btn, produtoId) {
+        if (!confirm('Tem certeza que deseja excluir este produto? Os preços serão movidos para o histórico e o produto será inativado.')) {
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        fetch('/sku-master/auditoria/excluir/' + produtoId, {
+            method: 'POST'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                alert('Produto excluído com sucesso!');
+                window.location.reload();
+            } else {
+                alert('Erro ao excluir: ' + data.erro);
+                btn.disabled = false;
+                btn.textContent = 'Excluir';
+            }
+        })
+        .catch(err => {
+            alert('Erro de rede ao excluir.');
+            btn.disabled = false;
+            btn.textContent = 'Excluir';
+        });
+    }
+
+    // Popular datalists
     function popularDatalist(url, id) {
         fetch(url).then(r => r.json()).then(itens => {
             const dl = document.getElementById(id);
@@ -348,11 +447,15 @@
     popularDatalist('/sku-master/marcas-json',      'marca-datalist');
     popularDatalist('/sku-master/categorias-json',  'categoria-datalist');
 
+    // Fechar modal ao clicar fora
+    window.onclick = function(event) {
+        if (event.target == modal) fecharModal();
+    }
+
 })();
 </script>
 
 <style>
-/* Estilos para badges e badges do sistema */
 .badge-verde { background:#dcfce7; color:#166534; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
 .badge-red { background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
 .badge-blue { background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
