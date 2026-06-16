@@ -29,6 +29,9 @@ from core.auditoria_sku_master import (
     gerar_csv_sugestoes_sku_master,
     gerar_sugestoes_sku_master,
     previsualizar_lote_correcoes_sku_master,
+    buscar_produtos_afetados_cascata,
+    salvar_edicao_manual_produto,
+    excluir_produto_logico,
 )
 from core.cotacao_lances import analisar_arquivo_cotacao, configurar_logger_cotacao
 from core.formatadores import moeda_br
@@ -51,19 +54,13 @@ DATA_ATUAL = datetime.now().strftime("%d/%m/%Y")
 
 
 def _criar_logger_requisicao() -> logging.Logger:
-    """
-    Cria (ou recria) o logger 'importacao' apontando para debug_importacao.txt.
-    Limpa o arquivo no início de cada requisição e força flush após cada linha.
-    """
     logger = logging.getLogger("importacao")
     logger.setLevel(logging.DEBUG)
 
-    # Remove handlers antigos para evitar duplicação entre requisições
     for handler in logger.handlers[:]:
         handler.close()
         logger.removeHandler(handler)
 
-    # Abre o arquivo em modo 'w' para limpar o conteúdo anterior
     file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
 
@@ -73,7 +70,6 @@ def _criar_logger_requisicao() -> logging.Logger:
     )
     file_handler.setFormatter(formatter)
 
-    # Força flush após cada registro
     class FlushFileHandler(logging.FileHandler):
         def emit(self, record):
             super().emit(record)
@@ -369,9 +365,6 @@ def cotacoes_lances():
 
 @app.route("/cotacoes/lances/importar", methods=["POST"])
 def importar_cotacao_lances():
-    # ------------------------------------------------------------------ #
-    # Cria o logger com arquivo físico limpo a cada requisição             #
-    # ------------------------------------------------------------------ #
     log = _criar_logger_requisicao()
     configurar_logger_cotacao(log)
 
@@ -618,53 +611,69 @@ def sku_master_categorias_json():
     return Response(json.dumps(categorias, ensure_ascii=False), content_type="application/json")
 
 
-@app.route("/sku-master/auditoria/salvar-campo", methods=["POST"])
-def sku_master_auditoria_salvar_campo():
+@app.route("/sku-master/auditoria/preview-cascata", methods=["POST"])
+def sku_master_auditoria_preview_cascata():
     data = request.get_json(force=True) or {}
-    campo = data.get("campo", "")
     produto_id = data.get("produto_id")
-    valor = str(data.get("valor", "")).strip()
+    tipos = data.get("tipos", [])
 
-    if campo not in ("fabricante", "categoria"):
-        return Response(
-            json.dumps({"ok": False, "erro": "Campo invalido."}, ensure_ascii=False),
-            content_type="application/json",
-        )
-    if not produto_id:
-        return Response(
-            json.dumps({"ok": False, "erro": "produto_id ausente."}, ensure_ascii=False),
-            content_type="application/json",
-        )
+    todos_afetados = []
+    ids_vistos = set()
+
+    for tipo in tipos:
+        afetados = buscar_produtos_afetados_cascata(produto_id, tipo)
+        for a in afetados:
+            if a["id"] not in ids_vistos:
+                todos_afetados.append(a)
+                ids_vistos.add(a["id"])
+
+    return Response(
+        json.dumps({"total": len(todos_afetados), "itens": todos_afetados}, ensure_ascii=False),
+        content_type="application/json",
+    )
+
+
+@app.route("/sku-master/auditoria/salvar-edicao", methods=["POST"])
+def sku_master_auditoria_salvar_edicao():
+    data = request.get_json(force=True) or {}
+    produto_id = data.get("produto_id")
+    dados = data.get("dados", {})
+    opcoes_cascata = data.get("opcoes_cascata", [])
+
     try:
-        conn = conectar()
-        cursor = conn.cursor()
-        if campo == "fabricante":
-            cursor.execute(
-                "UPDATE produtos SET fabricante = ? WHERE id = ? AND ativo = 1",
-                (valor, int(produto_id)),
-            )
-        else:
-            cursor.execute(
-                "UPDATE produtos SET categoria = ? WHERE id = ? AND ativo = 1",
-                (valor, int(produto_id)),
-            )
-        conn.commit()
-        affected = cursor.rowcount
-        conn.close()
-        if affected == 0:
-            return Response(
-                json.dumps({"ok": False, "erro": "Produto nao encontrado ou inativo."}, ensure_ascii=False),
-                content_type="application/json",
-            )
+        resultado = salvar_edicao_manual_produto(
+            produto_id=produto_id,
+            dados_novos=dados,
+            opcoes_cascata=opcoes_cascata,
+            usuario="compras"
+        )
         return Response(
-            json.dumps({"ok": True, "campo": campo, "valor": valor}, ensure_ascii=False),
+            json.dumps(resultado, ensure_ascii=False),
             content_type="application/json",
         )
     except Exception as e:
         return Response(
             json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False),
             content_type="application/json",
+        ), 400
+
+
+@app.route("/sku-master/auditoria/excluir/<int:produto_id>", methods=["POST"])
+def sku_master_auditoria_excluir(produto_id):
+    try:
+        resultado = excluir_produto_logico(
+            produto_id=produto_id,
+            usuario="compras"
         )
+        return Response(
+            json.dumps(resultado, ensure_ascii=False),
+            content_type="application/json",
+        )
+    except Exception as e:
+        return Response(
+            json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False),
+            content_type="application/json",
+        ), 400
 
 
 @app.route("/sku-master/auditoria/salvar-sku-ajax", methods=["POST"])

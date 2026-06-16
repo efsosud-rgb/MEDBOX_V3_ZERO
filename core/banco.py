@@ -83,7 +83,8 @@ def criar_banco():
         produto_padrao TEXT,
         fabricante TEXT,
         categoria TEXT,
-        ativo INTEGER DEFAULT 1
+        ativo INTEGER DEFAULT 1,
+        observacoes TEXT
     )""")
 
     cursor.execute("""
@@ -106,7 +107,8 @@ def criar_banco():
         codigo_fornecedor TEXT,
         marca TEXT,
         preco REAL,
-        data_importacao TEXT
+        data_importacao TEXT,
+        arquivo_origem TEXT
     )""")
 
     cursor.execute("""
@@ -151,6 +153,35 @@ def criar_banco():
         arquivo_origem TEXT,
         total_itens INTEGER DEFAULT 0
     )""")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS auditoria_sku (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        produto_id INTEGER,
+        campo TEXT,
+        valor_antigo TEXT,
+        valor_novo TEXT,
+        data_hora TEXT,
+        tipo_correcao TEXT,
+        origem_correcao TEXT,
+        usuario TEXT
+    )""")
+
+    # Migração: Adiciona colunas se não existirem
+    try:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN observacoes TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE precos_fornecedores ADD COLUMN arquivo_origem TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE precos_fornecedores_historico ADD COLUMN arquivo_origem TEXT")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -415,7 +446,6 @@ def gerar_variacoes(termo):
 
 
 def buscar_ids_por_palavra(cursor, palavra):
-    """Busca IDs de produtos que contêm a palavra em qualquer campo."""
     ids = set()
     like = f"%{palavra}%"
 
@@ -470,20 +500,12 @@ def buscar_ids_por_palavra(cursor, palavra):
 
 
 def buscar_ids_por_termo(cursor, termo):
-    """
-    Busca IDs por termo completo E por interseção de palavras.
-    Palavras curtas (<=2 chars) são ignoradas para evitar ruído.
-    """
     ids = set()
-
-    # 1. Busca pelo termo completo
     ids.update(buscar_ids_por_palavra(cursor, termo))
 
-    # 2. Se tem múltiplas palavras, busca por interseção
     palavras = [p for p in termo.split() if len(p) >= 3]
     if len(palavras) >= 2:
         sets = [buscar_ids_por_palavra(cursor, p) for p in palavras]
-        # Interseção: produto deve conter TODAS as palavras
         ids_intersecao = sets[0]
         for s in sets[1:]:
             ids_intersecao = ids_intersecao.intersection(s)
@@ -496,15 +518,10 @@ def buscar_produto(termo):
     conn = conectar()
     cursor = conn.cursor()
 
-    # Gera variações do termo original
     variacoes = gerar_variacoes(termo)
-
-    # Expande com sinônimos médicos
     termos_sinonimos = expandir_com_sinonimos(termo)
     for ts in termos_sinonimos:
         variacoes.extend(gerar_variacoes(ts))
-
-    # Remove duplicatas
     variacoes = list(set(variacoes))
 
     todos_ids = set()
@@ -589,10 +606,6 @@ def buscar_produto(termo):
 
 
 def listar_sugestoes_busca(termo, limite=8):
-    """
-    Retorna sugestões de SKU Master para autocomplete.
-    Busca por qualquer palavra do termo em produto_padrao e equivalencias.
-    """
     if not termo or len(termo) < 2:
         return []
 
@@ -601,13 +614,10 @@ def listar_sugestoes_busca(termo, limite=8):
     termo_norm = normalizar_texto(termo)
     like = f"%{termo_norm}%"
 
-    # Palavras com 3+ chars para busca por interseção
     palavras = [p for p in termo_norm.split() if len(p) >= 3]
-
     sugestoes = set()
 
     if len(palavras) >= 2:
-        # Busca por interseção de palavras no produto_padrao
         sets = []
         for palavra in palavras:
             cursor.execute("""
@@ -622,7 +632,6 @@ def listar_sugestoes_busca(termo, limite=8):
                 resultado = resultado.intersection(s)
             sugestoes.update(resultado)
     else:
-        # Busca simples pelo termo
         cursor.execute("""
             SELECT DISTINCT produto_padrao FROM produtos
             WHERE UPPER(produto_padrao) LIKE ? AND ativo = 1
@@ -632,7 +641,6 @@ def listar_sugestoes_busca(termo, limite=8):
         for r in cursor.fetchall():
             sugestoes.add(r[0])
 
-        # Busca também nas descrições originais e retorna o SKU Master
         cursor.execute("""
             SELECT DISTINCT p.produto_padrao
             FROM produtos p
@@ -736,13 +744,14 @@ def listar_cotacoes():
 
 
 # ============================================================
-# COMPATIBILIDADE
+# REGISTRO DE PREÇOS
 # ============================================================
 
 def registrar_preco_fornecedor(
     fornecedor_id, produto_id, descricao_original,
     codigo_fornecedor="", marca="", preco=0,
-    data_importacao=None, arquivo_origem="", origem_importacao="IMPORTACAO"
+    data_importacao=None, arquivo_origem="", origem_importacao="IMPORTACAO",
+    conn_existente=None
 ):
     preco = converter_float(preco)
     if preco <= 0:
@@ -755,55 +764,134 @@ def registrar_preco_fornecedor(
     arquivo_origem     = str(arquivo_origem or "").strip()
     origem_importacao  = normalizar_texto(origem_importacao or "IMPORTACAO")
 
-    conn = conectar()
+    conn = conn_existente or conectar()
     cursor = conn.cursor()
 
-    try:
-        cursor.execute("""
-            INSERT INTO precos_fornecedores_historico (
-                fornecedor_id, produto_id, descricao_original,
-                codigo_fornecedor, marca, preco, data_importacao,
-                arquivo_origem, origem_importacao, data_registro
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            fornecedor_id, produto_id, descricao_original,
-            codigo_fornecedor, marca, preco, data_importacao,
-            arquivo_origem, origem_importacao,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ))
-    except Exception:
-        pass
-
     cursor.execute("""
-        SELECT id, data_importacao FROM precos_fornecedores
-        WHERE fornecedor_id = ? AND produto_id = ?
-        AND UPPER(descricao_original) = ?
-    """, (fornecedor_id, produto_id, descricao_original))
+        SELECT id, preco, data_importacao, marca, codigo_fornecedor, arquivo_origem, descricao_original
+        FROM precos_fornecedores
+        WHERE fornecedor_id = ? AND produto_id = ? AND data_importacao = ?
+    """, (fornecedor_id, produto_id, data_importacao))
 
     existente = cursor.fetchone()
 
     if existente:
-        if data_importacao >= existente["data_importacao"]:
+        # Só arquiva no histórico e atualiza se houver mudança real
+        mudou = (
+            preco != existente["preco"] or
+            marca != existente["marca"] or
+            codigo_fornecedor != existente["codigo_fornecedor"] or
+            descricao_original != existente["descricao_original"]
+        )
+
+        if mudou:
+            try:
+                cursor.execute("""
+                    INSERT INTO precos_fornecedores_historico (
+                        fornecedor_id, produto_id, descricao_original,
+                        codigo_fornecedor, marca, preco, data_importacao,
+                        arquivo_origem, origem_importacao, data_registro
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    fornecedor_id, produto_id, existente["descricao_original"],
+                    existente["codigo_fornecedor"], existente["marca"],
+                    existente["preco"], existente["data_importacao"],
+                    existente["arquivo_origem"], "SOBREPOSTO",
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
+            except Exception:
+                pass
+
             cursor.execute("""
                 UPDATE precos_fornecedores
-                SET preco = ?, data_importacao = ?,
-                    marca = ?, codigo_fornecedor = ?
+                SET preco = ?, marca = ?, codigo_fornecedor = ?,
+                    descricao_original = ?, arquivo_origem = ?
                 WHERE id = ?
-            """, (preco, data_importacao, marca,
-                  codigo_fornecedor, existente["id"]))
+            """, (preco, marca, codigo_fornecedor, descricao_original,
+                  arquivo_origem, existente["id"]))
     else:
         cursor.execute("""
-            INSERT INTO precos_fornecedores (
-                fornecedor_id, produto_id, descricao_original,
-                codigo_fornecedor, marca, preco, data_importacao
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            fornecedor_id, produto_id, descricao_original,
-            codigo_fornecedor, marca, preco, data_importacao
-        ))
+            SELECT id, data_importacao FROM precos_fornecedores
+            WHERE fornecedor_id = ? AND produto_id = ?
+        """, (fornecedor_id, produto_id))
 
-    conn.commit()
-    conn.close()
+        geral = cursor.fetchone()
+
+        if geral:
+            if data_importacao >= geral["data_importacao"]:
+                cursor.execute("""
+                    SELECT preco, data_importacao, marca, codigo_fornecedor, arquivo_origem, descricao_original
+                    FROM precos_fornecedores WHERE id = ?
+                """, (geral["id"],))
+                velho = cursor.fetchone()
+
+                mudou = (
+                    preco != velho["preco"] or
+                    marca != velho["marca"] or
+                    codigo_fornecedor != velho["codigo_fornecedor"] or
+                    descricao_original != velho["descricao_original"]
+                )
+
+                if mudou:
+                    try:
+                        cursor.execute("""
+                            INSERT INTO precos_fornecedores_historico (
+                                fornecedor_id, produto_id, descricao_original,
+                                codigo_fornecedor, marca, preco, data_importacao,
+                                arquivo_origem, origem_importacao, data_registro
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            fornecedor_id, produto_id, velho["descricao_original"],
+                            velho["codigo_fornecedor"], velho["marca"],
+                            velho["preco"], velho["data_importacao"],
+                            velho["arquivo_origem"], "SOBREPOSTO_NOVA_DATA",
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+                    except Exception:
+                        pass
+
+                    cursor.execute("""
+                        UPDATE precos_fornecedores
+                        SET preco = ?, data_importacao = ?,
+                            marca = ?, codigo_fornecedor = ?,
+                            descricao_original = ?, arquivo_origem = ?
+                        WHERE id = ?
+                    """, (preco, data_importacao, marca,
+                          codigo_fornecedor, descricao_original,
+                          arquivo_origem, geral["id"]))
+            else:
+                # Preço importado é mais antigo que o atual — vai direto para histórico
+                try:
+                    cursor.execute("""
+                        INSERT INTO precos_fornecedores_historico (
+                            fornecedor_id, produto_id, descricao_original,
+                            codigo_fornecedor, marca, preco, data_importacao,
+                            arquivo_origem, origem_importacao, data_registro
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        fornecedor_id, produto_id, descricao_original,
+                        codigo_fornecedor, marca, preco, data_importacao,
+                        arquivo_origem, "IMPORTACAO_ANTIGA",
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ))
+                except Exception:
+                    pass
+        else:
+            cursor.execute("""
+                INSERT INTO precos_fornecedores (
+                    fornecedor_id, produto_id, descricao_original,
+                    codigo_fornecedor, marca, preco, data_importacao,
+                    arquivo_origem
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                fornecedor_id, produto_id, descricao_original,
+                codigo_fornecedor, marca, preco, data_importacao,
+                arquivo_origem
+            ))
+
+    if not conn_existente:
+        conn.commit()
+        conn.close()
 
 
 # ============================================================
