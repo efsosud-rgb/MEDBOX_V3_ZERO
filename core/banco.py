@@ -446,7 +446,6 @@ def gerar_variacoes(termo):
 
 
 def buscar_ids_por_palavra(cursor, palavra):
-    """Busca IDs de produtos que contêm a palavra em qualquer campo."""
     ids = set()
     like = f"%{palavra}%"
 
@@ -501,20 +500,12 @@ def buscar_ids_por_palavra(cursor, palavra):
 
 
 def buscar_ids_por_termo(cursor, termo):
-    """
-    Busca IDs por termo completo E por interseção de palavras.
-    Palavras curtas (<=2 chars) são ignoradas para evitar ruído.
-    """
     ids = set()
-
-    # 1. Busca pelo termo completo
     ids.update(buscar_ids_por_palavra(cursor, termo))
 
-    # 2. Se tem múltiplas palavras, busca por interseção
     palavras = [p for p in termo.split() if len(p) >= 3]
     if len(palavras) >= 2:
         sets = [buscar_ids_por_palavra(cursor, p) for p in palavras]
-        # Interseção: produto deve conter TODAS as palavras
         ids_intersecao = sets[0]
         for s in sets[1:]:
             ids_intersecao = ids_intersecao.intersection(s)
@@ -527,15 +518,10 @@ def buscar_produto(termo):
     conn = conectar()
     cursor = conn.cursor()
 
-    # Gera variações do termo original
     variacoes = gerar_variacoes(termo)
-
-    # Expande com sinônimos médicos
     termos_sinonimos = expandir_com_sinonimos(termo)
     for ts in termos_sinonimos:
         variacoes.extend(gerar_variacoes(ts))
-
-    # Remove duplicatas
     variacoes = list(set(variacoes))
 
     todos_ids = set()
@@ -620,10 +606,6 @@ def buscar_produto(termo):
 
 
 def listar_sugestoes_busca(termo, limite=8):
-    """
-    Retorna sugestões de SKU Master para autocomplete.
-    Busca por qualquer palavra do termo em produto_padrao e equivalencias.
-    """
     if not termo or len(termo) < 2:
         return []
 
@@ -632,13 +614,10 @@ def listar_sugestoes_busca(termo, limite=8):
     termo_norm = normalizar_texto(termo)
     like = f"%{termo_norm}%"
 
-    # Palavras com 3+ chars para busca por interseção
     palavras = [p for p in termo_norm.split() if len(p) >= 3]
-
     sugestoes = set()
 
     if len(palavras) >= 2:
-        # Busca por interseção de palavras no produto_padrao
         sets = []
         for palavra in palavras:
             cursor.execute("""
@@ -653,7 +632,6 @@ def listar_sugestoes_busca(termo, limite=8):
                 resultado = resultado.intersection(s)
             sugestoes.update(resultado)
     else:
-        # Busca simples pelo termo
         cursor.execute("""
             SELECT DISTINCT produto_padrao FROM produtos
             WHERE UPPER(produto_padrao) LIKE ? AND ativo = 1
@@ -663,7 +641,6 @@ def listar_sugestoes_busca(termo, limite=8):
         for r in cursor.fetchall():
             sugestoes.add(r[0])
 
-        # Busca também nas descrições originais e retorna o SKU Master
         cursor.execute("""
             SELECT DISTINCT p.produto_padrao
             FROM produtos p
@@ -767,7 +744,7 @@ def listar_cotacoes():
 
 
 # ============================================================
-# COMPATIBILIDADE
+# REGISTRO DE PREÇOS
 # ============================================================
 
 def registrar_preco_fornecedor(
@@ -799,33 +776,40 @@ def registrar_preco_fornecedor(
     existente = cursor.fetchone()
 
     if existente:
-        # Move atual para histórico antes do UPDATE
-        try:
-            cursor.execute("""
-                INSERT INTO precos_fornecedores_historico (
-                    fornecedor_id, produto_id, descricao_original,
-                    codigo_fornecedor, marca, preco, data_importacao,
-                    arquivo_origem, origem_importacao, data_registro
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                fornecedor_id, produto_id, existente["descricao_original"],
-                existente["codigo_fornecedor"], existente["marca"],
-                existente["preco"], existente["data_importacao"],
-                existente["arquivo_origem"], "SOBREPOSTO",
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            ))
-        except Exception:
-            pass
+        # Só arquiva no histórico e atualiza se houver mudança real
+        mudou = (
+            preco != existente["preco"] or
+            marca != existente["marca"] or
+            codigo_fornecedor != existente["codigo_fornecedor"] or
+            descricao_original != existente["descricao_original"]
+        )
 
-        cursor.execute("""
-            UPDATE precos_fornecedores
-            SET preco = ?, marca = ?, codigo_fornecedor = ?,
-                descricao_original = ?, arquivo_origem = ?
-            WHERE id = ?
-        """, (preco, marca, codigo_fornecedor, descricao_original,
-              arquivo_origem, existente["id"]))
+        if mudou:
+            try:
+                cursor.execute("""
+                    INSERT INTO precos_fornecedores_historico (
+                        fornecedor_id, produto_id, descricao_original,
+                        codigo_fornecedor, marca, preco, data_importacao,
+                        arquivo_origem, origem_importacao, data_registro
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    fornecedor_id, produto_id, existente["descricao_original"],
+                    existente["codigo_fornecedor"], existente["marca"],
+                    existente["preco"], existente["data_importacao"],
+                    existente["arquivo_origem"], "SOBREPOSTO",
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
+            except Exception:
+                pass
+
+            cursor.execute("""
+                UPDATE precos_fornecedores
+                SET preco = ?, marca = ?, codigo_fornecedor = ?,
+                    descricao_original = ?, arquivo_origem = ?
+                WHERE id = ?
+            """, (preco, marca, codigo_fornecedor, descricao_original,
+                  arquivo_origem, existente["id"]))
     else:
-        # Se não existe no mesmo dia, verifica se existe em outro dia para decidir se faz INSERT ou UPDATE no quadro geral
         cursor.execute("""
             SELECT id, data_importacao FROM precos_fornecedores
             WHERE fornecedor_id = ? AND produto_id = ?
@@ -835,13 +819,48 @@ def registrar_preco_fornecedor(
 
         if geral:
             if data_importacao >= geral["data_importacao"]:
-                # Antes de atualizar registro mais antigo por um novo, move o antigo para histórico
                 cursor.execute("""
                     SELECT preco, data_importacao, marca, codigo_fornecedor, arquivo_origem, descricao_original
                     FROM precos_fornecedores WHERE id = ?
                 """, (geral["id"],))
                 velho = cursor.fetchone()
 
+                mudou = (
+                    preco != velho["preco"] or
+                    marca != velho["marca"] or
+                    codigo_fornecedor != velho["codigo_fornecedor"] or
+                    descricao_original != velho["descricao_original"]
+                )
+
+                if mudou:
+                    try:
+                        cursor.execute("""
+                            INSERT INTO precos_fornecedores_historico (
+                                fornecedor_id, produto_id, descricao_original,
+                                codigo_fornecedor, marca, preco, data_importacao,
+                                arquivo_origem, origem_importacao, data_registro
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            fornecedor_id, produto_id, velho["descricao_original"],
+                            velho["codigo_fornecedor"], velho["marca"],
+                            velho["preco"], velho["data_importacao"],
+                            velho["arquivo_origem"], "SOBREPOSTO_NOVA_DATA",
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+                    except Exception:
+                        pass
+
+                    cursor.execute("""
+                        UPDATE precos_fornecedores
+                        SET preco = ?, data_importacao = ?,
+                            marca = ?, codigo_fornecedor = ?,
+                            descricao_original = ?, arquivo_origem = ?
+                        WHERE id = ?
+                    """, (preco, data_importacao, marca,
+                          codigo_fornecedor, descricao_original,
+                          arquivo_origem, geral["id"]))
+            else:
+                # Preço importado é mais antigo que o atual — vai direto para histórico
                 try:
                     cursor.execute("""
                         INSERT INTO precos_fornecedores_historico (
@@ -850,24 +869,13 @@ def registrar_preco_fornecedor(
                             arquivo_origem, origem_importacao, data_registro
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        fornecedor_id, produto_id, velho["descricao_original"],
-                        velho["codigo_fornecedor"], velho["marca"],
-                        velho["preco"], velho["data_importacao"],
-                        velho["arquivo_origem"], "SOBREPOSTO_NOVA_DATA",
+                        fornecedor_id, produto_id, descricao_original,
+                        codigo_fornecedor, marca, preco, data_importacao,
+                        arquivo_origem, "IMPORTACAO_ANTIGA",
                         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     ))
                 except Exception:
                     pass
-
-                cursor.execute("""
-                    UPDATE precos_fornecedores
-                    SET preco = ?, data_importacao = ?,
-                        marca = ?, codigo_fornecedor = ?,
-                        descricao_original = ?, arquivo_origem = ?
-                    WHERE id = ?
-                """, (preco, data_importacao, marca,
-                      codigo_fornecedor, descricao_original,
-                      arquivo_origem, geral["id"]))
         else:
             cursor.execute("""
                 INSERT INTO precos_fornecedores (

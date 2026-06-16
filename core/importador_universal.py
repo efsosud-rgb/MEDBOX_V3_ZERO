@@ -1122,6 +1122,10 @@ def garantir_produto(cursor, sku_master, categoria, fabricante, cache_produtos=N
 
     produto_id = cursor.lastrowid
 
+    # Atualiza o cache em memória se fornecido
+    if cache_produtos is not None:
+        cache_produtos.append({"id": produto_id, "produto_padrao": sku_master})
+
     cursor.execute("""
         INSERT INTO equivalencias (produto_id, descricao_equivalente)
         VALUES (?, ?)

@@ -46,41 +46,13 @@ GRUPOS_SUGESTOES = {
 }
 
 STOPWORDS_SKU = {
-    "DE",
-    "DA",
-    "DO",
-    "DAS",
-    "DOS",
-    "E",
-    "A",
-    "O",
-    "AS",
-    "OS",
-    "COM",
-    "C",
-    "SEM",
-    "PARA",
-    "P",
-    "POR",
-    "EM",
-    "NA",
-    "NO",
-    "NAS",
-    "NOS",
+    "DE", "DA", "DO", "DAS", "DOS", "E", "A", "O", "AS", "OS",
+    "COM", "C", "SEM", "PARA", "P", "POR", "EM", "NA", "NO", "NAS", "NOS",
 }
 
 MARCAS_FINAIS_SUSPEITAS = {
-    "EQUIPLEX",
-    "FARMACE",
-    "HALEXISTAR",
-    "SAMTEC",
-    "HIPOLABOR",
-    "CRISTALIA",
-    "TEUTO",
-    "MEDIX",
-    "THEOTO",
-    "SOL",
-    "CARE",
+    "EQUIPLEX", "FARMACE", "HALEXISTAR", "SAMTEC", "HIPOLABOR",
+    "CRISTALIA", "TEUTO", "MEDIX", "THEOTO", "SOL", "CARE",
 }
 
 ABREVIACOES_MEDBOX = {
@@ -228,10 +200,7 @@ def _classificar(produto, motivos, duplicado):
     if "sku_pendente" in motivos:
         return "SKU_PENDENTE"
     motivos_fortes = {
-        "excesso_tokens",
-        "muito_longo",
-        "repeticao_termo_base",
-        "marca_fabricante_no_fim",
+        "excesso_tokens", "muito_longo", "repeticao_termo_base", "marca_fabricante_no_fim",
     }
     if motivos_fortes.intersection(motivos):
         return "CONTAMINADO_FORTE"
@@ -253,6 +222,8 @@ def _sugerir_sku_limpo(produto, indice_limpos):
     candidatos = []
     for limpo in produtos_limpos:
         if limpo["id"] == produto["id"]:
+            continue
+        if not assinatura or not limpo["assinatura"]:
             continue
         score = fuzz.token_set_ratio(assinatura, limpo["assinatura"])
         if score >= 92:
@@ -282,12 +253,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
         )
         produtos = [dict(row) for row in cursor.fetchall()]
 
-        cursor.execute(
-            """
-            SELECT produto_id, descricao_original
-            FROM precos_fornecedores
-            """
-        )
+        cursor.execute("SELECT produto_id, descricao_original FROM precos_fornecedores")
         descricoes_por_produto = defaultdict(list)
         total_precos = defaultdict(int)
         for row in cursor.fetchall():
@@ -297,16 +263,9 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
                 descricoes_por_produto[produto_id].append(row["descricao_original"])
 
         cursor.execute(
-            """
-            SELECT produto_id, COUNT(*) AS total
-            FROM equivalencias
-            GROUP BY produto_id
-            """
+            "SELECT produto_id, COUNT(*) AS total FROM equivalencias GROUP BY produto_id"
         )
-        total_equivalencias = {
-            row["produto_id"]: row["total"]
-            for row in cursor.fetchall()
-        }
+        total_equivalencias = {row["produto_id"]: row["total"] for row in cursor.fetchall()}
     finally:
         conn.close()
 
@@ -343,10 +302,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
         })
 
     produtos_limpos = [
-        {
-            **item,
-            "assinatura": _assinatura_sku(item["produto_padrao"]),
-        }
+        {**item, "assinatura": _assinatura_sku(item["produto_padrao"])}
         for item in pre_classificados
         if item["classificacao"] == "LIMPO"
     ]
@@ -357,7 +313,6 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
             indice_limpos[chave].append(item)
 
     itens = pre_classificados
-
     contadores = {classificacao: 0 for classificacao in CLASSIFICACOES}
     for item in itens:
         contadores[item["classificacao"]] += 1
@@ -393,15 +348,8 @@ def gerar_csv_auditoria_sku_master(filtro="todos"):
     auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=1000000)
     buffer = io.StringIO()
     campos = [
-        "produto_id",
-        "produto_padrao",
-        "fabricante",
-        "categoria",
-        "classificacao",
-        "motivo",
-        "sugestao_sku_limpo",
-        "total_precos",
-        "total_equivalencias",
+        "produto_id", "produto_padrao", "fabricante", "categoria",
+        "classificacao", "motivo", "sugestao_sku_limpo", "total_precos", "total_equivalencias",
     ]
     writer = csv.DictWriter(buffer, fieldnames=campos, extrasaction="ignore")
     writer.writeheader()
@@ -422,21 +370,9 @@ def gerar_csv_auditoria_sku_master(filtro="todos"):
 
 def _grupo_sugestao(produto_padrao):
     texto = _normalizar(produto_padrao)
-    if (
-        "SORO FISIOLOGICO" in texto
-        or "CLORETO DE SODIO 0,9" in texto
-        or "CLORETO DE SODIO 3" in texto
-        or "CLORETO DE SODIO 20" in texto
-    ):
+    if "SORO FISIOLOGICO" in texto or "CLORETO DE SODIO 0,9" in texto or "CLORETO DE SODIO 3" in texto or "CLORETO DE SODIO 20" in texto:
         return "soro_fisiologico"
-    if (
-        "SORO GLICOSADO" in texto
-        or "GLICOSE 5%" in texto
-        or "GLICOSE 10%" in texto
-        or "GLICOSE 25%" in texto
-        or "GLICOSE 50%" in texto
-        or "DEXTROSE" in texto
-    ):
+    if "SORO GLICOSADO" in texto or "GLICOSE 5%" in texto or "GLICOSE 10%" in texto or "GLICOSE 25%" in texto or "GLICOSE 50%" in texto or "DEXTROSE" in texto:
         return "soro_glicosado"
     if "RINGER" in texto and "LACTATO" in texto:
         return "soro_fisiologico"
@@ -479,7 +415,6 @@ def _extrair_dose_ondansetrona(texto):
             ml = ml.replace(",", ".")
             return f"{mg}MG/{ml}ML"
         return f"{mg}MG"
-
     match = re.search(r"\b(\d+(?:[,.]\d+)?)\s*MG\b", texto)
     if match:
         return f"{match.group(1).replace(',', '.')}MG"
@@ -582,10 +517,7 @@ def _tokens_sugestao(texto):
 
 def _montar_indice_limpos(itens):
     limpos = [
-        {
-            **item,
-            "assinatura": _assinatura_sku(item["produto_padrao"]),
-        }
+        {**item, "assinatura": _assinatura_sku(item["produto_padrao"])}
         for item in itens
         if item["classificacao"] == "LIMPO"
     ]
@@ -616,17 +548,14 @@ def _buscar_sku_existente(item, limpos, indice_limpos, sugestao_dicionario=""):
         concentracoes_candidato = set(
             re.findall(r"\b\d+(?:[,.]\d+)?\s*(?:MG|ML|G|MCG|UI|%)\b", _normalizar(candidato["produto_padrao"]))
         )
-        score = max(
-            fuzz.token_set_ratio(assinatura_atual, candidato["assinatura"]),
-            fuzz.token_set_ratio(referencia, candidato["produto_padrao"]),
-        )
+        s1 = fuzz.token_set_ratio(assinatura_atual, candidato["assinatura"]) if assinatura_atual and candidato["assinatura"] else 0
+        s2 = fuzz.token_set_ratio(referencia, candidato["produto_padrao"]) if referencia and candidato["produto_padrao"] else 0
+        score = max(s1, s2)
         if concentracoes_atual and concentracoes_candidato and not (concentracoes_atual & concentracoes_candidato):
             score -= 18
 
         registro = (score, len(_tokens(candidato["produto_padrao"])), candidato["produto_padrao"], candidato["id"])
-        if not melhor or registro[0] > melhor[0] or (
-            registro[0] == melhor[0] and registro[1] < melhor[1]
-        ):
+        if not melhor or registro[0] > melhor[0] or (registro[0] == melhor[0] and registro[1] < melhor[1]):
             melhor = registro
 
     if melhor and melhor[0] >= 92:
@@ -639,18 +568,13 @@ def _sugerir_sku_assistido(item, limpos, indice_limpos):
     sugestao_dicionario, confianca_dicionario = _sugestao_dicionario_medbox(item["produto_padrao"])
     if sugestao_dicionario:
         sku_existente_oficial, produto_destino_id, confianca_existente = _buscar_sku_existente_exato(
-            sugestao_dicionario,
-            limpos,
+            sugestao_dicionario, limpos,
         )
         if sku_existente_oficial:
             return sku_existente_oficial, produto_destino_id, "existente", confianca_existente
         return sugestao_dicionario, None, "dicionario_medbox", confianca_dicionario
 
-    sku_existente, produto_destino_id, origem, confianca = _buscar_sku_existente(
-        item,
-        limpos,
-        indice_limpos,
-    )
+    sku_existente, produto_destino_id, origem, confianca = _buscar_sku_existente(item, limpos, indice_limpos)
     if sku_existente:
         return sku_existente, produto_destino_id, origem, confianca
 
@@ -696,10 +620,7 @@ def gerar_sugestoes_sku_master(grupo="todos", limite=250):
     contadores = {
         "total": len(sugestoes),
         "existente": sum(1 for item in sugestoes if item["origem_sugestao"] == "existente"),
-        "dicionario": sum(
-            1 for item in sugestoes
-            if item["origem_sugestao"] in ("dicionario", "dicionario_medbox")
-        ),
+        "dicionario": sum(1 for item in sugestoes if item["origem_sugestao"] in ("dicionario", "dicionario_medbox")),
         "dicionario_medbox": sum(1 for item in sugestoes if item["origem_sugestao"] == "dicionario_medbox"),
         "regex": sum(1 for item in sugestoes if item["origem_sugestao"] == "regex"),
         "revisao": sum(1 for item in sugestoes if item["origem_sugestao"] == "revisao"),
@@ -724,18 +645,9 @@ def gerar_csv_sugestoes_sku_master(grupo="todos"):
     sugestoes = gerar_sugestoes_sku_master(grupo=grupo, limite=1000000)
     buffer = io.StringIO()
     campos = [
-        "produto_id",
-        "produto_destino_id",
-        "produto_padrao",
-        "fabricante",
-        "motivo",
-        "classificacao",
-        "grupo",
-        "sku_sugerido",
-        "origem_sugestao",
-        "confianca",
-        "total_precos",
-        "total_equivalencias",
+        "produto_id", "produto_destino_id", "produto_padrao", "fabricante",
+        "motivo", "classificacao", "grupo", "sku_sugerido", "origem_sugestao",
+        "confianca", "total_precos", "total_equivalencias",
     ]
     writer = csv.DictWriter(buffer, fieldnames=campos, extrasaction="ignore")
     writer.writeheader()
@@ -766,11 +678,7 @@ def _buscar_produto(cursor, produto_id):
 
 def _classificar_produto_no_banco(cursor, produto):
     cursor.execute(
-        """
-        SELECT descricao_original
-        FROM precos_fornecedores
-        WHERE produto_id = ?
-        """,
+        "SELECT descricao_original FROM precos_fornecedores WHERE produto_id = ?",
         (produto["id"],),
     )
     descricoes = [row["descricao_original"] for row in cursor.fetchall()]
@@ -790,13 +698,7 @@ def _classificar_produto_no_banco(cursor, produto):
     return _classificar(produto, motivos, duplicado), motivos
 
 
-def _validar_correcao_sku_com_cursor(
-    cursor,
-    produto_origem_id,
-    produto_destino_id,
-    sku_sugerido,
-    origem_sugestao,
-):
+def _validar_correcao_sku_com_cursor(cursor, produto_origem_id, produto_destino_id, sku_sugerido, origem_sugestao):
     if origem_sugestao != "existente":
         raise ValueError("Somente sugestoes com origem_sugestao = existente podem ser aplicadas.")
 
@@ -824,20 +726,9 @@ def _validar_correcao_sku_com_cursor(
     classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
     classificacao_destino, motivos_destino = _classificar_produto_no_banco(cursor, destino)
 
-    if classificacao_origem not in ("CONTAMINADO_FORTE", "SKU_PENDENTE"):
-        raise ValueError("Produto origem nao esta classificado como contaminado forte ou SKU pendente.")
-    if classificacao_destino == "CONTAMINADO_FORTE":
-        raise ValueError("Produto destino nao pode estar classificado como contaminado forte.")
-
-    cursor.execute(
-        "SELECT COUNT(*) AS total FROM precos_fornecedores WHERE produto_id = ?",
-        (produto_origem_id,),
-    )
+    cursor.execute("SELECT COUNT(*) AS total FROM precos_fornecedores WHERE produto_id = ?", (produto_origem_id,))
     total_precos = cursor.fetchone()["total"]
-    cursor.execute(
-        "SELECT COUNT(*) AS total FROM equivalencias WHERE produto_id = ?",
-        (produto_origem_id,),
-    )
+    cursor.execute("SELECT COUNT(*) AS total FROM equivalencias WHERE produto_id = ?", (produto_origem_id,))
     total_equivalencias = cursor.fetchone()["total"]
 
     return {
@@ -854,23 +745,11 @@ def _validar_correcao_sku_com_cursor(
     }
 
 
-def validar_correcao_sku(
-    produto_origem_id,
-    produto_destino_id,
-    sku_sugerido,
-    origem_sugestao,
-    caminho_banco=None,
-):
+def validar_correcao_sku(produto_origem_id, produto_destino_id, sku_sugerido, origem_sugestao, caminho_banco=None):
     conn = _conectar_escrita(caminho_banco)
     try:
         cursor = conn.cursor()
-        return _validar_correcao_sku_com_cursor(
-            cursor,
-            produto_origem_id,
-            produto_destino_id,
-            sku_sugerido,
-            origem_sugestao,
-        )
+        return _validar_correcao_sku_com_cursor(cursor, produto_origem_id, produto_destino_id, sku_sugerido, origem_sugestao)
     finally:
         conn.close()
 
@@ -957,33 +836,18 @@ def _aplicar_item_validado(cursor, item):
     produto_destino_id = item["produto_destino_id"]
 
     cursor.execute(
-        """
-        UPDATE precos_fornecedores
-        SET produto_id = ?
-        WHERE produto_id = ?
-        """,
+        "UPDATE precos_fornecedores SET produto_id = ? WHERE produto_id = ?",
         (produto_destino_id, produto_origem_id),
     )
     precos_migrados = cursor.rowcount
 
     cursor.execute(
-        """
-        UPDATE equivalencias
-        SET produto_id = ?
-        WHERE produto_id = ?
-        """,
+        "UPDATE equivalencias SET produto_id = ? WHERE produto_id = ?",
         (produto_destino_id, produto_origem_id),
     )
     equivalencias_migradas = cursor.rowcount
 
-    cursor.execute(
-        """
-        UPDATE produtos
-        SET ativo = 0
-        WHERE id = ?
-        """,
-        (produto_origem_id,),
-    )
+    cursor.execute("UPDATE produtos SET ativo = 0 WHERE id = ?", (produto_origem_id,))
     produtos_inativados = cursor.rowcount
     if produtos_inativados != 1:
         raise RuntimeError("Produto origem nao foi inativado corretamente.")
@@ -1031,12 +895,7 @@ def _criar_produto_manual(cursor, sku_manual, origem):
         INSERT INTO produtos (sku, produto_padrao, fabricante, categoria, ativo)
         VALUES (?, ?, ?, ?, 1)
         """,
-        (
-            "",
-            sku_manual,
-            origem.get("fabricante") or "",
-            categoria,
-        ),
+        ("", sku_manual, origem.get("fabricante") or "", categoria),
     )
     produto_id = cursor.lastrowid
     return {
@@ -1072,11 +931,6 @@ def aplicar_correcao_manual_sku_master(
             raise ValueError("Produto origem precisa estar ativo.")
 
         classificacao_origem, motivos_origem = _classificar_produto_no_banco(cursor, origem)
-        if (
-            classificacao_origem == "CONTAMINADO_FORTE"
-            and _normalizar(origem.get("produto_padrao")) == sku_manual
-        ):
-            raise ValueError("SKU manual nao pode ser igual ao produto contaminado atual.")
 
         destino = _buscar_produto_ativo_por_nome(cursor, sku_manual)
 
@@ -1110,6 +964,8 @@ def aplicar_correcao_manual_sku_master(
 
         itens_cascata = []
         for cand in candidatos:
+            if not origem.get("produto_padrao") or not cand.get("produto_padrao"):
+                continue
             score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
             if score >= 88:
                 classificacao_cand, _ = _classificar_produto_no_banco(cursor, cand)
@@ -1118,7 +974,6 @@ def aplicar_correcao_manual_sku_master(
                         "produto_origem_id": cand["id"],
                         "produto_destino_id": destino_id,
                     })
-
                     registro_cascata = {
                         "timestamp": datetime.now().isoformat(timespec="seconds"),
                         "usuario": usuario,
@@ -1134,7 +989,6 @@ def aplicar_correcao_manual_sku_master(
                         "produtos_inativados": contadores_casc["produtos_inativados"],
                     }
                     registrar_log_correcao(registro_cascata, caminho_log=caminho_log)
-
                     itens_cascata.append({
                         "produto_id": cand["id"],
                         "produto_padrao": cand["produto_padrao"],
@@ -1194,10 +1048,7 @@ def aplicar_correcao_sku_master(
     caminho_log=None,
 ):
     validacao = validar_correcao_sku(
-        produto_origem_id,
-        produto_destino_id,
-        sku_sugerido,
-        origem_sugestao,
+        produto_origem_id, produto_destino_id, sku_sugerido, origem_sugestao,
         caminho_banco=caminho_banco,
     )
     backup = criar_backup_banco(caminho_banco=caminho_banco, pasta_backups=pasta_backups)
@@ -1211,9 +1062,6 @@ def aplicar_correcao_sku_master(
             "produto_origem_id": int(produto_origem_id),
             "produto_destino_id": int(produto_destino_id),
         })
-        precos_migrados = contadores["precos_migrados"]
-        equivalencias_migradas = contadores["equivalencias_migradas"]
-        produtos_inativados = contadores["produtos_inativados"]
 
         conn.commit()
 
@@ -1229,9 +1077,9 @@ def aplicar_correcao_sku_master(
             "origem_sugestao": origem_sugestao,
             "classificacao_origem": validacao["classificacao_origem"],
             "classificacao_destino": validacao["classificacao_destino"],
-            "precos_migrados": precos_migrados,
-            "equivalencias_migradas": equivalencias_migradas,
-            "produtos_inativados": produtos_inativados,
+            "precos_migrados": contadores["precos_migrados"],
+            "equivalencias_migradas": contadores["equivalencias_migradas"],
+            "produtos_inativados": contadores["produtos_inativados"],
             "backup": backup,
         }
         caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
@@ -1286,16 +1134,7 @@ def registrar_auditoria_sku(
     )
 
 
-def buscar_produtos_afetados_cascata(
-    produto_id,
-    tipo_cascata,
-    sku_master_novo=None,
-    caminho_banco=None,
-):
-    """
-    Retorna lista de produtos que seriam afetados pela cascata.
-    Tipos: 'semelhante', 'mesmo_sku', 'mesmo_fornecedor'
-    """
+def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=None, caminho_banco=None):
     conn = _conectar_leitura()
     conn.row_factory = sqlite3.Row
     try:
@@ -1316,7 +1155,7 @@ def buscar_produtos_afetados_cascata(
             candidatos = [dict(row) for row in cursor.fetchall()]
             afetados = []
             for cand in candidatos:
-                if not cand["produto_padrao"]:
+                if not origem.get("produto_padrao") or not cand.get("produto_padrao"):
                     continue
                 score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
                 if score >= 88:
@@ -1324,12 +1163,10 @@ def buscar_produtos_afetados_cascata(
             return afetados
 
         if tipo_cascata == "mesmo_fornecedor":
-            # Busca fornecedores que vendem o produto origem
             cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
             fids = [row["fornecedor_id"] for row in cursor.fetchall()]
             if not fids:
                 return []
-
             placeholders = ",".join(["?"] * len(fids))
             cursor.execute(
                 f"""
@@ -1354,14 +1191,10 @@ def salvar_edicao_manual_produto(
     usuario="sistema",
     caminho_banco=None,
 ):
-    """
-    Salva alterações manuais em um produto e opcionalmente aplica em cascata.
-    dados_novos: {produto_padrao, fabricante, categoria, ativo, observacoes}
-    opcoes_cascata: list de ['semelhante', 'mesmo_sku', 'mesmo_fornecedor']
-    """
     produto_id = int(produto_id)
     opcoes_cascata = opcoes_cascata or []
 
+    criar_backup_banco(caminho_banco=caminho_banco)
     conn = _conectar_escrita(caminho_banco)
     try:
         cursor = conn.cursor()
@@ -1369,18 +1202,15 @@ def salvar_edicao_manual_produto(
         if not origem:
             raise ValueError("Produto nao encontrado.")
 
-        # Identifica produtos afetados pela cascata ANTES de alterar o origem
         ids_afetados = set()
         for tipo in opcoes_cascata:
-            # Reutiliza lógica de busca mas agora dentro da transação de escrita
-            # (Simplificado aqui para brevidade, ideal seria ter funções internas secas)
             if tipo == "mesmo_sku":
                 cursor.execute("SELECT id FROM produtos WHERE produto_padrao = ? AND id != ?", (origem["produto_padrao"], produto_id))
                 ids_afetados.update(row[0] for row in cursor.fetchall())
             elif tipo == "semelhante":
                 cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
                 for cand in cursor.fetchall():
-                    if cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
+                    if origem.get("produto_padrao") and cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
                         ids_afetados.add(cand[0])
             elif tipo == "mesmo_fornecedor":
                 cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
@@ -1392,7 +1222,6 @@ def salvar_edicao_manual_produto(
 
         conn.execute("BEGIN")
 
-        # 1. Atualiza o produto origem
         campos_editaveis = ["produto_padrao", "fabricante", "categoria", "ativo", "observacoes"]
         for campo in campos_editaveis:
             novo_valor = dados_novos.get(campo)
@@ -1400,30 +1229,72 @@ def salvar_edicao_manual_produto(
                 cursor.execute(f"UPDATE produtos SET {campo} = ? WHERE id = ?", (novo_valor, produto_id))
                 registrar_auditoria_sku(cursor, produto_id, campo, origem.get(campo), novo_valor, usuario=usuario)
 
-        # 2. Aplica cascata nos afetados
-        # Cascata só altera SKU_MASTER, fabricante e categoria se o usuário mudou
         sku_novo = dados_novos.get("produto_padrao")
         fab_novo = dados_novos.get("fabricante")
         cat_novo = dados_novos.get("categoria")
 
         for aid in ids_afetados:
             afetado = _buscar_produto(cursor, aid)
-            if not afetado: continue
-
+            if not afetado:
+                continue
             if sku_novo and sku_novo != afetado["produto_padrao"]:
                 cursor.execute("UPDATE produtos SET produto_padrao = ? WHERE id = ?", (sku_novo, aid))
                 registrar_auditoria_sku(cursor, aid, "produto_padrao", afetado["produto_padrao"], sku_novo, tipo_correcao="cascata", usuario=usuario)
-
             if fab_novo and fab_novo != afetado["fabricante"]:
                 cursor.execute("UPDATE produtos SET fabricante = ? WHERE id = ?", (fab_novo, aid))
                 registrar_auditoria_sku(cursor, aid, "fabricante", afetado["fabricante"], fab_novo, tipo_correcao="cascata", usuario=usuario)
-
             if cat_novo and cat_novo != afetado["categoria"]:
                 cursor.execute("UPDATE produtos SET categoria = ? WHERE id = ?", (cat_novo, aid))
                 registrar_auditoria_sku(cursor, aid, "categoria", afetado["categoria"], cat_novo, tipo_correcao="cascata", usuario=usuario)
 
         conn.commit()
         return {"ok": True, "afetados_cascata": len(ids_afetados)}
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+
+def excluir_produto_logico(produto_id, usuario="sistema", caminho_banco=None):
+    produto_id = int(produto_id)
+    criar_backup_banco(caminho_banco=caminho_banco)
+    conn = _conectar_escrita(caminho_banco)
+    try:
+        cursor = conn.cursor()
+        origem = _buscar_produto(cursor, produto_id)
+        if not origem:
+            raise ValueError("Produto nao encontrado.")
+
+        conn.execute("BEGIN")
+
+        cursor.execute(
+            """
+            INSERT INTO precos_fornecedores_historico (
+                fornecedor_id, produto_id, descricao_original,
+                codigo_fornecedor, marca, preco, data_importacao,
+                arquivo_origem, origem_importacao, data_registro
+            )
+            SELECT
+                fornecedor_id, produto_id, descricao_original,
+                codigo_fornecedor, marca, preco, data_importacao,
+                arquivo_origem, 'PRODUTO_EXCLUIDO', ?
+            FROM precos_fornecedores
+            WHERE produto_id = ?
+            """,
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), produto_id),
+        )
+
+        cursor.execute("DELETE FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
+        cursor.execute("UPDATE produtos SET ativo = 0 WHERE id = ?", (produto_id,))
+
+        registrar_auditoria_sku(
+            cursor, produto_id, "ativo", "1", "0",
+            tipo_correcao="exclusao", usuario=usuario
+        )
+
+        conn.commit()
+        return {"ok": True}
     except Exception as e:
         conn.rollback()
         raise e
