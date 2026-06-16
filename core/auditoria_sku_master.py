@@ -1312,7 +1312,7 @@ def buscar_produtos_afetados_cascata(
             candidatos = [dict(row) for row in cursor.fetchall()]
             afetados = []
             for cand in candidatos:
-                if not origem["produto_padrao"] or not cand["produto_padrao"]:
+                if not origem.get("produto_padrao") or not cand.get("produto_padrao"):
                     continue
                 score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
                 if score >= 88:
