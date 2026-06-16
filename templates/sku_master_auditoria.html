@@ -18,12 +18,42 @@
 <section class="panel">
     <h3>Resumo da Auditoria</h3>
     <div class="cards-grid">
-        <div class="card"><div class="card-info"><span>Total de produtos</span><strong>{{ auditoria.contadores.total_produtos }}</strong></div></div>
-        <div class="card"><div class="card-info"><span>Limpos</span><strong>{{ auditoria.contadores.total_limpos }}</strong></div></div>
-        <div class="card"><div class="card-info"><span>Suspeitos</span><strong>{{ auditoria.contadores.total_suspeitos }}</strong></div></div>
-        <div class="card"><div class="card-info"><span>Contaminados fortes</span><strong>{{ auditoria.contadores.total_contaminados_fortes }}</strong></div></div>
-        <div class="card"><div class="card-info"><span>SKU pendente</span><strong>{{ auditoria.contadores.total_sku_pendente }}</strong></div></div>
-        <div class="card"><div class="card-info"><span>Grupos duplicados</span><strong>{{ auditoria.contadores.total_grupos_duplicados }}</strong></div></div>
+        <div class="card">
+            <div class="card-info">
+                <span>Total de produtos</span>
+                <strong>{{ auditoria.contadores.total_produtos }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Limpos</span>
+                <strong>{{ auditoria.contadores.total_limpos }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Suspeitos</span>
+                <strong>{{ auditoria.contadores.total_suspeitos }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Contaminados fortes</span>
+                <strong>{{ auditoria.contadores.total_contaminados_fortes }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>SKU pendente</span>
+                <strong>{{ auditoria.contadores.total_sku_pendente }}</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-info">
+                <span>Grupos duplicados</span>
+                <strong>{{ auditoria.contadores.total_grupos_duplicados }}</strong>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -41,15 +71,39 @@
                 <option value="suspeito" {% if auditoria.filtro == 'suspeito' %}selected{% endif %}>Suspeito</option>
             </select>
         </div>
-        <div class="form-group"><label>&nbsp;</label><button type="submit" class="btn-primary">Aplicar filtro</button></div>
-        <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', filtro=auditoria.filtro) }}">Exportar CSV</a></div>
-        <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_sugestoes') }}">Ver sugestoes assistidas</a></div>
+
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <button type="submit" class="btn-primary">Aplicar filtro</button>
+        </div>
+
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', filtro=auditoria.filtro) }}">Exportar CSV</a>
+        </div>
+
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <a class="btn-primary" href="{{ url_for('sku_master_sugestoes') }}">Ver sugestoes assistidas</a>
+        </div>
     </form>
-    <p style="margin-top: 16px; color: var(--muted);">Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros filtrados.</p>
+
+    <p style="margin-top: 16px; color: var(--muted);">
+        Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros filtrados.
+    </p>
 </section>
 
 <section class="panel large">
     <h3>Produtos</h3>
+
+    <p style="margin:0 0 12px;color:var(--muted);font-size:.85rem;">
+        Categorias permitidas nesta auditoria:
+        <strong>CORRELATOS</strong> e <strong>MEDICAMENTOS</strong>.
+        Ao salvar um SKU Master, a tela aplica cascata conservadora em itens semelhantes.
+    </p>
+
+    <div id="auditoria-alerta" style="display:none;margin-bottom:12px;padding:10px;border-radius:6px;font-weight:700;"></div>
+
     <div class="comparison-table-wrap">
         <table class="comparison-table">
             <thead>
@@ -63,41 +117,88 @@
                     <th>Acao</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for item in auditoria.itens %}
                 <tr data-produto-json='{{ item|tojson|safe }}'>
                     <td>{{ item.id }}</td>
-                    <td class="produto-padrao-cell"><strong>{{ item.produto_padrao or "-" }}</strong></td>
+
+                    <td class="produto-padrao-cell">
+                        <strong>{{ item.produto_padrao or "-" }}</strong>
+                    </td>
+
                     <td>
                         <div style="display:flex;gap:4px;align-items:center;">
-                            <input type="text" data-campo="fabricante" value="{{ item.fabricante or '' }}" list="marca-datalist" placeholder="Marca..." style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
-                            <button class="btn-primary" style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;" onclick="salvarCampoRapido(this,{{ item.id }},'fabricante')">✓</button>
+                            <input
+                                type="text"
+                                data-campo="fabricante"
+                                value="{{ item.fabricante or '' }}"
+                                list="marca-datalist"
+                                placeholder="Marca..."
+                                style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;"
+                            >
+                            <button
+                                class="btn-primary"
+                                style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;"
+                                onclick="salvarCampoRapido(this, {{ item.id }}, 'fabricante')"
+                            >✓</button>
                         </div>
                     </td>
+
                     <td>
                         <div style="display:flex;gap:4px;align-items:center;">
-                            <input type="text" data-campo="categoria" value="{{ item.categoria or '' }}" list="categoria-datalist" placeholder="Categoria..." style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
-                            <button class="btn-primary" style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;" onclick="salvarCampoRapido(this,{{ item.id }},'categoria')">✓</button>
+                            <select
+                                data-campo="categoria"
+                                style="width:145px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;"
+                            >
+                                <option value="">Selecionar...</option>
+                                <option value="CORRELATOS" {% if item.categoria == 'CORRELATOS' %}selected{% endif %}>CORRELATOS</option>
+                                <option value="MEDICAMENTOS" {% if item.categoria == 'MEDICAMENTOS' %}selected{% endif %}>MEDICAMENTOS</option>
+                            </select>
+                            <button
+                                class="btn-primary"
+                                style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;"
+                                onclick="salvarCampoRapido(this, {{ item.id }}, 'categoria')"
+                            >✓</button>
                         </div>
                     </td>
+
                     <td>
-                        {% if item.classificacao == 'LIMPO' %}<span class="badge-verde">LIMPO</span>
-                        {% elif item.classificacao == 'CONTAMINADO_FORTE' %}<span class="badge-red">CONTAMINADO_FORTE</span>
-                        {% elif item.classificacao == 'SKU_PENDENTE' %}<span class="badge-blue">SKU_PENDENTE</span>
-                        {% elif item.classificacao == 'DUPLICADO' %}<span class="badge-red">DUPLICADO</span>
-                        {% else %}<span class="badge-cinza">{{ item.classificacao }}</span>
+                        {% if item.classificacao == 'LIMPO' %}
+                            <span class="badge-verde">LIMPO</span>
+                        {% elif item.classificacao == 'CONTAMINADO_FORTE' %}
+                            <span class="badge-red">CONTAMINADO_FORTE</span>
+                        {% elif item.classificacao == 'SKU_PENDENTE' %}
+                            <span class="badge-blue">SKU_PENDENTE</span>
+                        {% elif item.classificacao == 'DUPLICADO' %}
+                            <span class="badge-red">DUPLICADO</span>
+                        {% else %}
+                            <span class="badge-cinza">{{ item.classificacao }}</span>
                         {% endif %}
                     </td>
+
                     <td>{{ item.motivo }}</td>
+
                     <td>
-                        <div style="display:flex; gap:5px;">
-                            <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem;" onclick="abrirModalEdicao(this)">Editar</button>
-                            <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem; background:#dc2626;" onclick="excluirProduto(this, {{ item.id }})">Excluir</button>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                            <button
+                                class="btn-primary"
+                                style="padding:4px 10px;font-size:0.8rem;"
+                                onclick="abrirModalEdicao(this)"
+                            >Editar</button>
+
+                            <button
+                                class="btn-primary"
+                                style="padding:4px 10px;font-size:0.8rem;background:#dc2626;"
+                                onclick="excluirProduto(this, {{ item.id }})"
+                            >Excluir item</button>
                         </div>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="7">Nenhum registro encontrado.</td></tr>
+                <tr>
+                    <td colspan="7">Nenhum registro encontrado.</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -105,55 +206,110 @@
 </section>
 
 <!-- MODAL DE EDIÇÃO -->
-<div id="modal-edicao" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
-    <div class="modal-content" style="background-color:white; margin:5% auto; padding:20px; border-radius:8px; width:600px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:20px;">
+<div
+    id="modal-edicao"
+    class="modal"
+    style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5);"
+>
+    <div
+        class="modal-content"
+        style="background-color:white;margin:5% auto;padding:20px;border-radius:8px;width:600px;box-shadow:0 4px 20px rgba(0,0,0,0.3);"
+    >
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding-bottom:10px;margin-bottom:20px;">
             <h3 style="margin:0;">Editar Produto <span id="modal-produto-id"></span></h3>
-            <button onclick="fecharModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+            <button onclick="fecharModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
         </div>
+
         <form id="form-edicao">
             <input type="hidden" id="edit-id">
+            <input type="hidden" id="edit-produto-padrao-original">
+
             <div style="margin-bottom:15px;">
-                <label style="display:block; font-weight:700; margin-bottom:5px;">SKU Master / Produto Padrao</label>
-                <input type="text" id="edit-produto-padrao" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;" list="sku-datalist">
+                <label style="display:block;font-weight:700;margin-bottom:5px;">SKU Master / Produto Padrao</label>
+                <input
+                    type="text"
+                    id="edit-produto-padrao"
+                    style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"
+                    list="sku-datalist"
+                >
+                <small style="color:#666;">
+                    Ao alterar este campo, a cascata conservadora para produtos semelhantes será marcada automaticamente.
+                </small>
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
                 <div>
-                    <label style="display:block; font-weight:700; margin-bottom:5px;">Fabricante / Marca</label>
-                    <input type="text" id="edit-fabricante" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;" list="marca-datalist">
+                    <label style="display:block;font-weight:700;margin-bottom:5px;">Fabricante / Marca</label>
+                    <input
+                        type="text"
+                        id="edit-fabricante"
+                        style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"
+                        list="marca-datalist"
+                    >
                 </div>
+
                 <div>
-                    <label style="display:block; font-weight:700; margin-bottom:5px;">Categoria</label>
-                    <input type="text" id="edit-categoria" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;" list="categoria-datalist">
+                    <label style="display:block;font-weight:700;margin-bottom:5px;">Categoria</label>
+                    <select id="edit-categoria" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                        <option value="">Selecionar...</option>
+                        <option value="CORRELATOS">CORRELATOS</option>
+                        <option value="MEDICAMENTOS">MEDICAMENTOS</option>
+                    </select>
                 </div>
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
                 <div>
-                    <label style="display:block; font-weight:700; margin-bottom:5px;">Status</label>
-                    <select id="edit-ativo" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <label style="display:block;font-weight:700;margin-bottom:5px;">Status</label>
+                    <select id="edit-ativo" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                         <option value="1">Ativo</option>
                         <option value="0">Inativo</option>
                     </select>
                 </div>
             </div>
+
             <div style="margin-bottom:15px;">
-                <label style="display:block; font-weight:700; margin-bottom:5px;">Observações</label>
-                <textarea id="edit-observacoes" style="width:100%; height:60px; padding:8px; border:1px solid #ddd; border-radius:4px;"></textarea>
+                <label style="display:block;font-weight:700;margin-bottom:5px;">Observações</label>
+                <textarea
+                    id="edit-observacoes"
+                    style="width:100%;height:60px;padding:8px;border:1px solid #ddd;border-radius:4px;"
+                ></textarea>
             </div>
-            <div style="background:#f9f9f9; padding:15px; border-radius:6px; margin-bottom:20px; border:1px solid #eee;">
-                <label style="display:block; font-weight:800; margin-bottom:10px; color:#c62828;">Propagação em Cascata (Opcional)</label>
-                <div style="display:flex; flex-direction:column; gap:8px;">
-                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;"><input type="checkbox" name="cascata" value="semelhante" onchange="previewCascata()"> Aplicar a produtos semelhantes (score >= 88)</label>
-                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;"><input type="checkbox" name="cascata" value="mesmo_sku" onchange="previewCascata()"> Aplicar ao mesmo SKU Master atual</label>
-                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;"><input type="checkbox" name="cascata" value="mesmo_fornecedor" onchange="previewCascata()"> Aplicar a outros produtos dos mesmos fornecedores</label>
+
+            <div style="background:#f9f9f9;padding:15px;border-radius:6px;margin-bottom:20px;border:1px solid #eee;">
+                <label style="display:block;font-weight:800;margin-bottom:10px;color:#c62828;">Propagação em Cascata</label>
+                <p style="margin:0 0 8px;color:#666;font-size:.82rem;">
+                    Use com cuidado. A opção de semelhantes é marcada automaticamente quando o SKU Master é alterado.
+                </p>
+
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" name="cascata" value="semelhante" onchange="previewCascata()">
+                        Aplicar a produtos semelhantes (score >= 88)
+                    </label>
+
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" name="cascata" value="mesmo_sku" onchange="previewCascata()">
+                        Aplicar ao mesmo SKU Master atual
+                    </label>
+
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" name="cascata" value="mesmo_fornecedor" onchange="previewCascata()">
+                        Aplicar a outros produtos dos mesmos fornecedores
+                    </label>
                 </div>
-                <div id="cascata-preview-box" style="margin-top:10px; font-size:0.8rem; color:#666; display:none;">
-                    <hr style="border:0; border-top:1px solid #ddd; margin:10px 0;">
-                    <div id="cascata-lista-afetados" style="max-height:80px; overflow-y:auto; border:1px solid #eee; padding:5px; background:white;"></div>
-                    <div style="margin-top:5px; font-weight:700;" id="cascata-total"></div>
+
+                <div id="cascata-preview-box" style="margin-top:10px;font-size:0.8rem;color:#666;display:none;">
+                    <hr style="border:0;border-top:1px solid #ddd;margin:10px 0;">
+                    <div
+                        id="cascata-lista-afetados"
+                        style="max-height:80px;overflow-y:auto;border:1px solid #eee;padding:5px;background:white;"
+                    ></div>
+                    <div style="margin-top:5px;font-weight:700;" id="cascata-total"></div>
                 </div>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
                 <button type="button" onclick="fecharModal()" class="btn-primary" style="background:#6b7280;">Cancelar</button>
                 <button type="submit" class="btn-primary">Salvar Alterações</button>
             </div>
@@ -163,187 +319,314 @@
 
 <datalist id="sku-datalist"></datalist>
 <datalist id="marca-datalist"></datalist>
-<datalist id="categoria-datalist"></datalist>
 
 <script>
 (function () {
     const modal = document.getElementById('modal-edicao');
     const form = document.getElementById('form-edicao');
+    const categoriasPermitidas = ['CORRELATOS', 'MEDICAMENTOS'];
 
-    window.abrirModalEdicao = function(btn) {
+    function mostrarAlerta(mensagem, tipo = 'sucesso') {
+        const box = document.getElementById('auditoria-alerta');
+
+        if (!box) {
+            alert(mensagem);
+            return;
+        }
+
+        box.textContent = mensagem;
+        box.style.display = 'block';
+        box.style.background = tipo === 'erro' ? '#fee2e2' : '#dcfce7';
+        box.style.color = tipo === 'erro' ? '#991b1b' : '#166534';
+        box.style.border = tipo === 'erro' ? '1px solid #fecaca' : '1px solid #bbf7d0';
+
+        window.clearTimeout(box._timer);
+        box._timer = window.setTimeout(() => {
+            box.style.display = 'none';
+        }, 7000);
+    }
+
+    function normalizarCategoria(valor) {
+        const categoria = String(valor || '').trim().toUpperCase();
+        return categoriasPermitidas.includes(categoria) ? categoria : '';
+    }
+
+    async function respostaJsonSegura(response) {
+        const texto = await response.text();
+        let dados = {};
+
+        if (texto) {
+            try {
+                dados = JSON.parse(texto);
+            } catch (erro) {
+                dados = { erro: texto.slice(0, 300) };
+            }
+        }
+
+        if (!response.ok || dados.sucesso === false || dados.ok === false) {
+            const mensagem = dados.erro || dados.mensagem || dados.message || ('Falha HTTP ' + response.status);
+            throw new Error(mensagem);
+        }
+
+        return dados;
+    }
+
+    function getCascataSelecionada() {
+        return Array.from(document.querySelectorAll('input[name="cascata"]:checked')).map(c => c.value);
+    }
+
+    function marcarCascataSemelhanteSeSkuMudou() {
+        const original = (document.getElementById('edit-produto-padrao-original').value || '').trim().toUpperCase();
+        const atual = (document.getElementById('edit-produto-padrao').value || '').trim().toUpperCase();
+        const checkbox = document.querySelector('input[name="cascata"][value="semelhante"]');
+
+        if (checkbox && atual && atual !== original) {
+            checkbox.checked = true;
+            previewCascata();
+        }
+    }
+
+    window.abrirModalEdicao = function (btn) {
         const tr = btn.closest('tr');
         const data = JSON.parse(tr.dataset.produtoJson);
+
         document.getElementById('modal-produto-id').textContent = '#' + data.id;
         document.getElementById('edit-id').value = data.id;
         document.getElementById('edit-produto-padrao').value = data.produto_padrao || '';
+        document.getElementById('edit-produto-padrao-original').value = data.produto_padrao || '';
         document.getElementById('edit-fabricante').value = data.fabricante || '';
-        document.getElementById('edit-categoria').value = data.categoria || '';
-        document.getElementById('edit-ativo').value = data.ativo;
+        document.getElementById('edit-categoria').value = normalizarCategoria(data.categoria);
+        document.getElementById('edit-ativo').value = String(data.ativo ?? 1);
         document.getElementById('edit-observacoes').value = data.observacoes || '';
-        document.querySelectorAll('input[name="cascata"]').forEach(c => c.checked = false);
+
+        document.querySelectorAll('input[name="cascata"]').forEach(c => {
+            c.checked = false;
+        });
+
         document.getElementById('cascata-preview-box').style.display = 'none';
+        document.getElementById('cascata-lista-afetados').innerHTML = '';
+        document.getElementById('cascata-total').innerHTML = '';
+
         modal.style.display = 'block';
-    }
+    };
 
-    window.fecharModal = function() {
+    window.fecharModal = function () {
         modal.style.display = 'none';
-    }
+    };
 
-    window.onclick = function(event) {
-        if (event.target == modal) fecharModal();
-    }
+    window.onclick = function (event) {
+        if (event.target === modal) {
+            fecharModal();
+        }
+    };
 
-    window.previewCascata = function() {
+    document.getElementById('edit-produto-padrao').addEventListener('change', marcarCascataSemelhanteSeSkuMudou);
+    document.getElementById('edit-produto-padrao').addEventListener('blur', marcarCascataSemelhanteSeSkuMudou);
+
+    window.previewCascata = async function () {
         const produtoId = document.getElementById('edit-id').value;
-        const tipos = Array.from(document.querySelectorAll('input[name="cascata"]:checked')).map(c => c.value);
+        const tipos = getCascataSelecionada();
         const previewBox = document.getElementById('cascata-preview-box');
         const listaDiv = document.getElementById('cascata-lista-afetados');
         const totalDiv = document.getElementById('cascata-total');
-        if (tipos.length === 0) { previewBox.style.display = 'none'; return; }
+
+        if (tipos.length === 0) {
+            previewBox.style.display = 'none';
+            return;
+        }
+
         previewBox.style.display = 'block';
         listaDiv.innerHTML = '<span style="color:#999">Calculando impacto...</span>';
         totalDiv.innerHTML = '';
-        fetch('/sku-master/auditoria/preview-cascata', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({produto_id: produtoId, tipos: tipos})
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.total > 0) {
-                listaDiv.innerHTML = data.itens.map(i => `<div>• ID ${i.id}: ${i.produto_padrao}</div>`).join('');
-                totalDiv.innerHTML = `Impacto estimado: ${data.total} produto(s) extra(s)`;
-            } else {
-                listaDiv.innerHTML = 'Nenhum outro produto afetado por estas opções.';
-                totalDiv.innerHTML = '';
-            }
-        });
-    }
 
-    form.onsubmit = function(e) {
+        try {
+            const data = await respostaJsonSegura(await fetch('/sku-master/auditoria/preview-cascata', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    produto_id: produtoId,
+                    tipos: tipos
+                })
+            }));
+
+            const afetados = data.itens || [];
+
+            if (afetados.length === 0) {
+                listaDiv.innerHTML = '<span style="color:#999">Nenhum produto afetado.</span>';
+                totalDiv.innerHTML = 'Total: 0';
+            } else {
+                listaDiv.innerHTML = afetados.slice(0, 10).map(p => {
+                    return `<div>#${p.id} - ${p.produto_padrao || p.descricao || ''}</div>`;
+                }).join('');
+
+                totalDiv.innerHTML = `Total: ${afetados.length} produto(s) serão atualizados`;
+            }
+        } catch (erro) {
+            listaDiv.innerHTML = `<span style="color:#b91c1c">${erro.message}</span>`;
+            totalDiv.innerHTML = '';
+        }
+    };
+
+    form.addEventListener('submit', async function (e) {
         e.preventDefault();
-        const produtoId = document.getElementById('edit-id').value;
-        const tipos = Array.from(document.querySelectorAll('input[name="cascata"]:checked')).map(c => c.value);
+
+        const categoria = normalizarCategoria(document.getElementById('edit-categoria').value);
+
+        if (!categoria) {
+            mostrarAlerta('Categoria inválida. Use apenas CORRELATOS ou MEDICAMENTOS.', 'erro');
+            return;
+        }
+
+        marcarCascataSemelhanteSeSkuMudou();
+
         const payload = {
-            produto_id: produtoId,
+            produto_id: document.getElementById('edit-id').value,
             dados: {
                 produto_padrao: document.getElementById('edit-produto-padrao').value.trim(),
                 fabricante: document.getElementById('edit-fabricante').value.trim(),
-                categoria: document.getElementById('edit-categoria').value.trim(),
+                categoria: categoria,
                 ativo: parseInt(document.getElementById('edit-ativo').value, 10),
                 observacoes: document.getElementById('edit-observacoes').value.trim()
             },
-            opcoes_cascata: tipos
+            opcoes_cascata: getCascataSelecionada()
         };
-        const btnSubmit = form.querySelector('button[type="submit"]');
-        btnSubmit.disabled = true;
-        btnSubmit.textContent = 'Salvando...';
-        fetch('/sku-master/auditoria/salvar-edicao', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.ok) {
-                alert('Produto atualizado com sucesso!' + (data.afetados_cascata > 0 ? ` (${data.afetados_cascata} em cascata)` : ''));
-                window.location.reload();
-            } else {
-                alert('Erro ao salvar: ' + data.erro);
-                btnSubmit.disabled = false;
-                btnSubmit.textContent = 'Salvar Alterações';
+
+        const botao = form.querySelector('button[type="submit"]');
+        botao.disabled = true;
+        botao.textContent = 'Salvando...';
+
+        try {
+            const data = await respostaJsonSegura(await fetch('/sku-master/auditoria/salvar-edicao', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }));
+
+            const total = Number(
+                data.afetados_cascata ||
+                data.total_cascata ||
+                data.atualizados_cascata ||
+                data.cascata_atualizados ||
+                0
+            );
+
+            mostrarAlerta(`SKU salvo com sucesso. ${total} item(ns) semelhante(s) atualizados automaticamente.`);
+            setTimeout(() => window.location.reload(), 900);
+        } catch (erro) {
+            mostrarAlerta('Erro ao salvar: ' + erro.message, 'erro');
+        } finally {
+            botao.disabled = false;
+            botao.textContent = 'Salvar Alterações';
+        }
+    });
+
+    window.salvarCampoRapido = async function (btn, id, campo) {
+        const tr = btn.closest('tr');
+        const input = tr.querySelector(`[data-campo="${campo}"]`);
+        let valor = input.value;
+
+        if (campo === 'categoria') {
+            valor = normalizarCategoria(valor);
+
+            if (!valor) {
+                mostrarAlerta('Categoria inválida. Use apenas CORRELATOS ou MEDICAMENTOS.', 'erro');
+                return;
             }
-        })
-        .catch(err => {
-            alert('Erro de rede ao salvar.');
-            btnSubmit.disabled = false;
-            btnSubmit.textContent = 'Salvar Alterações';
-        });
-    }
+        }
 
-    function showFeedback(btn, msg, ok) {
-        const old = btn.parentElement.querySelector('.fb-msg');
-        if (old) old.remove();
-        const s = document.createElement('span');
-        s.className = 'fb-msg';
-        s.textContent = msg;
-        s.style.cssText = 'font-size:0.74rem;margin-left:5px;font-weight:700;color:' + (ok ? '#059669' : '#dc2626');
-        btn.parentElement.appendChild(s);
-        if (ok) setTimeout(() => s.remove(), 3000);
-    }
+        const payload = {
+            produto_id: id,
+            dados: {
+                [campo]: valor
+            },
+            opcoes_cascata: []
+        };
 
-    window.salvarCampoRapido = function(btn, produtoId, campo) {
-        const td = btn.closest('td');
-        const inp = td.querySelector('input');
-        const val = inp.value.trim();
-        btn.disabled = true;
-        const payload = { produto_id: produtoId, dados: {}, opcoes_cascata: [] };
-        payload.dados[campo] = val;
-        fetch('/sku-master/auditoria/salvar-edicao', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        })
-        .then(r => r.json())
-        .then(d => {
-            btn.disabled = false;
-            if (d.ok) {
-                showFeedback(btn, '✓', true);
-                inp.style.borderColor = '#059669';
-                setTimeout(() => inp.style.borderColor = '', 2500);
-            } else {
-                showFeedback(btn, '✗', false);
-            }
-        })
-        .catch(() => { btn.disabled = false; showFeedback(btn, '!', false); });
-    };
-
-    window.excluirProduto = function(btn, produtoId) {
-        if (!confirm('Tem certeza que deseja excluir este produto? Os preços serão movidos para o histórico e o produto será inativado.')) return;
         btn.disabled = true;
         btn.textContent = '...';
-        fetch('/sku-master/auditoria/excluir/' + produtoId, { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            if (data.ok) {
-                alert('Produto excluído com sucesso!');
-                window.location.reload();
-            } else {
-                alert('Erro ao excluir: ' + data.erro);
-                btn.disabled = false;
-                btn.textContent = 'Excluir';
-            }
-        })
-        .catch(err => {
-            alert('Erro de rede ao excluir.');
+
+        try {
+            await respostaJsonSegura(await fetch('/sku-master/auditoria/salvar-edicao', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }));
+
+            btn.textContent = 'OK';
+            mostrarAlerta('Campo salvo com sucesso.');
+            setTimeout(() => {
+                btn.textContent = '✓';
+            }, 1500);
+        } catch (erro) {
+            btn.textContent = 'ERRO';
+            mostrarAlerta('Erro ao salvar campo: ' + erro.message, 'erro');
+            setTimeout(() => {
+                btn.textContent = '✓';
+            }, 2500);
+        } finally {
             btn.disabled = false;
-            btn.textContent = 'Excluir';
-        });
+        }
+    };
+
+    window.excluirProduto = async function (btn, id) {
+        if (!confirm(`Excluir/Inativar o item #${id}? Esta ação não deve apagar histórico.`)) {
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Excluindo...';
+
+        try {
+            await respostaJsonSegura(await fetch(`/sku-master/auditoria/excluir/${id}`, {
+                method: 'POST'
+            }));
+
+            mostrarAlerta('Item excluído/inativado com sucesso.');
+
+            const tr = btn.closest('tr');
+            if (tr) {
+                tr.remove();
+            }
+        } catch (erro) {
+            mostrarAlerta('Erro ao excluir item: ' + erro.message, 'erro');
+            btn.disabled = false;
+            btn.textContent = 'Excluir item';
+        }
+    };
+
+    function popularDatalist(url, datalistId, extrairValor) {
+        fetch(url)
+            .then(r => r.ok ? r.json() : [])
+            .then(data => {
+                const dl = document.getElementById(datalistId);
+                if (!dl) return;
+
+                dl.innerHTML = '';
+
+                (data || []).slice(0, 5000).forEach(item => {
+                    const valor = extrairValor(item);
+
+                    if (!valor) return;
+
+                    const opt = document.createElement('option');
+                    opt.value = valor;
+                    dl.appendChild(opt);
+                });
+            })
+            .catch(() => {});
     }
 
-    function popularDatalist(url, id) {
-        fetch(url).then(r => r.json()).then(itens => {
-            const dl = document.getElementById(id);
-            if (!dl) return;
-            itens.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
-        });
-    }
-    popularDatalist('/sku-master/skus-json', 'sku-datalist');
-    popularDatalist('/sku-master/marcas-json', 'marca-datalist');
-    popularDatalist('/sku-master/categorias-json', 'categoria-datalist');
+    // Carregar datalists auxiliares sem bloquear a tela.
+    popularDatalist('/sku-master/skus-json', 'sku-datalist', item => {
+        if (typeof item === 'string') return item;
+        return item.produto_padrao || item.sku_master || item.nome || '';
+    });
 
+    popularDatalist('/sku-master/marcas-json', 'marca-datalist', item => {
+        if (typeof item === 'string') return item;
+        return item.marca || item.fabricante || item.nome || '';
+    });
 })();
 </script>
-
-<style>
-.badge-verde { background:#dcfce7; color:#166534; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
-.badge-red { background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
-.badge-blue { background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
-.badge-cinza { background:#f3f4f6; color:#374151; padding:2px 8px; border-radius:999px; font-size:0.75rem; font-weight:700; }
-.modal-content input, .modal-content select, .modal-content textarea {
-    font-family: inherit;
-    font-size: 0.9rem;
-}
-</style>
 
 {% endblock %}
