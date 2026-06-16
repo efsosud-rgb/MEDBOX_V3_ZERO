@@ -1103,6 +1103,8 @@ def aplicar_correcao_manual_sku_master(
         itens_cascata = []
         for cand in candidatos:
             if not origem["produto_padrao"] or not cand["produto_padrao"]:
+        for cand in candidatos:
+            if not origem.get("produto_padrao") or not cand.get("produto_padrao"):
                 continue
             score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
             if score >= 88:
