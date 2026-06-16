@@ -54,19 +54,13 @@ DATA_ATUAL = datetime.now().strftime("%d/%m/%Y")
 
 
 def _criar_logger_requisicao() -> logging.Logger:
-    """
-    Cria (ou recria) o logger 'importacao' apontando para debug_importacao.txt.
-    Limpa o arquivo no início de cada requisição e força flush após cada linha.
-    """
     logger = logging.getLogger("importacao")
     logger.setLevel(logging.DEBUG)
 
-    # Remove handlers antigos para evitar duplicação entre requisições
     for handler in logger.handlers[:]:
         handler.close()
         logger.removeHandler(handler)
 
-    # Abre o arquivo em modo 'w' para limpar o conteúdo anterior
     file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
 
@@ -76,7 +70,6 @@ def _criar_logger_requisicao() -> logging.Logger:
     )
     file_handler.setFormatter(formatter)
 
-    # Força flush após cada registro
     class FlushFileHandler(logging.FileHandler):
         def emit(self, record):
             super().emit(record)
@@ -372,9 +365,6 @@ def cotacoes_lances():
 
 @app.route("/cotacoes/lances/importar", methods=["POST"])
 def importar_cotacao_lances():
-    # ------------------------------------------------------------------ #
-    # Cria o logger com arquivo físico limpo a cada requisição             #
-    # ------------------------------------------------------------------ #
     log = _criar_logger_requisicao()
     configurar_logger_cotacao(log)
 
