@@ -1377,7 +1377,7 @@ def salvar_edicao_manual_produto(
             elif tipo == "semelhante":
                 cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
                 for cand in cursor.fetchall():
-                    if origem["produto_padrao"] and cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
+                    if origem.get("produto_padrao") and cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
                         ids_afetados.add(cand[0])
             elif tipo == "mesmo_fornecedor":
                 cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
