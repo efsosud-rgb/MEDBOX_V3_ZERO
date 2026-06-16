@@ -382,32 +382,33 @@
         }
     }
 
-    // Carregar datalists auxiliares sem bloquear a tela.
-    fetch('/sku-master/skus-json')
-        .then(r => r.ok ? r.json() : [])
-        .then(data => {
-            const dl = document.getElementById('sku-datalist');
-            if (!dl) return;
-            (data || []).slice(0, 5000).forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item.produto_padrao || item.sku_master || item.nome || item;
-                dl.appendChild(opt);
-            });
-        })
-        .catch(() => {});
+    function popularDatalist(url, datalistId, extrairValor) {
+        fetch(url)
+            .then(r => r.ok ? r.json() : [])
+            .then(data => {
+                const dl = document.getElementById(datalistId);
+                if (!dl) return;
+                dl.innerHTML = '';
+                (data || []).slice(0, 5000).forEach(item => {
+                    const valor = extrairValor(item);
+                    if (!valor) return;
+                    const opt = document.createElement('option');
+                    opt.value = valor;
+                    dl.appendChild(opt);
+                });
+            })
+            .catch(() => {});
+    }
 
-    fetch('/sku-master/marcas-json')
-        .then(r => r.ok ? r.json() : [])
-        .then(data => {
-            const dl = document.getElementById('marca-datalist');
-            if (!dl) return;
-            (data || []).forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item.marca || item.fabricante || item.nome || item;
-                dl.appendChild(opt);
-            });
-        })
-        .catch(() => {});
+    popularDatalist('/sku-master/skus-json', 'sku-datalist', item => {
+        if (typeof item === 'string') return item;
+        return item.produto_padrao || item.sku_master || item.nome || '';
+    });
+
+    popularDatalist('/sku-master/marcas-json', 'marca-datalist', item => {
+        if (typeof item === 'string') return item;
+        return item.marca || item.fabricante || item.nome || '';
+    });
 })();
 </script>
 
