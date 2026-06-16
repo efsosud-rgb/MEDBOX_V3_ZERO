@@ -239,7 +239,7 @@
         document.getElementById('edit-produto-padrao-original').value = data.produto_padrao || '';
         document.getElementById('edit-fabricante').value = data.fabricante || '';
         document.getElementById('edit-categoria').value = normalizarCategoria(data.categoria);
-        document.getElementById('edit-ativo').value = data.ativo;
+        document.getElementById('edit-ativo').value = String(data.ativo ?? 1);
         document.getElementById('edit-observacoes').value = data.observacoes || '';
         document.querySelectorAll('input[name="cascata"]').forEach(c => c.checked = false);
         document.getElementById('cascata-preview-box').style.display = 'none';
@@ -278,7 +278,12 @@
                 listaDiv.innerHTML = '<span style="color:#999">Nenhum produto afetado.</span>';
                 totalDiv.innerHTML = 'Total: 0';
             } else {
-                listaDiv.innerHTML = afetados.slice(0, 10).map(p => `<div>#${p.id} - ${p.produto_padrao || p.descricao || ''}</div>`).join('');
+                listaDiv.innerHTML = '';
+                afetados.slice(0, 10).forEach(p => {
+                    const div = document.createElement('div');
+                    div.textContent = '#' + p.id + ' - ' + (p.produto_padrao || p.descricao || '');
+                    listaDiv.appendChild(div);
+                });
                 totalDiv.innerHTML = `Total: ${afetados.length} produto(s) serão atualizados`;
             }
         } catch (erro) {
