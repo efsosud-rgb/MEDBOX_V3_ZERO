@@ -1214,7 +1214,7 @@ def salvar_edicao_manual_produto(
                 cursor.execute("SELECT id FROM produtos WHERE produto_padrao = ? AND id != ?", (origem["produto_padrao"], produto_id))
                 ids_afetados.update(row[0] for row in cursor.fetchall())
             elif tipo == "semelhante":
-                cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
+                cursor.execute("SELECT id, produto_padrao, sku_master FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
                 for cand in cursor.fetchall():
                     if origem.get("produto_padrao") and cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
                         ids_afetados.add(cand[0])
