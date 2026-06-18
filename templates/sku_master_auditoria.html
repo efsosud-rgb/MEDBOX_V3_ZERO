@@ -35,10 +35,10 @@
             <input type="text" name="q" value="{{ auditoria.q or '' }}" placeholder="Ex: DIPIRONA 500MG..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
         </div>
         <div class="form-group"><label>&nbsp;</label><button type="submit" class="btn-primary">Pesquisar</button></div>
-        <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', filtro=auditoria.filtro, q=auditoria.q) }}">Exportar CSV</a></div>
+        <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', q=auditoria.q) }}">Exportar CSV</a></div>
         <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_sugestoes') }}">Sugestões Assistidas</a></div>
     </form>
-    <p style="margin-top: 16px; color: var(--muted);">Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros encontrados.</p>
+    <p style="margin-top: 16px; color: var(--muted);">Exibindo {{ auditoria.itens|length }} de {{ auditoria.contadores.total_filtrado }} registros encontrados.</p>
 </section>
 
 <section class="panel large">
@@ -93,13 +93,13 @@
     {% if auditoria.total_paginas > 1 %}
     <div style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px;">
         {% if auditoria.pagina > 1 %}
-            <a href="{{ url_for('sku_master_auditoria', page=auditoria.pagina - 1, q=auditoria.q, filtro=auditoria.filtro) }}" class="btn-primary" style="background: #6b7280; padding: 5px 12px; font-size: 0.85rem;">&laquo; Anterior</a>
+            <a href="{{ url_for('sku_master_auditoria', page=auditoria.pagina - 1, q=auditoria.q) }}" class="btn-primary" style="background: #6b7280; padding: 5px 12px; font-size: 0.85rem;">&laquo; Anterior</a>
         {% endif %}
 
         <span style="font-weight: 700; font-size: 0.9rem; color: #475569;">Página {{ auditoria.pagina }} de {{ auditoria.total_paginas }}</span>
 
         {% if auditoria.pagina < auditoria.total_paginas %}
-            <a href="{{ url_for('sku_master_auditoria', page=auditoria.pagina + 1, q=auditoria.q, filtro=auditoria.filtro) }}" class="btn-primary" style="background: #6b7280; padding: 5px 12px; font-size: 0.85rem;">Próxima &raquo;</a>
+            <a href="{{ url_for('sku_master_auditoria', page=auditoria.pagina + 1, q=auditoria.q) }}" class="btn-primary" style="background: #6b7280; padding: 5px 12px; font-size: 0.85rem;">Próxima &raquo;</a>
         {% endif %}
     </div>
     {% endif %}
@@ -192,6 +192,18 @@
     const form = document.getElementById('form-edicao');
     const categoriasPermitidas = ['CORRELATOS', 'MEDICAMENTOS'];
 
+    // Helper para garantir que mensagens de erro não usem innerHTML
+    function mostrarErroSeguro(container, mensagem) {
+        if (!container) return;
+        container.innerHTML = '';
+        const div = document.createElement('div');
+        div.style.padding = '10px';
+        div.style.color = '#ef4444';
+        div.style.fontSize = '0.75rem';
+        div.textContent = mensagem;
+        container.appendChild(div);
+    }
+
     function mostrarAlerta(mensagem, tipo='sucesso') {
         const box = document.getElementById('auditoria-alerta');
         if (!box) return alert(mensagem);
@@ -231,7 +243,10 @@
         const original = (document.getElementById('edit-sku-master-original').value || '').trim().toUpperCase();
         const atual = (document.getElementById('edit-sku-master').value || '').trim().toUpperCase();
         const checkbox = document.querySelector('input[name="cascata"][value="semelhante"]');
-        if (checkbox && atual && atual !== original) {
+
+        // Só marca automaticamente se o SKU mudou E a opção ainda não estava marcada.
+        // Se o usuário desmarcou explicitamente, respeitamos (não reativa via submit).
+        if (checkbox && !checkbox.checked && atual && atual !== original) {
             checkbox.checked = true;
             previewCascata();
         }
@@ -294,7 +309,7 @@
             const afetados = data.itens || [];
             if (afetados.length === 0) {
                 listaDiv.innerHTML = '<div style="padding:10px; color:#94a3b8; font-size:0.75rem;">Nenhum produto afetado.</div>';
-                totalDiv.innerHTML = 'Total: 0';
+                totalDiv.textContent = 'Total: 0';
             } else {
                 listaDiv.innerHTML = '';
                 afetados.forEach(p => {
@@ -317,7 +332,8 @@
                     label.style.cursor = 'pointer';
                     label.style.flex = '1';
                     const scoreText = p.score ? ` (Score: ${p.score})` : '';
-                    label.textContent = `#${p.id} | ${p.produto_padrao || '-'}${scoreText} | SKU: ${p.sku_master || '-'}`;
+                    const skuText = p.sku_master || p.produto_padrao || '-';
+                    label.textContent = `#${p.id} | ${p.produto_padrao || '-'}${scoreText} | SKU: ${skuText}`;
 
                     row.appendChild(cb);
                     row.appendChild(label);
@@ -326,14 +342,8 @@
                 totalDiv.textContent = `Total: ${afetados.length} produto(s) encontrado(s). Desmarque os que não deseja atualizar.`;
             }
         } catch (erro) {
-            listaDiv.innerHTML = '';
-            const errRow = document.createElement('div');
-            errRow.style.padding = '10px';
-            errRow.style.color = '#ef4444';
-            errRow.style.fontSize = '0.75rem';
-            errRow.textContent = erro.message;
-            listaDiv.appendChild(errRow);
-            totalDiv.innerHTML = '';
+            mostrarErroSeguro(listaDiv, erro.message);
+            totalDiv.textContent = '';
         }
     }
 
@@ -344,7 +354,6 @@
             mostrarAlerta('Categoria inválida. Use apenas CORRELATOS ou MEDICAMENTOS.', 'erro');
             return;
         }
-        marcarCascataSemelhanteSeSkuMudou();
 
         const dados = {};
         const campos = [
@@ -372,9 +381,11 @@
         }
 
         const opcoesCascata = getCascataSelecionada();
+        // Se opcoes_cascata estiver vazia, não enviamos ids_cascata_selecionados (mantendo nulo no backend)
+        // para que salvar_edicao_manual_produto não tente aplicar cascata.
         const idsCascata = opcoesCascata.length > 0
             ? Array.from(document.querySelectorAll('input[name="cascata_item"]:checked')).map(cb => cb.value)
-            : [];
+            : null;
 
         const payload = {
             produto_id: document.getElementById('edit-id').value,
@@ -401,6 +412,7 @@
             botao.textContent = 'Salvar Alterações';
         }
     });
+
 
     window.excluirProdutoPermanente = async function() {
         const id = document.getElementById('edit-id').value;

@@ -161,8 +161,11 @@ def produtos():
 
 @app.route("/sku-master/auditoria")
 def sku_master_auditoria():
+    q = request.args.get("q", "").strip()
+    page = int(request.args.get("page", 1))
+    # Note: 'filtro' logic is deprecated in UI, but kept for backend compatibility
     filtro = request.args.get("filtro", "todos")
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=250)
+    auditoria = gerar_auditoria_sku_master(filtro=filtro, q=q, pagina=page, limite=50)
     return render_template(
         "sku_master_auditoria.html",
         data_atual=DATA_ATUAL,
@@ -639,12 +642,14 @@ def sku_master_auditoria_salvar_edicao():
     produto_id = data.get("produto_id")
     dados = data.get("dados", {})
     opcoes_cascata = data.get("opcoes_cascata", [])
+    ids_cascata_selecionados = data.get("ids_cascata_selecionados")
 
     try:
         resultado = salvar_edicao_manual_produto(
             produto_id=produto_id,
             dados_novos=dados,
             opcoes_cascata=opcoes_cascata,
+            ids_cascata_selecionados=ids_cascata_selecionados,
             usuario="compras"
         )
         return Response(
@@ -742,10 +747,14 @@ def sku_master_auditoria_corrigir_todos():
 def sku_master_skus_json():
     conn = conectar()
     cursor = conn.cursor()
+    # Use COALESCE to prioritize sku_master over produto_padrao in suggestions
     cursor.execute(
-        "SELECT produto_padrao FROM produtos WHERE ativo = 1 AND produto_padrao IS NOT NULL ORDER BY produto_padrao"
+        """SELECT DISTINCT COALESCE(NULLIF(TRIM(sku_master), ''), produto_padrao) as sku
+           FROM produtos
+           WHERE ativo = 1
+           ORDER BY sku"""
     )
-    skus = [row["produto_padrao"] for row in cursor.fetchall() if row["produto_padrao"]]
+    skus = [row["sku"] for row in cursor.fetchall() if row["sku"]]
     conn.close()
     return Response(json.dumps(skus, ensure_ascii=False), content_type="application/json")
 
