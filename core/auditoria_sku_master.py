@@ -236,34 +236,20 @@ def _sugerir_sku_limpo(produto, indice_limpos):
     return candidatos[0][2]
 
 
-def gerar_auditoria_sku_master(filtro="todos", limite=None, q="", pagina=1, itens_por_pagina=50):
+def gerar_auditoria_sku_master(filtro="todos", limite=200):
     filtro = filtro if filtro in FILTROS else "todos"
-    pagina = max(1, int(pagina or 1))
-    itens_por_pagina = int(itens_por_pagina or 50)
+    limite = max(1, int(limite or 200))
 
     conn = _conectar_leitura()
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
-
-        # Filtro de busca textual expandido
-        where_clause = "WHERE p.ativo = 1"
-        params = []
-        if q:
-            termos = q.strip().split()
-            for t in termos:
-                where_clause += " AND (p.produto_padrao LIKE ? OR p.sku_master LIKE ? OR p.fabricante LIKE ? OR p.categoria LIKE ? OR p.id IN (SELECT produto_id FROM precos_fornecedores WHERE descricao_original LIKE ?))"
-                like_val = f"%{t}%"
-                params.extend([like_val, like_val, like_val, like_val, like_val])
-
         cursor.execute(
-            f"""
-            SELECT p.id, p.sku, p.produto_padrao, p.sku_master, p.fabricante, p.categoria, p.ativo, p.observacoes
-            FROM produtos p
-            {where_clause}
-            ORDER BY p.produto_padrao
-            """,
-            params
+            """
+            SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
+            FROM produtos
+            ORDER BY produto_padrao
+            """
         )
         produtos = [dict(row) for row in cursor.fetchall()]
 
@@ -285,7 +271,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=None, q="", pagina=1, iten
 
     grupos_normalizados = defaultdict(list)
     for produto in produtos:
-        chave = _normalizar(produto.get("sku_master") or produto.get("produto_padrao"))
+        chave = _normalizar(produto.get("produto_padrao"))
         if chave:
             grupos_normalizados[chave].append(produto["id"])
 
@@ -300,7 +286,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=None, q="", pagina=1, iten
     pre_classificados = []
     for produto in produtos:
         motivos = _motivos_sku(
-            produto.get("sku_master") or produto.get("produto_padrao"),
+            produto.get("produto_padrao"),
             descricoes_por_produto.get(produto["id"], []),
         )
         duplicado = produto["id"] in ids_duplicados
@@ -316,7 +302,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=None, q="", pagina=1, iten
         })
 
     produtos_limpos = [
-        {**item, "assinatura": _assinatura_sku(item.get("sku_master") or item["produto_padrao"])}
+        {**item, "assinatura": _assinatura_sku(item["produto_padrao"])}
         for item in pre_classificados
         if item["classificacao"] == "LIMPO"
     ]
@@ -336,27 +322,13 @@ def gerar_auditoria_sku_master(filtro="todos", limite=None, q="", pagina=1, iten
         item for item in itens
         if not classificacao_filtro or item["classificacao"] == classificacao_filtro
     ]
-
-    total_filtrado = len(itens_filtrados)
-    total_paginas = max(1, (total_filtrado + itens_por_pagina - 1) // itens_por_pagina)
-
-    if limite:
-        itens_limitados = itens_filtrados[:limite]
-    else:
-        inicio = (pagina - 1) * itens_por_pagina
-        fim = inicio + itens_por_pagina
-        itens_limitados = itens_filtrados[inicio:fim]
-
+    itens_limitados = itens_filtrados[:limite]
     for item in itens_limitados:
         if item["classificacao"] != "LIMPO":
             item["sugestao_sku_limpo"] = _sugerir_sku_limpo(item, indice_limpos)
 
     return {
         "filtro": filtro,
-        "q": q,
-        "pagina": pagina,
-        "total_paginas": total_paginas,
-        "itens_por_pagina": itens_por_pagina,
         "contadores": {
             "total_produtos": len(produtos),
             "total_limpos": contadores["LIMPO"],
@@ -365,18 +337,18 @@ def gerar_auditoria_sku_master(filtro="todos", limite=None, q="", pagina=1, iten
             "total_sku_pendente": contadores["SKU_PENDENTE"],
             "total_duplicados": contadores["DUPLICADO"],
             "total_grupos_duplicados": total_grupos_duplicados,
-            "total_filtrado": total_filtrado,
+            "total_filtrado": len(itens_filtrados),
         },
         "itens": itens_limitados,
-        "total_sem_limite": total_filtrado,
+        "total_sem_limite": len(itens_filtrados),
     }
 
 
-def gerar_csv_auditoria_sku_master(filtro="todos", q=""):
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=1000000, q=q)
+def gerar_csv_auditoria_sku_master(filtro="todos"):
+    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=1000000)
     buffer = io.StringIO()
     campos = [
-        "produto_id", "produto_padrao", "sku_master", "fabricante", "categoria",
+        "produto_id", "produto_padrao", "fabricante", "categoria",
         "classificacao", "motivo", "sugestao_sku_limpo", "total_precos", "total_equivalencias",
     ]
     writer = csv.DictWriter(buffer, fieldnames=campos, extrasaction="ignore")
@@ -385,7 +357,6 @@ def gerar_csv_auditoria_sku_master(filtro="todos", q=""):
         writer.writerow({
             "produto_id": item["id"],
             "produto_padrao": item["produto_padrao"],
-            "sku_master": item.get("sku_master"),
             "fabricante": item["fabricante"],
             "categoria": item["categoria"],
             "classificacao": item["classificacao"],
@@ -695,7 +666,7 @@ def _conectar_escrita(caminho_banco=None):
 def _buscar_produto(cursor, produto_id):
     cursor.execute(
         """
-        SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo, observacoes
+        SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
         FROM produtos
         WHERE id = ?
         """,
@@ -899,17 +870,17 @@ def _normalizar_sku_manual(sku_manual):
     return sku
 
 
-def _buscar_produto_ativo_por_nome(cursor, sku_master):
+def _buscar_produto_ativo_por_nome(cursor, produto_padrao):
     cursor.execute(
         """
-        SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
+        SELECT id, sku, produto_padrao, fabricante, categoria, ativo
         FROM produtos
         WHERE ativo = 1
-          AND (UPPER(TRIM(sku_master)) = UPPER(TRIM(?)) OR (sku_master IS NULL AND UPPER(TRIM(produto_padrao)) = UPPER(TRIM(?))))
+          AND UPPER(TRIM(produto_padrao)) = UPPER(TRIM(?))
         ORDER BY id
         LIMIT 1
         """,
-        (sku_master, sku_master),
+        (produto_padrao,),
     )
     row = cursor.fetchone()
     return dict(row) if row else None
@@ -919,20 +890,18 @@ def _criar_produto_manual(cursor, sku_manual, origem):
     categoria = origem.get("categoria") or ""
     if "SKU PENDENTE" in _normalizar(categoria):
         categoria = ""
-    # Ao criar manual, o produto_padrao e sku_master começam iguais
     cursor.execute(
         """
-        INSERT INTO produtos (sku, produto_padrao, sku_master, fabricante, categoria, ativo)
-        VALUES (?, ?, ?, ?, ?, 1)
+        INSERT INTO produtos (sku, produto_padrao, fabricante, categoria, ativo)
+        VALUES (?, ?, ?, ?, 1)
         """,
-        ("", sku_manual, sku_manual, origem.get("fabricante") or "", categoria),
+        ("", sku_manual, origem.get("fabricante") or "", categoria),
     )
     produto_id = cursor.lastrowid
     return {
         "id": produto_id,
         "sku": "",
         "produto_padrao": sku_manual,
-        "sku_master": sku_manual,
         "fabricante": origem.get("fabricante") or "",
         "categoria": categoria,
         "ativo": 1,
@@ -985,7 +954,7 @@ def aplicar_correcao_manual_sku_master(
         # Propagação em cascata
         cursor.execute(
             """
-            SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
+            SELECT id, sku, produto_padrao, fabricante, categoria, ativo
             FROM produtos
             WHERE ativo = 1 AND id != ? AND id != ?
             """,
@@ -995,7 +964,6 @@ def aplicar_correcao_manual_sku_master(
 
         itens_cascata = []
         for cand in candidatos:
-            # Compara usando a referência fixa (produto_padrao) para encontrar semelhantes reais
             if not origem.get("produto_padrao") or not cand.get("produto_padrao"):
                 continue
             score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
@@ -1176,17 +1144,14 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
             return []
 
         if tipo_cascata == "mesmo_sku":
-            # Agrupa por sku_master atual
-            sku_master_atual = origem.get("sku_master") or origem.get("produto_padrao")
             cursor.execute(
-                "SELECT id, produto_padrao, sku_master, fabricante, categoria, ativo FROM produtos WHERE (sku_master = ? OR (sku_master IS NULL AND produto_padrao = ?)) AND id != ? AND ativo = 1",
-                (sku_master_atual, sku_master_atual, produto_id),
+                "SELECT id, produto_padrao, ativo FROM produtos WHERE produto_padrao = ? AND id != ?",
+                (origem["produto_padrao"], produto_id),
             )
             return [dict(row) for row in cursor.fetchall()]
 
         if tipo_cascata == "semelhante":
-            # Busca semelhantes usando produto_padrao como base de comparação
-            cursor.execute("SELECT id, produto_padrao, sku_master, fabricante, categoria, ativo FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
+            cursor.execute("SELECT id, produto_padrao, ativo FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
             candidatos = [dict(row) for row in cursor.fetchall()]
             afetados = []
             for cand in candidatos:
@@ -1194,7 +1159,6 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
                     continue
                 score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
                 if score >= 88:
-                    cand["score"] = round(score, 1)
                     afetados.append(cand)
             return afetados
 
@@ -1206,10 +1170,10 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
             placeholders = ",".join(["?"] * len(fids))
             cursor.execute(
                 f"""
-                SELECT DISTINCT p.id, p.produto_padrao, p.sku_master, p.fabricante, p.categoria, p.ativo
+                SELECT DISTINCT p.id, p.produto_padrao, p.ativo
                 FROM produtos p
                 JOIN precos_fornecedores pf ON pf.produto_id = p.id
-                WHERE pf.fornecedor_id IN ({placeholders}) AND p.id != ? AND p.ativo = 1
+                WHERE pf.fornecedor_id IN ({placeholders}) AND p.id != ?
                 """,
                 (*fids, produto_id),
             )
@@ -1226,13 +1190,9 @@ def salvar_edicao_manual_produto(
     opcoes_cascata=None,
     usuario="sistema",
     caminho_banco=None,
-    ids_cascata_selecionados=None,
 ):
     produto_id = int(produto_id)
     opcoes_cascata = opcoes_cascata or []
-    ids_afetados = set()
-    if ids_cascata_selecionados:
-        ids_afetados.update(int(i) for i in ids_cascata_selecionados if int(i) != produto_id)
 
     criar_backup_banco(caminho_banco=caminho_banco)
     conn = _conectar_escrita(caminho_banco)
@@ -1242,36 +1202,34 @@ def salvar_edicao_manual_produto(
         if not origem:
             raise ValueError("Produto nao encontrado.")
 
-        # Se não foram enviados IDs específicos, calculamos baseados nas opções (retrocompatibilidade ou fallback)
-        if not ids_cascata_selecionados:
-            for tipo in opcoes_cascata:
-                if tipo == "mesmo_sku":
-                    sku_master_atual = origem.get("sku_master") or origem.get("produto_padrao")
-                    cursor.execute("SELECT id FROM produtos WHERE (sku_master = ? OR (sku_master IS NULL AND produto_padrao = ?)) AND id != ? AND ativo = 1", (sku_master_atual, sku_master_atual, produto_id))
+        ids_afetados = set()
+        for tipo in opcoes_cascata:
+            if tipo == "mesmo_sku":
+                cursor.execute("SELECT id FROM produtos WHERE produto_padrao = ? AND id != ?", (origem["produto_padrao"], produto_id))
+                ids_afetados.update(row[0] for row in cursor.fetchall())
+            elif tipo == "semelhante":
+                cursor.execute("SELECT id, produto_padrao FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
+                for cand in cursor.fetchall():
+                    if origem.get("produto_padrao") and cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
+                        ids_afetados.add(cand[0])
+            elif tipo == "mesmo_fornecedor":
+                cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
+                fids = [row[0] for row in cursor.fetchall()]
+                if fids:
+                    placeholders = ",".join(["?"] * len(fids))
+                    cursor.execute(f"SELECT DISTINCT produto_id FROM precos_fornecedores WHERE fornecedor_id IN ({placeholders}) AND produto_id != ?", (*fids, produto_id))
                     ids_afetados.update(row[0] for row in cursor.fetchall())
-                elif tipo == "semelhante":
-                    cursor.execute("SELECT id, produto_padrao, sku_master FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
-                    for cand in cursor.fetchall():
-                        if origem.get("produto_padrao") and cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
-                            ids_afetados.add(cand[0])
-                elif tipo == "mesmo_fornecedor":
-                    cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
-                    fids = [row[0] for row in cursor.fetchall()]
-                    if fids:
-                        placeholders = ",".join(["?"] * len(fids))
-                        cursor.execute(f"SELECT DISTINCT pf.produto_id FROM precos_fornecedores pf JOIN produtos p ON p.id = pf.produto_id WHERE pf.fornecedor_id IN ({placeholders}) AND pf.produto_id != ? AND p.ativo = 1", (*fids, produto_id))
-                        ids_afetados.update(row[0] for row in cursor.fetchall())
 
         conn.execute("BEGIN")
 
-        campos_editaveis = ["sku_master", "fabricante", "categoria", "ativo", "observacoes"]
+        campos_editaveis = ["produto_padrao", "fabricante", "categoria", "ativo", "observacoes"]
         for campo in campos_editaveis:
             novo_valor = dados_novos.get(campo)
             if novo_valor is not None and str(novo_valor) != str(origem.get(campo) or ""):
                 cursor.execute(f"UPDATE produtos SET {campo} = ? WHERE id = ?", (novo_valor, produto_id))
                 registrar_auditoria_sku(cursor, produto_id, campo, origem.get(campo), novo_valor, usuario=usuario)
 
-        sku_novo = dados_novos.get("sku_master")
+        sku_novo = dados_novos.get("produto_padrao")
         fab_novo = dados_novos.get("fabricante")
         cat_novo = dados_novos.get("categoria")
 
@@ -1279,25 +1237,15 @@ def salvar_edicao_manual_produto(
             afetado = _buscar_produto(cursor, aid)
             if not afetado:
                 continue
-
-            # Cascata deve alterar APENAS o que foi alterado no produto de origem e enviado no payload
-            if "sku_master" in dados_novos:
-                novo_val = dados_novos["sku_master"]
-                if novo_val != afetado.get("sku_master"):
-                    cursor.execute("UPDATE produtos SET sku_master = ? WHERE id = ?", (novo_val, aid))
-                    registrar_auditoria_sku(cursor, aid, "sku_master", afetado.get("sku_master"), novo_val, tipo_correcao="cascata", usuario=usuario)
-
-            if "fabricante" in dados_novos:
-                novo_val = dados_novos["fabricante"]
-                if novo_val != afetado.get("fabricante"):
-                    cursor.execute("UPDATE produtos SET fabricante = ? WHERE id = ?", (novo_val, aid))
-                    registrar_auditoria_sku(cursor, aid, "fabricante", afetado.get("fabricante"), novo_val, tipo_correcao="cascata", usuario=usuario)
-
-            if "categoria" in dados_novos:
-                novo_val = dados_novos["categoria"]
-                if novo_val != afetado.get("categoria"):
-                    cursor.execute("UPDATE produtos SET categoria = ? WHERE id = ?", (novo_val, aid))
-                    registrar_auditoria_sku(cursor, aid, "categoria", afetado.get("categoria"), novo_val, tipo_correcao="cascata", usuario=usuario)
+            if sku_novo and sku_novo != afetado["produto_padrao"]:
+                cursor.execute("UPDATE produtos SET produto_padrao = ? WHERE id = ?", (sku_novo, aid))
+                registrar_auditoria_sku(cursor, aid, "produto_padrao", afetado["produto_padrao"], sku_novo, tipo_correcao="cascata", usuario=usuario)
+            if fab_novo and fab_novo != afetado["fabricante"]:
+                cursor.execute("UPDATE produtos SET fabricante = ? WHERE id = ?", (fab_novo, aid))
+                registrar_auditoria_sku(cursor, aid, "fabricante", afetado["fabricante"], fab_novo, tipo_correcao="cascata", usuario=usuario)
+            if cat_novo and cat_novo != afetado["categoria"]:
+                cursor.execute("UPDATE produtos SET categoria = ? WHERE id = ?", (cat_novo, aid))
+                registrar_auditoria_sku(cursor, aid, "categoria", afetado["categoria"], cat_novo, tipo_correcao="cascata", usuario=usuario)
 
         conn.commit()
         return {"ok": True, "afetados_cascata": len(ids_afetados)}

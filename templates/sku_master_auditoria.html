@@ -37,7 +37,6 @@
         <div class="form-group"><label>&nbsp;</label><button type="submit" class="btn-primary">Pesquisar</button></div>
         <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', filtro=auditoria.filtro, q=auditoria.q) }}">Exportar CSV</a></div>
         <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_sugestoes') }}">Sugestões Assistidas</a></div>
-        <input type="hidden" name="filtro" value="{{ auditoria.filtro }}">
     </form>
     <p style="margin-top: 16px; color: var(--muted);">Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros encontrados.</p>
 </section>
@@ -327,7 +326,13 @@
                 totalDiv.textContent = `Total: ${afetados.length} produto(s) encontrado(s). Desmarque os que não deseja atualizar.`;
             }
         } catch (erro) {
-            listaDiv.innerHTML = `<div style="padding:10px; color:#ef4444; font-size:0.75rem;">${erro.message}</div>`;
+            listaDiv.innerHTML = '';
+            const errRow = document.createElement('div');
+            errRow.style.padding = '10px';
+            errRow.style.color = '#ef4444';
+            errRow.style.fontSize = '0.75rem';
+            errRow.textContent = erro.message;
+            listaDiv.appendChild(errRow);
             totalDiv.innerHTML = '';
         }
     }
@@ -366,12 +371,15 @@
             return;
         }
 
-        const idsCascata = Array.from(document.querySelectorAll('input[name="cascata_item"]:checked')).map(cb => cb.value);
+        const opcoesCascata = getCascataSelecionada();
+        const idsCascata = opcoesCascata.length > 0
+            ? Array.from(document.querySelectorAll('input[name="cascata_item"]:checked')).map(cb => cb.value)
+            : [];
 
         const payload = {
             produto_id: document.getElementById('edit-id').value,
             dados: dados,
-            opcoes_cascata: getCascataSelecionada(),
+            opcoes_cascata: opcoesCascata,
             ids_cascata_selecionados: idsCascata
         };
         const botao = form.querySelector('button[type="submit"]');

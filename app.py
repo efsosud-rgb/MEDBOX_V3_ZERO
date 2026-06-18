@@ -162,9 +162,7 @@ def produtos():
 @app.route("/sku-master/auditoria")
 def sku_master_auditoria():
     filtro = request.args.get("filtro", "todos")
-    q = request.args.get("q", "").strip()
-    pagina = request.args.get("page", 1, type=int)
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, q=q, pagina=pagina)
+    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=250)
     return render_template(
         "sku_master_auditoria.html",
         data_atual=DATA_ATUAL,
@@ -177,8 +175,7 @@ def sku_master_auditoria():
 @app.route("/sku-master/auditoria.csv")
 def sku_master_auditoria_csv():
     filtro = request.args.get("filtro", "todos")
-    q = request.args.get("q", "").strip()
-    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro, q=q)
+    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro)
     nome_arquivo = f"auditoria_sku_master_{filtro}.csv"
     return Response(
         conteudo,
@@ -642,15 +639,13 @@ def sku_master_auditoria_salvar_edicao():
     produto_id = data.get("produto_id")
     dados = data.get("dados", {})
     opcoes_cascata = data.get("opcoes_cascata", [])
-    ids_cascata_selecionados = data.get("ids_cascata_selecionados", [])
 
     try:
         resultado = salvar_edicao_manual_produto(
             produto_id=produto_id,
             dados_novos=dados,
             opcoes_cascata=opcoes_cascata,
-            usuario="compras",
-            ids_cascata_selecionados=ids_cascata_selecionados
+            usuario="compras"
         )
         return Response(
             json.dumps(resultado, ensure_ascii=False),
@@ -748,14 +743,9 @@ def sku_master_skus_json():
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute(
-        """
-        SELECT DISTINCT COALESCE(NULLIF(TRIM(sku_master), ''), produto_padrao) as sugestao
-        FROM produtos
-        WHERE ativo = 1
-        ORDER BY sugestao
-        """
+        "SELECT produto_padrao FROM produtos WHERE ativo = 1 AND produto_padrao IS NOT NULL ORDER BY produto_padrao"
     )
-    skus = [row["sugestao"] for row in cursor.fetchall()]
+    skus = [row["produto_padrao"] for row in cursor.fetchall() if row["produto_padrao"]]
     conn.close()
     return Response(json.dumps(skus, ensure_ascii=False), content_type="application/json")
 
