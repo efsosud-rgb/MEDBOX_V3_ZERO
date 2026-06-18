@@ -248,6 +248,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
             """
             SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo, observacoes
             FROM produtos
+            WHERE ativo = 1
             ORDER BY produto_padrao
             """
         )
@@ -1151,14 +1152,14 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
             # Agrupa por sku_master atual
             sku_master_atual = origem.get("sku_master") or origem.get("produto_padrao")
             cursor.execute(
-                "SELECT id, produto_padrao, sku_master, ativo FROM produtos WHERE (sku_master = ? OR (sku_master IS NULL AND produto_padrao = ?)) AND id != ?",
+                "SELECT id, produto_padrao, sku_master, fabricante, categoria, ativo FROM produtos WHERE (sku_master = ? OR (sku_master IS NULL AND produto_padrao = ?)) AND id != ? AND ativo = 1",
                 (sku_master_atual, sku_master_atual, produto_id),
             )
             return [dict(row) for row in cursor.fetchall()]
 
         if tipo_cascata == "semelhante":
             # Busca semelhantes usando produto_padrao como base de comparação
-            cursor.execute("SELECT id, produto_padrao, sku_master, ativo FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
+            cursor.execute("SELECT id, produto_padrao, sku_master, fabricante, categoria, ativo FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
             candidatos = [dict(row) for row in cursor.fetchall()]
             afetados = []
             for cand in candidatos:
@@ -1166,6 +1167,7 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
                     continue
                 score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
                 if score >= 88:
+                    cand["score"] = round(score, 1)
                     afetados.append(cand)
             return afetados
 
@@ -1177,10 +1179,10 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
             placeholders = ",".join(["?"] * len(fids))
             cursor.execute(
                 f"""
-                SELECT DISTINCT p.id, p.produto_padrao, p.sku_master, p.ativo
+                SELECT DISTINCT p.id, p.produto_padrao, p.sku_master, p.fabricante, p.categoria, p.ativo
                 FROM produtos p
                 JOIN precos_fornecedores pf ON pf.produto_id = p.id
-                WHERE pf.fornecedor_id IN ({placeholders}) AND p.id != ?
+                WHERE pf.fornecedor_id IN ({placeholders}) AND p.id != ? AND p.ativo = 1
                 """,
                 (*fids, produto_id),
             )
@@ -1197,9 +1199,13 @@ def salvar_edicao_manual_produto(
     opcoes_cascata=None,
     usuario="sistema",
     caminho_banco=None,
+    ids_cascata_selecionados=None,
 ):
     produto_id = int(produto_id)
     opcoes_cascata = opcoes_cascata or []
+    ids_afetados = set()
+    if ids_cascata_selecionados:
+        ids_afetados.update(int(i) for i in ids_cascata_selecionados if int(i) != produto_id)
 
     criar_backup_banco(caminho_banco=caminho_banco)
     conn = _conectar_escrita(caminho_banco)
@@ -1209,24 +1215,25 @@ def salvar_edicao_manual_produto(
         if not origem:
             raise ValueError("Produto nao encontrado.")
 
-        ids_afetados = set()
-        for tipo in opcoes_cascata:
-            if tipo == "mesmo_sku":
-                sku_master_atual = origem.get("sku_master") or origem.get("produto_padrao")
-                cursor.execute("SELECT id FROM produtos WHERE (sku_master = ? OR (sku_master IS NULL AND produto_padrao = ?)) AND id != ?", (sku_master_atual, sku_master_atual, produto_id))
-                ids_afetados.update(row[0] for row in cursor.fetchall())
-            elif tipo == "semelhante":
-                cursor.execute("SELECT id, produto_padrao, sku_master FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
-                for cand in cursor.fetchall():
-                    if origem.get("produto_padrao") and cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
-                        ids_afetados.add(cand[0])
-            elif tipo == "mesmo_fornecedor":
-                cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
-                fids = [row[0] for row in cursor.fetchall()]
-                if fids:
-                    placeholders = ",".join(["?"] * len(fids))
-                    cursor.execute(f"SELECT DISTINCT produto_id FROM precos_fornecedores WHERE fornecedor_id IN ({placeholders}) AND produto_id != ?", (*fids, produto_id))
+        # Se não foram enviados IDs específicos, calculamos baseados nas opções (retrocompatibilidade ou fallback)
+        if not ids_cascata_selecionados:
+            for tipo in opcoes_cascata:
+                if tipo == "mesmo_sku":
+                    sku_master_atual = origem.get("sku_master") or origem.get("produto_padrao")
+                    cursor.execute("SELECT id FROM produtos WHERE (sku_master = ? OR (sku_master IS NULL AND produto_padrao = ?)) AND id != ? AND ativo = 1", (sku_master_atual, sku_master_atual, produto_id))
                     ids_afetados.update(row[0] for row in cursor.fetchall())
+                elif tipo == "semelhante":
+                    cursor.execute("SELECT id, produto_padrao, sku_master FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
+                    for cand in cursor.fetchall():
+                        if origem.get("produto_padrao") and cand[1] and fuzz.token_set_ratio(origem["produto_padrao"], cand[1]) >= 88:
+                            ids_afetados.add(cand[0])
+                elif tipo == "mesmo_fornecedor":
+                    cursor.execute("SELECT DISTINCT fornecedor_id FROM precos_fornecedores WHERE produto_id = ?", (produto_id,))
+                    fids = [row[0] for row in cursor.fetchall()]
+                    if fids:
+                        placeholders = ",".join(["?"] * len(fids))
+                        cursor.execute(f"SELECT DISTINCT pf.produto_id FROM precos_fornecedores pf JOIN produtos p ON p.id = pf.produto_id WHERE pf.fornecedor_id IN ({placeholders}) AND pf.produto_id != ? AND p.ativo = 1", (*fids, produto_id))
+                        ids_afetados.update(row[0] for row in cursor.fetchall())
 
         conn.execute("BEGIN")
 

@@ -639,13 +639,15 @@ def sku_master_auditoria_salvar_edicao():
     produto_id = data.get("produto_id")
     dados = data.get("dados", {})
     opcoes_cascata = data.get("opcoes_cascata", [])
+    ids_cascata_selecionados = data.get("ids_cascata_selecionados", [])
 
     try:
         resultado = salvar_edicao_manual_produto(
             produto_id=produto_id,
             dados_novos=dados,
             opcoes_cascata=opcoes_cascata,
-            usuario="compras"
+            usuario="compras",
+            ids_cascata_selecionados=ids_cascata_selecionados
         )
         return Response(
             json.dumps(resultado, ensure_ascii=False),

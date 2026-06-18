@@ -60,7 +60,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Produto Padrao (Referencia)</th>
-                    <th>SKU Master (Editavel)</th>
+                    <th>SKU Master (Corrigido)</th>
                     <th>Fabricante</th>
                     <th>Categoria</th>
                     <th>Classificacao</th>
@@ -73,28 +73,9 @@
                 <tr data-produto-json='{{ item|tojson|safe }}'>
                     <td>{{ item.id }}</td>
                     <td style="color: var(--muted); font-size: 0.8rem;">{{ item.produto_padrao or "-" }}</td>
-                    <td>
-                        <div style="display:flex;gap:4px;align-items:center;">
-                            <input type="text" data-campo="sku_master" value="{{ item.sku_master or item.produto_padrao or '' }}" list="sku-datalist" placeholder="SKU Master..." style="width:180px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem; font-weight: bold;">
-                            <button class="btn-primary" style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;" onclick="salvarCampoRapido(this,{{ item.id }},'sku_master')">✓</button>
-                        </div>
-                    </td>
-                    <td>
-                        <div style="display:flex;gap:4px;align-items:center;">
-                            <input type="text" data-campo="fabricante" value="{{ item.fabricante or '' }}" list="marca-datalist" placeholder="Marca..." style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
-                            <button class="btn-primary" style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;" onclick="salvarCampoRapido(this,{{ item.id }},'fabricante')">✓</button>
-                        </div>
-                    </td>
-                    <td>
-                        <div style="display:flex;gap:4px;align-items:center;">
-                            <select data-campo="categoria" style="width:145px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
-                                <option value="">Selecionar...</option>
-                                <option value="CORRELATOS" {% if item.categoria == 'CORRELATOS' %}selected{% endif %}>CORRELATOS</option>
-                                <option value="MEDICAMENTOS" {% if item.categoria == 'MEDICAMENTOS' %}selected{% endif %}>MEDICAMENTOS</option>
-                            </select>
-                            <button class="btn-primary" style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;" onclick="salvarCampoRapido(this,{{ item.id }},'categoria')">✓</button>
-                        </div>
-                    </td>
+                    <td style="font-weight: 700;">{{ item.sku_master or item.produto_padrao or "-" }}</td>
+                    <td>{{ item.fabricante or "-" }}</td>
+                    <td>{{ item.categoria or "-" }}</td>
                     <td>
                         {% if item.classificacao == 'LIMPO' %}<span class="badge-verde">LIMPO</span>
                         {% elif item.classificacao == 'CONTAMINADO_FORTE' %}<span class="badge-red">CONTAMINADO_FORTE</span>
@@ -105,10 +86,7 @@
                     </td>
                     <td>{{ item.motivo }}</td>
                     <td>
-                        <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                            <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem;" onclick="abrirModalEdicao(this)">Editar</button>
-                            <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem; background:#dc2626;" onclick="excluirProduto(this, {{ item.id }})">Excluir item</button>
-                        </div>
+                        <button class="btn-primary" style="padding:4px 10px;font-size:0.8rem;" onclick="abrirModalEdicao(this)">Editar</button>
                     </td>
                 </tr>
                 {% else %}
@@ -179,15 +157,19 @@
                     <label style="cursor:pointer; display:flex; align-items:center; gap:8px;"><input type="checkbox" name="cascata" value="mesmo_sku" onchange="previewCascata()"> Aplicar ao mesmo SKU Master atual</label>
                     <label style="cursor:pointer; display:flex; align-items:center; gap:8px;"><input type="checkbox" name="cascata" value="mesmo_fornecedor" onchange="previewCascata()"> Aplicar a outros produtos dos mesmos fornecedores</label>
                 </div>
-                <div id="cascata-preview-box" style="margin-top:10px; font-size:0.8rem; color:#666; display:none;">
+                <div id="cascata-preview-box" style="margin-top:10px; font-size:0.8rem; color:#334155; display:none;">
                     <hr style="border:0; border-top:1px solid #ddd; margin:10px 0;">
-                    <div id="cascata-lista-afetados" style="max-height:80px; overflow-y:auto; border:1px solid #eee; padding:5px; background:white;"></div>
-                    <div style="margin-top:5px; font-weight:700;" id="cascata-total"></div>
+                    <p style="font-weight:700; margin-bottom:5px;">Produtos que serão atualizados:</p>
+                    <div id="cascata-lista-afetados" style="max-height:150px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:4px; padding:0; background:white;"></div>
+                    <div style="margin-top:8px; font-weight:700; font-size:0.75rem; color:#64748b;" id="cascata-total"></div>
                 </div>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <button type="button" onclick="fecharModal()" class="btn-primary" style="background:#6b7280;">Cancelar</button>
-                <button type="submit" class="btn-primary">Salvar Alterações</button>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <button type="button" class="btn-primary" style="background:#dc2626;" onclick="excluirProdutoPermanente()">Excluir Produto Permanentemente</button>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" onclick="fecharModal()" class="btn-primary" style="background:#6b7280;">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Alterações</button>
+                </div>
             </div>
         </form>
     </div>
@@ -293,7 +275,7 @@
         const totalDiv = document.getElementById('cascata-total');
         if (tipos.length === 0) { previewBox.style.display = 'none'; return; }
         previewBox.style.display = 'block';
-        listaDiv.innerHTML = '<span style="color:#999">Calculando impacto...</span>';
+        listaDiv.innerHTML = '<div style="padding:10px; color:#94a3b8; font-size:0.75rem;">Calculando impacto...</div>';
         totalDiv.innerHTML = '';
         try {
             const data = await respostaJsonSegura(await fetch('/sku-master/auditoria/preview-cascata', {
@@ -303,19 +285,40 @@
             }));
             const afetados = data.itens || [];
             if (afetados.length === 0) {
-                listaDiv.innerHTML = '<span style="color:#999">Nenhum produto afetado.</span>';
+                listaDiv.innerHTML = '<div style="padding:10px; color:#94a3b8; font-size:0.75rem;">Nenhum produto afetado.</div>';
                 totalDiv.innerHTML = 'Total: 0';
             } else {
                 listaDiv.innerHTML = '';
-                afetados.slice(0, 10).forEach(p => {
-                    const div = document.createElement('div');
-                    div.textContent = '#' + p.id + ' - ' + (p.produto_padrao || p.descricao || '');
-                    listaDiv.appendChild(div);
+                afetados.forEach(p => {
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.alignItems = 'center';
+                    row.style.gap = '8px';
+                    row.style.padding = '6px 10px';
+                    row.style.borderBottom = '1px solid #f1f5f9';
+                    row.style.fontSize = '0.75rem';
+
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.name = 'cascata_item';
+                    cb.value = p.id;
+                    cb.checked = true;
+                    cb.style.cursor = 'pointer';
+
+                    const label = document.createElement('label');
+                    label.style.cursor = 'pointer';
+                    label.style.flex = '1';
+                    const scoreText = p.score ? ` (Score: ${p.score})` : '';
+                    label.textContent = `#${p.id} | ${p.produto_padrao || '-'}${scoreText} | SKU: ${p.sku_master || '-'}`;
+
+                    row.appendChild(cb);
+                    row.appendChild(label);
+                    listaDiv.appendChild(row);
                 });
-                totalDiv.innerHTML = `Total: ${afetados.length} produto(s) serão atualizados`;
+                totalDiv.textContent = `Total: ${afetados.length} produto(s) encontrado(s). Desmarque os que não deseja atualizar.`;
             }
         } catch (erro) {
-            listaDiv.innerHTML = `<span style="color:#b91c1c">${erro.message}</span>`;
+            listaDiv.innerHTML = `<div style="padding:10px; color:#ef4444; font-size:0.75rem;">${erro.message}</div>`;
             totalDiv.innerHTML = '';
         }
     }
@@ -354,10 +357,13 @@
             return;
         }
 
+        const idsCascata = Array.from(document.querySelectorAll('input[name="cascata_item"]:checked')).map(cb => cb.value);
+
         const payload = {
             produto_id: document.getElementById('edit-id').value,
             dados: dados,
-            opcoes_cascata: getCascataSelecionada()
+            opcoes_cascata: getCascataSelecionada(),
+            ids_cascata_selecionados: idsCascata
         };
         const botao = form.querySelector('button[type="submit"]');
         botao.disabled = true;
@@ -379,54 +385,25 @@
         }
     });
 
-    window.salvarCampoRapido = async function(btn, id, campo) {
-        const tr = btn.closest('tr');
-        const input = tr.querySelector(`[data-campo="${campo}"]`);
-        let valor = input.value;
-        if (campo === 'categoria') {
-            valor = normalizarCategoria(valor);
-            if (!valor) {
-                mostrarAlerta('Categoria inválida. Use apenas CORRELATOS ou MEDICAMENTOS.', 'erro');
-                return;
-            }
-        }
-        btn.disabled = true;
-        btn.textContent = '...';
-        try {
-            await respostaJsonSegura(await fetch('/sku-master/auditoria/salvar-edicao', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    produto_id: id,
-                    dados: { [campo]: valor },
-                    opcoes_cascata: []
-                })
-            }));
-            btn.textContent = 'OK';
-            mostrarAlerta('Campo salvo com sucesso.');
-            setTimeout(() => { btn.textContent = '✓'; }, 1500);
-        } catch (erro) {
-            btn.textContent = 'ERRO';
-            mostrarAlerta('Erro ao salvar campo: ' + erro.message, 'erro');
-            setTimeout(() => { btn.textContent = '✓'; }, 2500);
-        } finally {
-            btn.disabled = false;
-        }
-    }
+    window.excluirProdutoPermanente = async function() {
+        const id = document.getElementById('edit-id').value;
+        if (!confirm(`ATENÇÃO: Deseja excluir/inativar o produto #${id} permanentemente? Esta ação move o histórico de preços para o arquivo e desativa o item da auditoria.`)) return;
 
-    window.excluirProduto = async function(btn, id) {
-        if (!confirm(`Excluir/Inativar o item #${id}? Esta ação não deve apagar histórico.`)) return;
+        const btn = document.querySelector('button[onclick="excluirProdutoPermanente()"]');
+        const originalText = btn.textContent;
         btn.disabled = true;
         btn.textContent = 'Excluindo...';
+
         try {
             await respostaJsonSegura(await fetch(`/sku-master/auditoria/excluir/${id}`, { method: 'POST' }));
-            mostrarAlerta('Item excluído/inativado com sucesso.');
-            const tr = btn.closest('tr');
-            if (tr) tr.remove();
+            mostrarAlerta('Produto excluído/inativado com sucesso.');
+            fecharModal();
+            // Recarregar para garantir listagem limpa (considerando o filtro ativo = 1 no backend)
+            setTimeout(() => window.location.reload(), 800);
         } catch (erro) {
-            mostrarAlerta('Erro ao excluir item: ' + erro.message, 'erro');
+            mostrarAlerta('Erro ao excluir produto: ' + erro.message, 'erro');
             btn.disabled = false;
-            btn.textContent = 'Excluir item';
+            btn.textContent = originalText;
         }
     }
 
