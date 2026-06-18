@@ -161,8 +161,10 @@ def produtos():
 
 @app.route("/sku-master/auditoria")
 def sku_master_auditoria():
-    filtro = request.args.get("filtro", "todos")
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=250)
+    q = request.args.get("q", "").strip()
+    pagina = request.args.get("page", 1, type=int)
+    # Ignore old filter parameter
+    auditoria = gerar_auditoria_sku_master(filtro="todos", q=q, pagina=pagina, limite=50)
     return render_template(
         "sku_master_auditoria.html",
         data_atual=DATA_ATUAL,
@@ -174,9 +176,9 @@ def sku_master_auditoria():
 
 @app.route("/sku-master/auditoria.csv")
 def sku_master_auditoria_csv():
-    filtro = request.args.get("filtro", "todos")
-    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro)
-    nome_arquivo = f"auditoria_sku_master_{filtro}.csv"
+    # Keep for compatibility but use todos
+    conteudo = gerar_csv_auditoria_sku_master(filtro="todos")
+    nome_arquivo = "auditoria_sku_master.csv"
     return Response(
         conteudo,
         content_type="text/csv; charset=utf-8",
@@ -743,9 +745,14 @@ def sku_master_skus_json():
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT produto_padrao FROM produtos WHERE ativo = 1 AND produto_padrao IS NOT NULL ORDER BY produto_padrao"
+        """
+        SELECT DISTINCT COALESCE(NULLIF(TRIM(sku_master), ''), produto_padrao) AS name
+        FROM produtos
+        WHERE ativo = 1
+        ORDER BY name
+        """
     )
-    skus = [row["produto_padrao"] for row in cursor.fetchall() if row["produto_padrao"]]
+    skus = [row["name"] for row in cursor.fetchall() if row["name"]]
     conn.close()
     return Response(json.dumps(skus, ensure_ascii=False), content_type="application/json")
 

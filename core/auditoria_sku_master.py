@@ -236,24 +236,65 @@ def _sugerir_sku_limpo(produto, indice_limpos):
     return candidatos[0][2]
 
 
-def gerar_auditoria_sku_master(filtro="todos", limite=200):
+def gerar_auditoria_sku_master(filtro="todos", q=None, pagina=1, limite=50):
     filtro = filtro if filtro in FILTROS else "todos"
-    limite = max(1, int(limite or 200))
+    pagina = max(1, int(pagina or 1))
+    limite = max(1, int(limite or 50))
+    offset = (pagina - 1) * limite
 
     conn = _conectar_leitura()
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
+
+        # Keyword search logic
+        where_clauses = ["p.ativo = 1"]
+        params = []
+        if q:
+            q_norm = f"%{_normalizar(q)}%"
+            where_clauses.append(
+                """(
+                    UPPER(p.produto_padrao) LIKE ? OR
+                    UPPER(p.sku_master) LIKE ? OR
+                    UPPER(p.fabricante) LIKE ? OR
+                    p.id IN (SELECT produto_id FROM precos_fornecedores WHERE UPPER(descricao_original) LIKE ?)
+                )"""
+            )
+            params.extend([q_norm, q_norm, q_norm, q_norm])
+
+        where_sql = " WHERE " + " AND ".join(where_clauses)
+
+        # Count total items for pagination
+        cursor.execute(f"SELECT COUNT(DISTINCT p.id) FROM produtos p {where_sql}", params)
+        total_itens = cursor.fetchone()[0]
+        total_paginas = (total_itens + limite - 1) // limite
+
+        # Fetch products with visual fallback
         cursor.execute(
-            """
-            SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
-            FROM produtos
-            ORDER BY produto_padrao
-            """
+            f"""
+            SELECT p.id, p.sku, p.produto_padrao, p.sku_master, p.fabricante, p.categoria, p.ativo, p.observacoes,
+                   COALESCE(NULLIF(TRIM(p.sku_master), ''), p.produto_padrao) AS display_name
+            FROM produtos p
+            {where_sql}
+            ORDER BY display_name
+            LIMIT ? OFFSET ?
+            """,
+            (*params, limite, offset)
         )
         produtos = [dict(row) for row in cursor.fetchall()]
 
-        cursor.execute("SELECT produto_id, descricao_original FROM precos_fornecedores")
+        if not produtos:
+            return {
+                "filtro": filtro, "q": q, "pagina": pagina, "total_paginas": total_paginas, "total_itens": total_itens,
+                "contadores": {k: 0 for k in ["total_produtos", "total_limpos", "total_suspeitos", "total_contaminados_fortes", "total_sku_pendente", "total_duplicados", "total_grupos_duplicados", "total_filtrado"]},
+                "itens": [], "total_sem_limite": 0
+            }
+
+        ids_pagina = [p["id"] for p in produtos]
+        placeholders = ",".join(["?"] * len(ids_pagina))
+
+        # Fetch descriptions only for products in page
+        cursor.execute(f"SELECT produto_id, descricao_original FROM precos_fornecedores WHERE produto_id IN ({placeholders})", ids_pagina)
         descricoes_por_produto = defaultdict(list)
         total_precos = defaultdict(int)
         for row in cursor.fetchall():
@@ -262,26 +303,35 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
             if row["descricao_original"]:
                 descricoes_por_produto[produto_id].append(row["descricao_original"])
 
-        cursor.execute(
-            "SELECT produto_id, COUNT(*) AS total FROM equivalencias GROUP BY produto_id"
-        )
+        # Fetch equivalences only for products in page
+        cursor.execute(f"SELECT produto_id, COUNT(*) AS total FROM equivalencias WHERE produto_id IN ({placeholders}) GROUP BY produto_id", ids_pagina)
         total_equivalencias = {row["produto_id"]: row["total"] for row in cursor.fetchall()}
+
+        # Duplication check: find if any product in page has duplicates in the WHOLE database
+        padroes_pagina = list(set(_normalizar(p["produto_padrao"]) for p in produtos if p["produto_padrao"]))
+        ids_duplicados = set()
+        if padroes_pagina:
+            p_placeholders = ",".join(["?"] * len(padroes_pagina))
+            cursor.execute(
+                f"""
+                SELECT produto_padrao FROM produtos
+                WHERE ativo = 1 AND UPPER(TRIM(produto_padrao)) IN ({p_placeholders})
+                GROUP BY UPPER(TRIM(produto_padrao)) HAVING COUNT(*) > 1
+                """,
+                padroes_pagina
+            )
+            duplicados_no_db = set(_normalizar(row[0]) for row in cursor.fetchall())
+            for p in produtos:
+                if _normalizar(p["produto_padrao"]) in duplicados_no_db:
+                    ids_duplicados.add(p["id"])
+
+        # Total groups duplicated in the whole database (might be slow if we calculate for everything,
+        # so let's stick to a count of duplicated padroes)
+        cursor.execute("SELECT COUNT(*) FROM (SELECT id FROM produtos WHERE ativo = 1 GROUP BY UPPER(TRIM(produto_padrao)) HAVING COUNT(*) > 1)")
+        total_grupos_duplicados = cursor.fetchone()[0]
+
     finally:
         conn.close()
-
-    grupos_normalizados = defaultdict(list)
-    for produto in produtos:
-        chave = _normalizar(produto.get("produto_padrao"))
-        if chave:
-            grupos_normalizados[chave].append(produto["id"])
-
-    ids_duplicados = {
-        produto_id
-        for ids in grupos_normalizados.values()
-        if len(ids) > 1
-        for produto_id in ids
-    }
-    total_grupos_duplicados = sum(1 for ids in grupos_normalizados.values() if len(ids) > 1)
 
     pre_classificados = []
     for produto in produtos:
@@ -317,30 +367,34 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
     for item in itens:
         contadores[item["classificacao"]] += 1
 
-    classificacao_filtro = FILTROS[filtro]
-    itens_filtrados = [
-        item for item in itens
-        if not classificacao_filtro or item["classificacao"] == classificacao_filtro
-    ]
-    itens_limitados = itens_filtrados[:limite]
-    for item in itens_limitados:
+    # In SKU Master Auditoria, we ignore the 'filtro' parameter for actual filtering,
+    # but we keep the counters for the dashboard summary.
+    # The requirement says the screen should work with q and page.
+    # However, if filtro="todos" is forced in the route, this logic remains consistent.
+
+    # We always return the paginated/filtered items as the main list
+    for item in itens:
         if item["classificacao"] != "LIMPO":
             item["sugestao_sku_limpo"] = _sugerir_sku_limpo(item, indice_limpos)
 
     return {
         "filtro": filtro,
+        "q": q,
+        "pagina": pagina,
+        "total_paginas": total_paginas,
+        "total_itens": total_itens,
         "contadores": {
-            "total_produtos": len(produtos),
+            "total_produtos": total_itens, # In the context of search, this might mean total found
             "total_limpos": contadores["LIMPO"],
             "total_suspeitos": contadores["SUSPEITO"],
             "total_contaminados_fortes": contadores["CONTAMINADO_FORTE"],
             "total_sku_pendente": contadores["SKU_PENDENTE"],
             "total_duplicados": contadores["DUPLICADO"],
             "total_grupos_duplicados": total_grupos_duplicados,
-            "total_filtrado": len(itens_filtrados),
+            "total_filtrado": total_itens,
         },
-        "itens": itens_limitados,
-        "total_sem_limite": len(itens_filtrados),
+        "itens": itens,
+        "total_sem_limite": total_itens,
     }
 
 
@@ -1222,14 +1276,19 @@ def salvar_edicao_manual_produto(
 
         conn.execute("BEGIN")
 
-        campos_editaveis = ["produto_padrao", "fabricante", "categoria", "ativo", "observacoes"]
+        # produto_padrao is READ-ONLY reference. Use sku_master for corrections.
+        campos_editaveis = ["sku_master", "fabricante", "categoria", "ativo", "observacoes"]
+
+        # Explicitly remove produto_padrao from incoming data just in case
+        dados_novos.pop("produto_padrao", None)
+
         for campo in campos_editaveis:
             novo_valor = dados_novos.get(campo)
             if novo_valor is not None and str(novo_valor) != str(origem.get(campo) or ""):
                 cursor.execute(f"UPDATE produtos SET {campo} = ? WHERE id = ?", (novo_valor, produto_id))
                 registrar_auditoria_sku(cursor, produto_id, campo, origem.get(campo), novo_valor, usuario=usuario)
 
-        sku_novo = dados_novos.get("produto_padrao")
+        sku_m_novo = dados_novos.get("sku_master")
         fab_novo = dados_novos.get("fabricante")
         cat_novo = dados_novos.get("categoria")
 
@@ -1237,9 +1296,12 @@ def salvar_edicao_manual_produto(
             afetado = _buscar_produto(cursor, aid)
             if not afetado:
                 continue
-            if sku_novo and sku_novo != afetado["produto_padrao"]:
-                cursor.execute("UPDATE produtos SET produto_padrao = ? WHERE id = ?", (sku_novo, aid))
-                registrar_auditoria_sku(cursor, aid, "produto_padrao", afetado["produto_padrao"], sku_novo, tipo_correcao="cascata", usuario=usuario)
+
+            # Cascade updates for sku_master instead of produto_padrao
+            if sku_m_novo is not None and sku_m_novo != afetado.get("sku_master"):
+                cursor.execute("UPDATE produtos SET sku_master = ? WHERE id = ?", (sku_m_novo, aid))
+                registrar_auditoria_sku(cursor, aid, "sku_master", afetado.get("sku_master"), sku_m_novo, tipo_correcao="cascata", usuario=usuario)
+
             if fab_novo and fab_novo != afetado["fabricante"]:
                 cursor.execute("UPDATE produtos SET fabricante = ? WHERE id = ?", (fab_novo, aid))
                 registrar_auditoria_sku(cursor, aid, "fabricante", afetado["fabricante"], fab_novo, tipo_correcao="cascata", usuario=usuario)
