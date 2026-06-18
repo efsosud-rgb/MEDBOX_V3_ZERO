@@ -58,28 +58,21 @@
 </section>
 
 <section class="panel">
-    <h3>Filtros e Exportacao</h3>
+    <h3>Busca e Exportacao</h3>
     <form method="GET" action="{{ url_for('sku_master_auditoria') }}" class="form-grid">
         <div class="form-group">
-            <label>Classificacao</label>
-            <select name="filtro">
-                <option value="todos" {% if auditoria.filtro == 'todos' %}selected{% endif %}>Todos</option>
-                <option value="contaminado_forte" {% if auditoria.filtro == 'contaminado_forte' %}selected{% endif %}>Contaminado forte</option>
-                <option value="sku_pendente" {% if auditoria.filtro == 'sku_pendente' %}selected{% endif %}>SKU pendente</option>
-                <option value="duplicado" {% if auditoria.filtro == 'duplicado' %}selected{% endif %}>Duplicado</option>
-                <option value="limpo" {% if auditoria.filtro == 'limpo' %}selected{% endif %}>Limpo</option>
-                <option value="suspeito" {% if auditoria.filtro == 'suspeito' %}selected{% endif %}>Suspeito</option>
-            </select>
+            <label>Palavra-chave</label>
+            <input type="text" name="q" value="{{ auditoria.q or '' }}" placeholder="Nome, fabricante, descricao original..." style="padding: 8px; border: 1px solid var(--border); border-radius: 4px; width: 300px;">
         </div>
 
         <div class="form-group">
             <label>&nbsp;</label>
-            <button type="submit" class="btn-primary">Aplicar filtro</button>
+            <button type="submit" class="btn-primary">Pesquisar</button>
         </div>
 
         <div class="form-group">
             <label>&nbsp;</label>
-            <a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', filtro=auditoria.filtro) }}">Exportar CSV</a>
+            <a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv') }}">Exportar CSV</a>
         </div>
 
         <div class="form-group">
@@ -89,7 +82,8 @@
     </form>
 
     <p style="margin-top: 16px; color: var(--muted);">
-        Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros filtrados.
+        Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros encontrados.
+        Pagina {{ auditoria.pagina }} de {{ auditoria.total_paginas }}.
     </p>
 </section>
 
@@ -104,12 +98,27 @@
 
     <div id="auditoria-alerta" style="display:none;margin-bottom:12px;padding:10px;border-radius:6px;font-weight:700;"></div>
 
+    {% if auditoria.total_paginas > 1 %}
+    <div style="margin-bottom:15px; display:flex; gap:5px; align-items:center;">
+        <span style="font-size:0.9rem; color:#666; margin-right:10px;">Páginas:</span>
+        {% for p in range(1, auditoria.total_paginas + 1) %}
+            {% if p == auditoria.pagina %}
+                <strong style="padding:5px 10px; background:var(--primary); color:white; border-radius:4px; font-size:0.85rem;">{{ p }}</strong>
+            {% else %}
+                <a href="{{ url_for('sku_master_auditoria', q=auditoria.q, page=p) }}"
+                   style="padding:5px 10px; border:1px solid #ddd; border-radius:4px; text-decoration:none; color:inherit; font-size:0.85rem;">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="comparison-table-wrap">
         <table class="comparison-table">
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>SKU Master / Produto Padrao</th>
+                    <th>SKU Master (Corrigido)</th>
+                    <th>Produto Padrao (Referencia)</th>
                     <th>Fabricante</th>
                     <th>Categoria</th>
                     <th>Classificacao</th>
@@ -123,8 +132,12 @@
                 <tr data-produto-json='{{ item|tojson|safe }}'>
                     <td>{{ item.id }}</td>
 
+                    <td class="sku-master-cell">
+                        <strong style="color: var(--primary);">{{ item.display_name or "-" }}</strong>
+                    </td>
+
                     <td class="produto-padrao-cell">
-                        <strong>{{ item.produto_padrao or "-" }}</strong>
+                        <span style="font-size: 0.85rem; color: #666;">{{ item.produto_padrao or "-" }}</span>
                     </td>
 
                     <td>
@@ -222,18 +235,23 @@
 
         <form id="form-edicao">
             <input type="hidden" id="edit-id">
-            <input type="hidden" id="edit-produto-padrao-original">
+            <input type="hidden" id="edit-sku-master-original">
 
             <div style="margin-bottom:15px;">
-                <label style="display:block;font-weight:700;margin-bottom:5px;">SKU Master / Produto Padrao</label>
+                <label style="display:block;font-weight:700;margin-bottom:5px;color:#666;">Produto Padrao (Referencia - Somente Leitura)</label>
+                <div id="edit-produto-padrao-readonly" style="padding:8px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px; font-size:0.9rem;"></div>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <label style="display:block;font-weight:700;margin-bottom:5px;">SKU Master (Nome Corrigido)</label>
                 <input
                     type="text"
-                    id="edit-produto-padrao"
+                    id="edit-sku-master"
                     style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"
                     list="sku-datalist"
                 >
                 <small style="color:#666;">
-                    Ao alterar este campo, a cascata conservadora para produtos semelhantes será marcada automaticamente.
+                    Este é o nome final que aparecerá no sistema. Ao alterar, a cascata conservadora para produtos semelhantes será marcada.
                 </small>
             </div>
 
@@ -376,8 +394,8 @@
     }
 
     function marcarCascataSemelhanteSeSkuMudou() {
-        const original = (document.getElementById('edit-produto-padrao-original').value || '').trim().toUpperCase();
-        const atual = (document.getElementById('edit-produto-padrao').value || '').trim().toUpperCase();
+        const original = (document.getElementById('edit-sku-master-original').value || '').trim().toUpperCase();
+        const atual = (document.getElementById('edit-sku-master').value || '').trim().toUpperCase();
         const checkbox = document.querySelector('input[name="cascata"][value="semelhante"]');
 
         if (checkbox && atual && atual !== original) {
@@ -392,8 +410,15 @@
 
         document.getElementById('modal-produto-id').textContent = '#' + data.id;
         document.getElementById('edit-id').value = data.id;
-        document.getElementById('edit-produto-padrao').value = data.produto_padrao || '';
-        document.getElementById('edit-produto-padrao-original').value = data.produto_padrao || '';
+
+        // Proteção XSS: usar textContent para o que é apenas leitura
+        document.getElementById('edit-produto-padrao-readonly').textContent = data.produto_padrao || '-';
+
+        // SKU Master editável
+        const valSku = data.sku_master || data.produto_padrao || '';
+        document.getElementById('edit-sku-master').value = valSku;
+        document.getElementById('edit-sku-master-original').value = valSku;
+
         document.getElementById('edit-fabricante').value = data.fabricante || '';
         document.getElementById('edit-categoria').value = normalizarCategoria(data.categoria);
         document.getElementById('edit-ativo').value = String(data.ativo ?? 1);
@@ -420,8 +445,8 @@
         }
     };
 
-    document.getElementById('edit-produto-padrao').addEventListener('change', marcarCascataSemelhanteSeSkuMudou);
-    document.getElementById('edit-produto-padrao').addEventListener('blur', marcarCascataSemelhanteSeSkuMudou);
+    document.getElementById('edit-sku-master').addEventListener('change', marcarCascataSemelhanteSeSkuMudou);
+    document.getElementById('edit-sku-master').addEventListener('blur', marcarCascataSemelhanteSeSkuMudou);
 
     window.previewCascata = async function () {
         const produtoId = document.getElementById('edit-id').value;
@@ -452,14 +477,19 @@
             const afetados = data.itens || [];
 
             if (afetados.length === 0) {
-                listaDiv.innerHTML = '<span style="color:#999">Nenhum produto afetado.</span>';
-                totalDiv.innerHTML = 'Total: 0';
+                listaDiv.textContent = 'Nenhum produto afetado.';
+                listaDiv.style.color = '#999';
+                totalDiv.textContent = 'Total: 0';
             } else {
-                listaDiv.innerHTML = afetados.slice(0, 10).map(p => {
-                    return `<div>#${p.id} - ${p.produto_padrao || p.descricao || ''}</div>`;
-                }).join('');
+                listaDiv.innerHTML = '';
+                listaDiv.style.color = 'inherit';
+                afetados.slice(0, 10).forEach(p => {
+                    const div = document.createElement('div');
+                    div.textContent = `#${p.id} - ${p.produto_padrao || p.descricao || ''}`;
+                    listaDiv.appendChild(div);
+                });
 
-                totalDiv.innerHTML = `Total: ${afetados.length} produto(s) serão atualizados`;
+                totalDiv.textContent = `Total: ${afetados.length} produto(s) serão atualizados`;
             }
         } catch (erro) {
             listaDiv.innerHTML = `<span style="color:#b91c1c">${erro.message}</span>`;
@@ -482,7 +512,7 @@
         const payload = {
             produto_id: document.getElementById('edit-id').value,
             dados: {
-                produto_padrao: document.getElementById('edit-produto-padrao').value.trim(),
+                sku_master: document.getElementById('edit-sku-master').value.trim(),
                 fabricante: document.getElementById('edit-fabricante').value.trim(),
                 categoria: categoria,
                 ativo: parseInt(document.getElementById('edit-ativo').value, 10),

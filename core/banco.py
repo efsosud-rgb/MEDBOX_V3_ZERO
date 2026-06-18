@@ -81,6 +81,7 @@ def criar_banco():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sku TEXT,
         produto_padrao TEXT,
+        sku_master TEXT,
         fabricante TEXT,
         categoria TEXT,
         ativo INTEGER DEFAULT 1,
@@ -168,6 +169,11 @@ def criar_banco():
     )""")
 
     # Migração: Adiciona colunas se não existirem
+    try:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN sku_master TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     try:
         cursor.execute("ALTER TABLE produtos ADD COLUMN observacoes TEXT")
     except sqlite3.OperationalError:
