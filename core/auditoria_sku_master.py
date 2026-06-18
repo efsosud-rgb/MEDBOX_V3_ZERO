@@ -246,7 +246,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
+            SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo, observacoes
             FROM produtos
             ORDER BY produto_padrao
             """
@@ -271,7 +271,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
 
     grupos_normalizados = defaultdict(list)
     for produto in produtos:
-        chave = _normalizar(produto.get("produto_padrao"))
+        chave = _normalizar(produto.get("sku_master") or produto.get("produto_padrao"))
         if chave:
             grupos_normalizados[chave].append(produto["id"])
 
@@ -286,7 +286,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
     pre_classificados = []
     for produto in produtos:
         motivos = _motivos_sku(
-            produto.get("produto_padrao"),
+            produto.get("sku_master") or produto.get("produto_padrao"),
             descricoes_por_produto.get(produto["id"], []),
         )
         duplicado = produto["id"] in ids_duplicados
@@ -302,7 +302,7 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
         })
 
     produtos_limpos = [
-        {**item, "assinatura": _assinatura_sku(item["produto_padrao"])}
+        {**item, "assinatura": _assinatura_sku(item.get("sku_master") or item["produto_padrao"])}
         for item in pre_classificados
         if item["classificacao"] == "LIMPO"
     ]
@@ -348,7 +348,7 @@ def gerar_csv_auditoria_sku_master(filtro="todos"):
     auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=1000000)
     buffer = io.StringIO()
     campos = [
-        "produto_id", "produto_padrao", "fabricante", "categoria",
+        "produto_id", "produto_padrao", "sku_master", "fabricante", "categoria",
         "classificacao", "motivo", "sugestao_sku_limpo", "total_precos", "total_equivalencias",
     ]
     writer = csv.DictWriter(buffer, fieldnames=campos, extrasaction="ignore")
@@ -357,6 +357,7 @@ def gerar_csv_auditoria_sku_master(filtro="todos"):
         writer.writerow({
             "produto_id": item["id"],
             "produto_padrao": item["produto_padrao"],
+            "sku_master": item.get("sku_master"),
             "fabricante": item["fabricante"],
             "categoria": item["categoria"],
             "classificacao": item["classificacao"],
@@ -666,7 +667,7 @@ def _conectar_escrita(caminho_banco=None):
 def _buscar_produto(cursor, produto_id):
     cursor.execute(
         """
-        SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
+        SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo, observacoes
         FROM produtos
         WHERE id = ?
         """,
@@ -870,17 +871,17 @@ def _normalizar_sku_manual(sku_manual):
     return sku
 
 
-def _buscar_produto_ativo_por_nome(cursor, produto_padrao):
+def _buscar_produto_ativo_por_nome(cursor, sku_master):
     cursor.execute(
         """
-        SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+        SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
         FROM produtos
         WHERE ativo = 1
-          AND UPPER(TRIM(produto_padrao)) = UPPER(TRIM(?))
+          AND (UPPER(TRIM(sku_master)) = UPPER(TRIM(?)) OR (sku_master IS NULL AND UPPER(TRIM(produto_padrao)) = UPPER(TRIM(?))))
         ORDER BY id
         LIMIT 1
         """,
-        (produto_padrao,),
+        (sku_master, sku_master),
     )
     row = cursor.fetchone()
     return dict(row) if row else None
@@ -890,18 +891,20 @@ def _criar_produto_manual(cursor, sku_manual, origem):
     categoria = origem.get("categoria") or ""
     if "SKU PENDENTE" in _normalizar(categoria):
         categoria = ""
+    # Ao criar manual, o produto_padrao e sku_master começam iguais
     cursor.execute(
         """
-        INSERT INTO produtos (sku, produto_padrao, fabricante, categoria, ativo)
-        VALUES (?, ?, ?, ?, 1)
+        INSERT INTO produtos (sku, produto_padrao, sku_master, fabricante, categoria, ativo)
+        VALUES (?, ?, ?, ?, ?, 1)
         """,
-        ("", sku_manual, origem.get("fabricante") or "", categoria),
+        ("", sku_manual, sku_manual, origem.get("fabricante") or "", categoria),
     )
     produto_id = cursor.lastrowid
     return {
         "id": produto_id,
         "sku": "",
         "produto_padrao": sku_manual,
+        "sku_master": sku_manual,
         "fabricante": origem.get("fabricante") or "",
         "categoria": categoria,
         "ativo": 1,
@@ -954,7 +957,7 @@ def aplicar_correcao_manual_sku_master(
         # Propagação em cascata
         cursor.execute(
             """
-            SELECT id, sku, produto_padrao, fabricante, categoria, ativo
+            SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
             FROM produtos
             WHERE ativo = 1 AND id != ? AND id != ?
             """,
@@ -964,6 +967,7 @@ def aplicar_correcao_manual_sku_master(
 
         itens_cascata = []
         for cand in candidatos:
+            # Compara usando a referência fixa (produto_padrao) para encontrar semelhantes reais
             if not origem.get("produto_padrao") or not cand.get("produto_padrao"):
                 continue
             score = fuzz.token_set_ratio(origem["produto_padrao"], cand["produto_padrao"])
@@ -1144,14 +1148,16 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
             return []
 
         if tipo_cascata == "mesmo_sku":
+            # Agrupa por produto_padrao (referência fixa)
             cursor.execute(
-                "SELECT id, produto_padrao, ativo FROM produtos WHERE produto_padrao = ? AND id != ?",
+                "SELECT id, produto_padrao, sku_master, ativo FROM produtos WHERE produto_padrao = ? AND id != ?",
                 (origem["produto_padrao"], produto_id),
             )
             return [dict(row) for row in cursor.fetchall()]
 
         if tipo_cascata == "semelhante":
-            cursor.execute("SELECT id, produto_padrao, ativo FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
+            # Busca semelhantes usando produto_padrao como base de comparação
+            cursor.execute("SELECT id, produto_padrao, sku_master, ativo FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
             candidatos = [dict(row) for row in cursor.fetchall()]
             afetados = []
             for cand in candidatos:
@@ -1170,7 +1176,7 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
             placeholders = ",".join(["?"] * len(fids))
             cursor.execute(
                 f"""
-                SELECT DISTINCT p.id, p.produto_padrao, p.ativo
+                SELECT DISTINCT p.id, p.produto_padrao, p.sku_master, p.ativo
                 FROM produtos p
                 JOIN precos_fornecedores pf ON pf.produto_id = p.id
                 WHERE pf.fornecedor_id IN ({placeholders}) AND p.id != ?
@@ -1222,14 +1228,14 @@ def salvar_edicao_manual_produto(
 
         conn.execute("BEGIN")
 
-        campos_editaveis = ["produto_padrao", "fabricante", "categoria", "ativo", "observacoes"]
+        campos_editaveis = ["sku_master", "fabricante", "categoria", "ativo", "observacoes"]
         for campo in campos_editaveis:
             novo_valor = dados_novos.get(campo)
             if novo_valor is not None and str(novo_valor) != str(origem.get(campo) or ""):
                 cursor.execute(f"UPDATE produtos SET {campo} = ? WHERE id = ?", (novo_valor, produto_id))
                 registrar_auditoria_sku(cursor, produto_id, campo, origem.get(campo), novo_valor, usuario=usuario)
 
-        sku_novo = dados_novos.get("produto_padrao")
+        sku_novo = dados_novos.get("sku_master")
         fab_novo = dados_novos.get("fabricante")
         cat_novo = dados_novos.get("categoria")
 
@@ -1237,9 +1243,9 @@ def salvar_edicao_manual_produto(
             afetado = _buscar_produto(cursor, aid)
             if not afetado:
                 continue
-            if sku_novo and sku_novo != afetado["produto_padrao"]:
-                cursor.execute("UPDATE produtos SET produto_padrao = ? WHERE id = ?", (sku_novo, aid))
-                registrar_auditoria_sku(cursor, aid, "produto_padrao", afetado["produto_padrao"], sku_novo, tipo_correcao="cascata", usuario=usuario)
+            if sku_novo and sku_novo != afetado.get("sku_master"):
+                cursor.execute("UPDATE produtos SET sku_master = ? WHERE id = ?", (sku_novo, aid))
+                registrar_auditoria_sku(cursor, aid, "sku_master", afetado.get("sku_master"), sku_novo, tipo_correcao="cascata", usuario=usuario)
             if fab_novo and fab_novo != afetado["fabricante"]:
                 cursor.execute("UPDATE produtos SET fabricante = ? WHERE id = ?", (fab_novo, aid))
                 registrar_auditoria_sku(cursor, aid, "fabricante", afetado["fabricante"], fab_novo, tipo_correcao="cascata", usuario=usuario)

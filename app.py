@@ -743,9 +743,9 @@ def sku_master_skus_json():
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT produto_padrao FROM produtos WHERE ativo = 1 AND produto_padrao IS NOT NULL ORDER BY produto_padrao"
+        "SELECT DISTINCT sku_master FROM produtos WHERE ativo = 1 AND sku_master IS NOT NULL AND TRIM(sku_master) != '' ORDER BY sku_master"
     )
-    skus = [row["produto_padrao"] for row in cursor.fetchall() if row["produto_padrao"]]
+    skus = [row["sku_master"] for row in cursor.fetchall()]
     conn.close()
     return Response(json.dumps(skus, ensure_ascii=False), content_type="application/json")
 

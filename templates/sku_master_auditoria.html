@@ -59,7 +59,8 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>SKU Master / Produto Padrao</th>
+                    <th>Produto Padrao (Referencia)</th>
+                    <th>SKU Master (Editavel)</th>
                     <th>Fabricante</th>
                     <th>Categoria</th>
                     <th>Classificacao</th>
@@ -71,7 +72,13 @@
                 {% for item in auditoria.itens %}
                 <tr data-produto-json='{{ item|tojson|safe }}'>
                     <td>{{ item.id }}</td>
-                    <td class="produto-padrao-cell"><strong>{{ item.produto_padrao or "-" }}</strong></td>
+                    <td style="color: var(--muted); font-size: 0.8rem;">{{ item.produto_padrao or "-" }}</td>
+                    <td>
+                        <div style="display:flex;gap:4px;align-items:center;">
+                            <input type="text" data-campo="sku_master" value="{{ item.sku_master or item.produto_padrao or '' }}" list="sku-datalist" placeholder="SKU Master..." style="width:180px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem; font-weight: bold;">
+                            <button class="btn-primary" style="padding:2px 8px;font-size:0.78rem;white-space:nowrap;" onclick="salvarCampoRapido(this,{{ item.id }},'sku_master')">✓</button>
+                        </div>
+                    </td>
                     <td>
                         <div style="display:flex;gap:4px;align-items:center;">
                             <input type="text" data-campo="fabricante" value="{{ item.fabricante or '' }}" list="marca-datalist" placeholder="Marca..." style="width:130px;padding:3px 5px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:0.80rem;">
@@ -121,10 +128,16 @@
         </div>
         <form id="form-edicao">
             <input type="hidden" id="edit-id">
-            <input type="hidden" id="edit-produto-padrao-original">
+            <input type="hidden" id="edit-sku-master-original">
+
+            <div style="margin-bottom:15px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                <label style="display:block; font-weight:700; margin-bottom:2px; color:#64748b; font-size:0.75rem; text-transform:uppercase;">Produto Padrao (Referencia Fixa)</label>
+                <div id="display-produto-padrao" style="font-weight:500; color:#334155;"></div>
+            </div>
+
             <div style="margin-bottom:15px;">
-                <label style="display:block; font-weight:700; margin-bottom:5px;">SKU Master / Produto Padrao</label>
-                <input type="text" id="edit-produto-padrao" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;" list="sku-datalist">
+                <label style="display:block; font-weight:700; margin-bottom:5px;">SKU Master (Editavel)</label>
+                <input type="text" id="edit-sku-master" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-weight:bold;" list="sku-datalist">
                 <small style="color:#666;">Ao alterar este campo, a cascata conservadora para produtos semelhantes será marcada automaticamente.</small>
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
@@ -221,8 +234,8 @@
     }
 
     function marcarCascataSemelhanteSeSkuMudou() {
-        const original = (document.getElementById('edit-produto-padrao-original').value || '').trim().toUpperCase();
-        const atual = (document.getElementById('edit-produto-padrao').value || '').trim().toUpperCase();
+        const original = (document.getElementById('edit-sku-master-original').value || '').trim().toUpperCase();
+        const atual = (document.getElementById('edit-sku-master').value || '').trim().toUpperCase();
         const checkbox = document.querySelector('input[name="cascata"][value="semelhante"]');
         if (checkbox && atual && atual !== original) {
             checkbox.checked = true;
@@ -234,9 +247,10 @@
         const tr = btn.closest('tr');
         const data = JSON.parse(tr.dataset.produtoJson);
         document.getElementById('modal-produto-id').textContent = '#' + data.id;
+        document.getElementById('display-produto-padrao').textContent = data.produto_padrao || '-';
         document.getElementById('edit-id').value = data.id;
-        document.getElementById('edit-produto-padrao').value = data.produto_padrao || '';
-        document.getElementById('edit-produto-padrao-original').value = data.produto_padrao || '';
+        document.getElementById('edit-sku-master').value = data.sku_master || data.produto_padrao || '';
+        document.getElementById('edit-sku-master-original').value = data.sku_master || data.produto_padrao || '';
         document.getElementById('edit-fabricante').value = data.fabricante || '';
         document.getElementById('edit-categoria').value = normalizarCategoria(data.categoria);
         document.getElementById('edit-ativo').value = String(data.ativo ?? 1);
@@ -254,8 +268,8 @@
         if (event.target == modal) fecharModal();
     }
 
-    document.getElementById('edit-produto-padrao').addEventListener('change', marcarCascataSemelhanteSeSkuMudou);
-    document.getElementById('edit-produto-padrao').addEventListener('blur', marcarCascataSemelhanteSeSkuMudou);
+    document.getElementById('edit-sku-master').addEventListener('change', marcarCascataSemelhanteSeSkuMudou);
+    document.getElementById('edit-sku-master').addEventListener('blur', marcarCascataSemelhanteSeSkuMudou);
 
     window.previewCascata = async function() {
         const produtoId = document.getElementById('edit-id').value;
@@ -303,7 +317,7 @@
         const payload = {
             produto_id: document.getElementById('edit-id').value,
             dados: {
-                produto_padrao: document.getElementById('edit-produto-padrao').value.trim(),
+                sku_master: document.getElementById('edit-sku-master').value.trim(),
                 fabricante: document.getElementById('edit-fabricante').value.trim(),
                 categoria: categoria,
                 ativo: parseInt(document.getElementById('edit-ativo').value),
