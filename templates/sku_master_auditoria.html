@@ -258,7 +258,7 @@
         document.getElementById('modal-produto-id').textContent = '#' + data.id;
         document.getElementById('display-produto-padrao').textContent = data.produto_padrao || '-';
         document.getElementById('edit-id').value = data.id;
-        const skuMasterVal = data.sku_master || data.produto_padrao || '';
+        const skuMasterVal = data.sku_master || '';
         const fabricanteVal = data.fabricante || '';
         const categoriaVal = normalizarCategoria(data.categoria);
         const ativoVal = String(data.ativo ?? 1);
@@ -298,8 +298,15 @@
         const totalDiv = document.getElementById('cascata-total');
         if (tipos.length === 0) { previewBox.style.display = 'none'; return; }
         previewBox.style.display = 'block';
-        listaDiv.innerHTML = '<div style="padding:10px; color:#94a3b8; font-size:0.75rem;">Calculando impacto...</div>';
-        totalDiv.innerHTML = '';
+        listaDiv.innerHTML = '';
+        const calcDiv = document.createElement('div');
+        calcDiv.style.padding = '10px';
+        calcDiv.style.color = '#94a3b8';
+        calcDiv.style.fontSize = '0.75rem';
+        calcDiv.textContent = 'Calculando impacto...';
+        listaDiv.appendChild(calcDiv);
+
+        totalDiv.textContent = '';
         try {
             const data = await respostaJsonSegura(await fetch('/sku-master/auditoria/preview-cascata', {
                 method: 'POST',
@@ -308,7 +315,13 @@
             }));
             const afetados = data.itens || [];
             if (afetados.length === 0) {
-                listaDiv.innerHTML = '<div style="padding:10px; color:#94a3b8; font-size:0.75rem;">Nenhum produto afetado.</div>';
+                listaDiv.innerHTML = '';
+                const emptyDiv = document.createElement('div');
+                emptyDiv.style.padding = '10px';
+                emptyDiv.style.color = '#94a3b8';
+                emptyDiv.style.fontSize = '0.75rem';
+                emptyDiv.textContent = 'Nenhum produto afetado.';
+                listaDiv.appendChild(emptyDiv);
                 totalDiv.textContent = 'Total: 0';
             } else {
                 listaDiv.innerHTML = '';

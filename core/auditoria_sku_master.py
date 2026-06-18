@@ -1259,9 +1259,9 @@ def salvar_edicao_manual_produto(
 
         conn.execute("BEGIN")
 
-        # produto_padrao é somente leitura no modal, mas mantemos no backend por segurança se enviado.
-        # sku_master agora é o campo editável principal.
-        campos_editaveis = ["produto_padrao", "sku_master", "fabricante", "categoria", "ativo", "observacoes"]
+        # produto_padrao é estritamente somente leitura (referência de sistema).
+        # sku_master é o campo editável principal para correções.
+        campos_editaveis = ["sku_master", "fabricante", "categoria", "ativo", "observacoes"]
         for campo in campos_editaveis:
             novo_valor = dados_novos.get(campo)
             if novo_valor is not None and str(novo_valor) != str(origem.get(campo) or ""):
