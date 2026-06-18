@@ -162,7 +162,9 @@ def produtos():
 @app.route("/sku-master/auditoria")
 def sku_master_auditoria():
     filtro = request.args.get("filtro", "todos")
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=250)
+    q = request.args.get("q", "").strip()
+    pagina = request.args.get("page", 1, type=int)
+    auditoria = gerar_auditoria_sku_master(filtro=filtro, q=q, pagina=pagina)
     return render_template(
         "sku_master_auditoria.html",
         data_atual=DATA_ATUAL,
@@ -175,7 +177,8 @@ def sku_master_auditoria():
 @app.route("/sku-master/auditoria.csv")
 def sku_master_auditoria_csv():
     filtro = request.args.get("filtro", "todos")
-    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro)
+    q = request.args.get("q", "").strip()
+    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro, q=q)
     nome_arquivo = f"auditoria_sku_master_{filtro}.csv"
     return Response(
         conteudo,

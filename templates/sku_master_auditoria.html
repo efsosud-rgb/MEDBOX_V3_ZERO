@@ -28,24 +28,18 @@
 </section>
 
 <section class="panel">
-    <h3>Filtros e Exportacao</h3>
+    <h3>Pesquisa e Exportação</h3>
     <form method="GET" action="{{ url_for('sku_master_auditoria') }}" class="form-grid">
-        <div class="form-group">
-            <label>Classificacao</label>
-            <select name="filtro">
-                <option value="todos" {% if auditoria.filtro == 'todos' %}selected{% endif %}>Todos</option>
-                <option value="contaminado_forte" {% if auditoria.filtro == 'contaminado_forte' %}selected{% endif %}>Contaminado forte</option>
-                <option value="sku_pendente" {% if auditoria.filtro == 'sku_pendente' %}selected{% endif %}>SKU pendente</option>
-                <option value="duplicado" {% if auditoria.filtro == 'duplicado' %}selected{% endif %}>Duplicado</option>
-                <option value="limpo" {% if auditoria.filtro == 'limpo' %}selected{% endif %}>Limpo</option>
-                <option value="suspeito" {% if auditoria.filtro == 'suspeito' %}selected{% endif %}>Suspeito</option>
-            </select>
+        <div class="form-group" style="grid-column: span 2;">
+            <label>Pesquisar por Descrição (Padrão, SKU Master, Original)</label>
+            <input type="text" name="q" value="{{ auditoria.q or '' }}" placeholder="Ex: DIPIRONA 500MG..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
         </div>
-        <div class="form-group"><label>&nbsp;</label><button type="submit" class="btn-primary">Aplicar filtro</button></div>
-        <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', filtro=auditoria.filtro) }}">Exportar CSV</a></div>
-        <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_sugestoes') }}">Ver sugestoes assistidas</a></div>
+        <div class="form-group"><label>&nbsp;</label><button type="submit" class="btn-primary">Pesquisar</button></div>
+        <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_auditoria_csv', filtro=auditoria.filtro, q=auditoria.q) }}">Exportar CSV</a></div>
+        <div class="form-group"><label>&nbsp;</label><a class="btn-primary" href="{{ url_for('sku_master_sugestoes') }}">Sugestões Assistidas</a></div>
+        <input type="hidden" name="filtro" value="{{ auditoria.filtro }}">
     </form>
-    <p style="margin-top: 16px; color: var(--muted);">Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros filtrados.</p>
+    <p style="margin-top: 16px; color: var(--muted);">Exibindo {{ auditoria.itens|length }} de {{ auditoria.total_sem_limite }} registros encontrados.</p>
 </section>
 
 <section class="panel large">
@@ -95,6 +89,21 @@
             </tbody>
         </table>
     </div>
+
+    <!-- PAGINAÇÃO -->
+    {% if auditoria.total_paginas > 1 %}
+    <div style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px;">
+        {% if auditoria.pagina > 1 %}
+            <a href="{{ url_for('sku_master_auditoria', page=auditoria.pagina - 1, q=auditoria.q, filtro=auditoria.filtro) }}" class="btn-primary" style="background: #6b7280; padding: 5px 12px; font-size: 0.85rem;">&laquo; Anterior</a>
+        {% endif %}
+
+        <span style="font-weight: 700; font-size: 0.9rem; color: #475569;">Página {{ auditoria.pagina }} de {{ auditoria.total_paginas }}</span>
+
+        {% if auditoria.pagina < auditoria.total_paginas %}
+            <a href="{{ url_for('sku_master_auditoria', page=auditoria.pagina + 1, q=auditoria.q, filtro=auditoria.filtro) }}" class="btn-primary" style="background: #6b7280; padding: 5px 12px; font-size: 0.85rem;">Próxima &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
 </section>
 
 <!-- MODAL DE EDIÇÃO -->

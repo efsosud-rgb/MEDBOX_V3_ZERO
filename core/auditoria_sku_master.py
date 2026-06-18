@@ -236,21 +236,34 @@ def _sugerir_sku_limpo(produto, indice_limpos):
     return candidatos[0][2]
 
 
-def gerar_auditoria_sku_master(filtro="todos", limite=200):
+def gerar_auditoria_sku_master(filtro="todos", limite=None, q="", pagina=1, itens_por_pagina=50):
     filtro = filtro if filtro in FILTROS else "todos"
-    limite = max(1, int(limite or 200))
+    pagina = max(1, int(pagina or 1))
+    itens_por_pagina = int(itens_por_pagina or 50)
 
     conn = _conectar_leitura()
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
+
+        # Filtro de busca textual expandido
+        where_clause = "WHERE p.ativo = 1"
+        params = []
+        if q:
+            termos = q.strip().split()
+            for t in termos:
+                where_clause += " AND (p.produto_padrao LIKE ? OR p.sku_master LIKE ? OR p.fabricante LIKE ? OR p.categoria LIKE ? OR p.id IN (SELECT produto_id FROM precos_fornecedores WHERE descricao_original LIKE ?))"
+                like_val = f"%{t}%"
+                params.extend([like_val, like_val, like_val, like_val, like_val])
+
         cursor.execute(
-            """
-            SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo, observacoes
-            FROM produtos
-            WHERE ativo = 1
-            ORDER BY produto_padrao
-            """
+            f"""
+            SELECT p.id, p.sku, p.produto_padrao, p.sku_master, p.fabricante, p.categoria, p.ativo, p.observacoes
+            FROM produtos p
+            {where_clause}
+            ORDER BY p.produto_padrao
+            """,
+            params
         )
         produtos = [dict(row) for row in cursor.fetchall()]
 
@@ -323,13 +336,27 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
         item for item in itens
         if not classificacao_filtro or item["classificacao"] == classificacao_filtro
     ]
-    itens_limitados = itens_filtrados[:limite]
+
+    total_filtrado = len(itens_filtrados)
+    total_paginas = max(1, (total_filtrado + itens_por_pagina - 1) // itens_por_pagina)
+
+    if limite:
+        itens_limitados = itens_filtrados[:limite]
+    else:
+        inicio = (pagina - 1) * itens_por_pagina
+        fim = inicio + itens_por_pagina
+        itens_limitados = itens_filtrados[inicio:fim]
+
     for item in itens_limitados:
         if item["classificacao"] != "LIMPO":
             item["sugestao_sku_limpo"] = _sugerir_sku_limpo(item, indice_limpos)
 
     return {
         "filtro": filtro,
+        "q": q,
+        "pagina": pagina,
+        "total_paginas": total_paginas,
+        "itens_por_pagina": itens_por_pagina,
         "contadores": {
             "total_produtos": len(produtos),
             "total_limpos": contadores["LIMPO"],
@@ -338,15 +365,15 @@ def gerar_auditoria_sku_master(filtro="todos", limite=200):
             "total_sku_pendente": contadores["SKU_PENDENTE"],
             "total_duplicados": contadores["DUPLICADO"],
             "total_grupos_duplicados": total_grupos_duplicados,
-            "total_filtrado": len(itens_filtrados),
+            "total_filtrado": total_filtrado,
         },
         "itens": itens_limitados,
-        "total_sem_limite": len(itens_filtrados),
+        "total_sem_limite": total_filtrado,
     }
 
 
-def gerar_csv_auditoria_sku_master(filtro="todos"):
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=1000000)
+def gerar_csv_auditoria_sku_master(filtro="todos", q=""):
+    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=1000000, q=q)
     buffer = io.StringIO()
     campos = [
         "produto_id", "produto_padrao", "sku_master", "fabricante", "categoria",
