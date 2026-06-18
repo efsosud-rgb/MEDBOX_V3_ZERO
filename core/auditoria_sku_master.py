@@ -1148,10 +1148,11 @@ def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=N
             return []
 
         if tipo_cascata == "mesmo_sku":
-            # Agrupa por produto_padrao (referência fixa)
+            # Agrupa por sku_master atual
+            sku_master_atual = origem.get("sku_master") or origem.get("produto_padrao")
             cursor.execute(
-                "SELECT id, produto_padrao, sku_master, ativo FROM produtos WHERE produto_padrao = ? AND id != ?",
-                (origem["produto_padrao"], produto_id),
+                "SELECT id, produto_padrao, sku_master, ativo FROM produtos WHERE (sku_master = ? OR (sku_master IS NULL AND produto_padrao = ?)) AND id != ?",
+                (sku_master_atual, sku_master_atual, produto_id),
             )
             return [dict(row) for row in cursor.fetchall()]
 
@@ -1211,7 +1212,8 @@ def salvar_edicao_manual_produto(
         ids_afetados = set()
         for tipo in opcoes_cascata:
             if tipo == "mesmo_sku":
-                cursor.execute("SELECT id FROM produtos WHERE produto_padrao = ? AND id != ?", (origem["produto_padrao"], produto_id))
+                sku_master_atual = origem.get("sku_master") or origem.get("produto_padrao")
+                cursor.execute("SELECT id FROM produtos WHERE (sku_master = ? OR (sku_master IS NULL AND produto_padrao = ?)) AND id != ?", (sku_master_atual, sku_master_atual, produto_id))
                 ids_afetados.update(row[0] for row in cursor.fetchall())
             elif tipo == "semelhante":
                 cursor.execute("SELECT id, produto_padrao, sku_master FROM produtos WHERE ativo = 1 AND id != ?", (produto_id,))
@@ -1243,15 +1245,25 @@ def salvar_edicao_manual_produto(
             afetado = _buscar_produto(cursor, aid)
             if not afetado:
                 continue
-            if sku_novo and sku_novo != afetado.get("sku_master"):
-                cursor.execute("UPDATE produtos SET sku_master = ? WHERE id = ?", (sku_novo, aid))
-                registrar_auditoria_sku(cursor, aid, "sku_master", afetado.get("sku_master"), sku_novo, tipo_correcao="cascata", usuario=usuario)
-            if fab_novo and fab_novo != afetado["fabricante"]:
-                cursor.execute("UPDATE produtos SET fabricante = ? WHERE id = ?", (fab_novo, aid))
-                registrar_auditoria_sku(cursor, aid, "fabricante", afetado["fabricante"], fab_novo, tipo_correcao="cascata", usuario=usuario)
-            if cat_novo and cat_novo != afetado["categoria"]:
-                cursor.execute("UPDATE produtos SET categoria = ? WHERE id = ?", (cat_novo, aid))
-                registrar_auditoria_sku(cursor, aid, "categoria", afetado["categoria"], cat_novo, tipo_correcao="cascata", usuario=usuario)
+
+            # Cascata deve alterar APENAS o que foi alterado no produto de origem e enviado no payload
+            if "sku_master" in dados_novos:
+                novo_val = dados_novos["sku_master"]
+                if novo_val != afetado.get("sku_master"):
+                    cursor.execute("UPDATE produtos SET sku_master = ? WHERE id = ?", (novo_val, aid))
+                    registrar_auditoria_sku(cursor, aid, "sku_master", afetado.get("sku_master"), novo_val, tipo_correcao="cascata", usuario=usuario)
+
+            if "fabricante" in dados_novos:
+                novo_val = dados_novos["fabricante"]
+                if novo_val != afetado.get("fabricante"):
+                    cursor.execute("UPDATE produtos SET fabricante = ? WHERE id = ?", (novo_val, aid))
+                    registrar_auditoria_sku(cursor, aid, "fabricante", afetado.get("fabricante"), novo_val, tipo_correcao="cascata", usuario=usuario)
+
+            if "categoria" in dados_novos:
+                novo_val = dados_novos["categoria"]
+                if novo_val != afetado.get("categoria"):
+                    cursor.execute("UPDATE produtos SET categoria = ? WHERE id = ?", (novo_val, aid))
+                    registrar_auditoria_sku(cursor, aid, "categoria", afetado.get("categoria"), novo_val, tipo_correcao="cascata", usuario=usuario)
 
         conn.commit()
         return {"ok": True, "afetados_cascata": len(ids_afetados)}

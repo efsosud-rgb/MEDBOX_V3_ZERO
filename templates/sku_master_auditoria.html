@@ -129,6 +129,10 @@
         <form id="form-edicao">
             <input type="hidden" id="edit-id">
             <input type="hidden" id="edit-sku-master-original">
+            <input type="hidden" id="edit-fabricante-original">
+            <input type="hidden" id="edit-categoria-original">
+            <input type="hidden" id="edit-ativo-original">
+            <input type="hidden" id="edit-observacoes-original">
 
             <div style="margin-bottom:15px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
                 <label style="display:block; font-weight:700; margin-bottom:2px; color:#64748b; font-size:0.75rem; text-transform:uppercase;">Produto Padrao (Referencia Fixa)</label>
@@ -249,12 +253,22 @@
         document.getElementById('modal-produto-id').textContent = '#' + data.id;
         document.getElementById('display-produto-padrao').textContent = data.produto_padrao || '-';
         document.getElementById('edit-id').value = data.id;
-        document.getElementById('edit-sku-master').value = data.sku_master || data.produto_padrao || '';
-        document.getElementById('edit-sku-master-original').value = data.sku_master || data.produto_padrao || '';
-        document.getElementById('edit-fabricante').value = data.fabricante || '';
-        document.getElementById('edit-categoria').value = normalizarCategoria(data.categoria);
-        document.getElementById('edit-ativo').value = String(data.ativo ?? 1);
-        document.getElementById('edit-observacoes').value = data.observacoes || '';
+        const skuMasterVal = data.sku_master || data.produto_padrao || '';
+        const fabricanteVal = data.fabricante || '';
+        const categoriaVal = normalizarCategoria(data.categoria);
+        const ativoVal = String(data.ativo ?? 1);
+        const observacoesVal = data.observacoes || '';
+
+        document.getElementById('edit-sku-master').value = skuMasterVal;
+        document.getElementById('edit-sku-master-original').value = skuMasterVal;
+        document.getElementById('edit-fabricante').value = fabricanteVal;
+        document.getElementById('edit-fabricante-original').value = fabricanteVal;
+        document.getElementById('edit-categoria').value = categoriaVal;
+        document.getElementById('edit-categoria-original').value = categoriaVal;
+        document.getElementById('edit-ativo').value = ativoVal;
+        document.getElementById('edit-ativo-original').value = ativoVal;
+        document.getElementById('edit-observacoes').value = observacoesVal;
+        document.getElementById('edit-observacoes-original').value = observacoesVal;
         document.querySelectorAll('input[name="cascata"]').forEach(c => c.checked = false);
         document.getElementById('cascata-preview-box').style.display = 'none';
         modal.style.display = 'block';
@@ -314,15 +328,35 @@
             return;
         }
         marcarCascataSemelhanteSeSkuMudou();
+
+        const dados = {};
+        const campos = [
+            { id: 'edit-sku-master', key: 'sku_master', original: 'edit-sku-master-original', type: 'string' },
+            { id: 'edit-fabricante', key: 'fabricante', original: 'edit-fabricante-original', type: 'string' },
+            { id: 'edit-categoria', key: 'categoria', original: 'edit-categoria-original', type: 'string' },
+            { id: 'edit-ativo', key: 'ativo', original: 'edit-ativo-original', type: 'int' },
+            { id: 'edit-observacoes', key: 'observacoes', original: 'edit-observacoes-original', type: 'string' }
+        ];
+
+        campos.forEach(campo => {
+            const el = document.getElementById(campo.id);
+            const val = campo.type === 'int' ? parseInt(el.value) : el.value.trim();
+            const originalEl = document.getElementById(campo.original);
+            const originalVal = campo.type === 'int' ? parseInt(originalEl.value) : originalEl.value.trim();
+
+            if (val !== originalVal) {
+                dados[campo.key] = val;
+            }
+        });
+
+        if (Object.keys(dados).length === 0) {
+            fecharModal();
+            return;
+        }
+
         const payload = {
             produto_id: document.getElementById('edit-id').value,
-            dados: {
-                sku_master: document.getElementById('edit-sku-master').value.trim(),
-                fabricante: document.getElementById('edit-fabricante').value.trim(),
-                categoria: categoria,
-                ativo: parseInt(document.getElementById('edit-ativo').value),
-                observacoes: document.getElementById('edit-observacoes').value.trim()
-            },
+            dados: dados,
             opcoes_cascata: getCascataSelecionada()
         };
         const botao = form.querySelector('button[type="submit"]');

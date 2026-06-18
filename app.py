@@ -743,9 +743,14 @@ def sku_master_skus_json():
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT DISTINCT sku_master FROM produtos WHERE ativo = 1 AND sku_master IS NOT NULL AND TRIM(sku_master) != '' ORDER BY sku_master"
+        """
+        SELECT DISTINCT COALESCE(NULLIF(TRIM(sku_master), ''), produto_padrao) as sugestao
+        FROM produtos
+        WHERE ativo = 1
+        ORDER BY sugestao
+        """
     )
-    skus = [row["sku_master"] for row in cursor.fetchall()]
+    skus = [row["sugestao"] for row in cursor.fetchall()]
     conn.close()
     return Response(json.dumps(skus, ensure_ascii=False), content_type="application/json")
 
