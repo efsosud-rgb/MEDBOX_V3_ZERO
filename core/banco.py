@@ -81,11 +81,19 @@ def criar_banco():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sku TEXT,
         produto_padrao TEXT,
+        sku_master TEXT,
         fabricante TEXT,
         categoria TEXT,
         ativo INTEGER DEFAULT 1,
         observacoes TEXT
     )""")
+
+    # Migração defensiva para adicionar sku_master se não existir (para bancos legados)
+    try:
+        cursor.execute("SELECT sku_master FROM produtos LIMIT 1")
+    except sqlite3.OperationalError:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN sku_master TEXT")
+        cursor.execute("UPDATE produtos SET sku_master = produto_padrao WHERE sku_master IS NULL OR sku_master = ''")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS fornecedores (
