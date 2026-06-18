@@ -177,8 +177,9 @@ def sku_master_auditoria():
 
 @app.route("/sku-master/auditoria.csv")
 def sku_master_auditoria_csv():
+    q = request.args.get("q", "").strip()
     filtro = request.args.get("filtro", "todos")
-    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro)
+    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro, q=q)
     nome_arquivo = f"auditoria_sku_master_{filtro}.csv"
     return Response(
         conteudo,

@@ -359,6 +359,7 @@ def gerar_auditoria_sku_master(filtro="todos", q="", pagina=1, limite=50):
         "q": q,
         "pagina": pagina,
         "total_paginas": total_paginas,
+        "total": total_filtrado,
         "contadores": {
             "total_produtos": len(produtos),
             "total_limpos": contadores["LIMPO"],
@@ -374,8 +375,8 @@ def gerar_auditoria_sku_master(filtro="todos", q="", pagina=1, limite=50):
     }
 
 
-def gerar_csv_auditoria_sku_master(filtro="todos"):
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=1000000)
+def gerar_csv_auditoria_sku_master(filtro="todos", q=""):
+    auditoria = gerar_auditoria_sku_master(filtro=filtro, q=q, pagina=1, limite=1000000)
     buffer = io.StringIO()
     campos = [
         "produto_id", "produto_padrao", "fabricante", "categoria",
@@ -618,7 +619,7 @@ def _sugerir_sku_assistido(item, limpos, indice_limpos):
 def gerar_sugestoes_sku_master(grupo="todos", limite=250):
     grupo = grupo if grupo in GRUPOS_SUGESTOES else "todos"
     limite = max(1, int(limite or 250))
-    auditoria = gerar_auditoria_sku_master(filtro="todos", limite=1000000)
+    auditoria = gerar_auditoria_sku_master(filtro="todos", pagina=1, limite=1000000)
     itens = auditoria["itens"]
     limpos, indice_limpos = _montar_indice_limpos(itens)
 
