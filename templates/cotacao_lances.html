@@ -150,6 +150,89 @@
         font-weight:800;
         margin-top:12px;
     }
+
+    .btn-excluir-item {
+        background:#7a0018;
+        color:#fff;
+        border:none;
+        border-radius:7px;
+        padding:7px 10px;
+        font-weight:700;
+        font-size:11px;
+        cursor:pointer;
+        margin-top:5px;
+        width:100%;
+    }
+
+    .sku-quick-input,
+    .empresa-input,
+    textarea {
+        text-transform: uppercase;
+    }
+
+
+    .custo-manual-input[readonly] {
+        background:#f3f6fa;
+        color:#4b5b6b;
+        cursor:not-allowed;
+    }
+
+    .custo-manual-input:not([readonly]) {
+        background:#fff7e6;
+        border-color:#f59e0b;
+        font-weight:700;
+    }
+
+
+    .sku-sugestao-select {
+        margin-top:5px;
+        width:100%;
+        border:1px solid #dbe3ef;
+        border-radius:7px;
+        padding:6px;
+        font-size:11px;
+        background:#fff;
+        color:#0b2545;
+        font-weight:700;
+    }
+
+
+    .sku-autocomplete-box {
+        position: absolute;
+        z-index: 9999;
+        background: #fff;
+        border: 1px solid #dbe3ef;
+        border-radius: 8px;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, .16);
+        max-height: 260px;
+        overflow-y: auto;
+        min-width: 320px;
+        font-size: 11px;
+    }
+
+    .sku-autocomplete-item {
+        padding: 8px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eef3f8;
+        color: #0b2545;
+    }
+
+    .sku-autocomplete-item:hover {
+        background: #eef6ff;
+    }
+
+    .sku-autocomplete-item strong {
+        display: block;
+        font-size: 12px;
+        color: #002b45;
+    }
+
+    .sku-autocomplete-item small {
+        display: block;
+        margin-top: 3px;
+        color: #64748b;
+    }
+
 </style>
 
 <div class="page-header">
@@ -178,6 +261,16 @@
 
         <button class="btn-primary" type="submit">Importar Cotação</button>
     </form>
+
+    <div class="lances-upload-box" style="margin-top:14px;">
+        <label>Adicionar itens manualmente</label>
+        <textarea id="textoItensManuais" rows="5" placeholder="Cole ou digite vários itens, um por linha. Ex.:&#10;AGUA DESTILADA ESTERIL 10ML - 3000&#10;CEFAZOLINA SODICA 1G - 700" style="width:100%;border:1px solid #dbe3ef;border-radius:7px;padding:10px;"></textarea>
+        <small style="display:block;color:var(--muted);margin-top:6px;">
+            Cada linha será analisada pela base MedBox. Se encontrar SKU Master, os campos serão preenchidos. Se não encontrar, ficará como REVISAR SKU.
+        </small>
+        <button class="btn-primary" type="button" id="btnAdicionarItensManuais" style="margin-top:10px;">Adicionar itens à grade</button>
+    </div>
+
 
     {% if erro %}
     <div class="erro-lances">{{ erro }}</div>
@@ -247,6 +340,24 @@
                     <td style="min-width:230px;">
                         <input class="sku-quick-input sku-master-input" value="{{ item.sku_master if item.sku_master != 'REVISAR SKU' else '' }}" placeholder="Informe o SKU Master">
                         <small style="display:block;color:var(--muted);">Score: {{ "%.1f"|format(item.score or 0) }}</small>
+                        {% if item.sugestoes_sku %}
+                        <select class="sku-sugestao-select">
+                            <option value="">Escolher SKU...</option>
+                            {% for s in item.sugestoes_sku %}
+                            <option
+                                value="{{ s.sku_master }}"
+                                data-categoria="{{ s.categoria }}"
+                                data-fornecedor="{{ s.fornecedor_menor_custo }}"
+                                data-fabricante="{{ s.marca_fabricante }}"
+                                data-custo="{{ s.menor_custo_unitario }}"
+                                data-custo-formatado="{{ s.menor_custo_unitario_formatado }}"
+                                data-score="{{ s.score }}"
+                            >
+                                {{ s.sku_master }} | {{ s.marca_fabricante }} | {{ s.menor_custo_unitario_formatado }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
                     </td>
 
                     <td style="min-width:140px;">
@@ -272,7 +383,14 @@
                         <small style="display:block;">{{ item.menor_valor_nome }}</small>
                     </td>
 
-                    <td><strong>{{ item.menor_custo_unitario_formatado }}</strong></td>
+                    <td>
+                        <input
+                            class="lance-input money-input custo-manual-input"
+                            value="{{ item.menor_custo_unitario_formatado if item.menor_custo_unitario else '' }}"
+                            placeholder="R$ 0,00"
+                            {% if item.sku_encontrado and item.tem_preco %}readonly{% endif %}
+                        >
+                    </td>
 
                     <td>
                         <input class="sku-quick-input fornecedor-input" value="{{ item.fornecedor_menor_custo if item.fornecedor_menor_custo != '-' else '' }}" placeholder="Fornecedor">
@@ -288,6 +406,7 @@
 
                     <td>
                         <button type="button" class="btn-salvar-sku">Salvar SKU</button>
+                        <button type="button" class="btn-excluir-item">Excluir</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -474,6 +593,563 @@
     }
 
     if (document.readyState === "loading") {
+
+        function escapeHtml(valor) {
+            return String(valor ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function classeStatus(status) {
+            return String(status || "")
+                .toLowerCase()
+                .replaceAll(" ", "-")
+                .replaceAll("ç", "c")
+                .replaceAll("ã", "a")
+                .replaceAll("á", "a")
+                .replaceAll("é", "e");
+        }
+
+
+        function sugestoesSkuHtml(item) {
+            const sugestoes = item.sugestoes_sku || [];
+            if (!sugestoes.length) return "";
+
+            const options = sugestoes.map(s => `
+                <option
+                    value="${escapeHtml(s.sku_master || "")}"
+                    data-categoria="${escapeHtml(s.categoria || "")}"
+                    data-fornecedor="${escapeHtml(s.fornecedor_menor_custo || "")}"
+                    data-fabricante="${escapeHtml(s.marca_fabricante || "")}"
+                    data-custo="${escapeHtml(s.menor_custo_unitario || 0)}"
+                    data-custo-formatado="${escapeHtml(s.menor_custo_unitario_formatado || "")}"
+                    data-score="${escapeHtml(s.score || 0)}"
+                >
+                    ${escapeHtml(s.sku_master || "")} | ${escapeHtml(s.marca_fabricante || "")} | ${escapeHtml(s.menor_custo_unitario_formatado || "")}
+                </option>
+            `).join("");
+
+            return `
+                <select class="sku-sugestao-select">
+                    <option value="">Escolher SKU...</option>
+                    ${options}
+                </select>
+            `;
+        }
+
+        function criarLinhaLanceManual(item, numeroItem) {
+            const status = item.status || "REVISAR SKU";
+            const linhaClasse = status === "REVISAR SKU" ? "linha-revisar" : (status === "SEM PREÇO" ? "linha-sem-preco" : "linha-ok");
+            const skuValue = item.sku_master && item.sku_master !== "REVISAR SKU" ? item.sku_master : "";
+            const categoriaValue = item.categoria && item.categoria !== "-" ? item.categoria : "";
+            const fornecedorValue = item.fornecedor_menor_custo && item.fornecedor_menor_custo !== "-" ? item.fornecedor_menor_custo : "";
+            const fabricanteValue = item.marca_fabricante && item.marca_fabricante !== "-" ? item.marca_fabricante : "";
+
+            return `
+                <tr class="${linhaClasse}"
+                    data-custo="${item.menor_custo_unitario || 0}"
+                    data-tem-preco="${item.tem_preco ? 1 : 0}"
+                    data-sku-encontrado="${item.sku_encontrado ? 1 : 0}">
+                    <td>${numeroItem}</td>
+                    <td>
+                        <strong>${escapeHtml(item.descricao_produto || item.descricao_cotacao || "")}</strong>
+                    </td>
+                    <td>
+                        <input class="sku-quick-input sku-master-input" value="${escapeHtml(skuValue)}" placeholder="Informe o SKU Master">
+                        <small style="display:block;color:var(--muted);">Score: ${Number(item.score || 0).toFixed(1)}</small>
+                        ${sugestoesSkuHtml(item)}
+                    </td>
+                    <td>
+                        <input class="sku-quick-input categoria-input" value="${escapeHtml(categoriaValue)}" placeholder="Categoria">
+                    </td>
+                    <td><input class="lance-input qtd-input" value="${escapeHtml(item.quantidade || 1)}"></td>
+                    <td><input class="lance-input money-input osinfo-input" value="${escapeHtml(item.preco_osinfo_formatado || "R$ 0,00")}"></td>
+                    <td><input class="lance-input money-input ultima-input" value="${escapeHtml(item.ultima_compra_formatada || "R$ 0,00")}"></td>
+                    <td><input class="lance-input money-input medbox-input medbox-readonly" readonly value="${escapeHtml(item.preco_medbox_formatado || "R$ 0,00")}"></td>
+                    <td><input class="lance-input markup-atual-input" type="number" step="0.01" min="0" value="${Number(item.markup_atual || 80).toFixed(2)}"></td>
+                    <td><input class="lance-input money-input concorrente-input" value="${escapeHtml(item.menor_preco_ofertado_formatado || "R$ 0,00")}"></td>
+                    <td><input class="lance-input empresa-input" value="${escapeHtml(item.empresa_melhor_lance || "")}" placeholder="Empresa"></td>
+                    <td>
+                        <strong>${escapeHtml(item.menor_valor_formatado || "R$ 0,00")}</strong>
+                        <small style="display:block;">${escapeHtml(item.menor_valor_nome || "-")}</small>
+                    </td>
+                    <td>
+                        <input
+                            class="lance-input money-input custo-manual-input"
+                            value="${escapeHtml(item.menor_custo_unitario ? (item.menor_custo_unitario_formatado || "") : "")}"
+                            placeholder="R$ 0,00"
+                            ${item.sku_encontrado && item.tem_preco ? "readonly" : ""}
+                        >
+                    </td>
+                    <td>
+                        <input class="sku-quick-input fornecedor-input" value="${escapeHtml(fornecedorValue)}" placeholder="Fornecedor">
+                    </td>
+                    <td>
+                        <input class="sku-quick-input fabricante-input" value="${escapeHtml(fabricanteValue)}" placeholder="Fabricante">
+                    </td>
+                    <td>
+                        <span class="status-badge status-${classeStatus(status)}">${escapeHtml(status)}</span>
+                    </td>
+                    <td>
+                        <button type="button" class="btn-salvar-sku">Salvar SKU</button>
+                        <button type="button" class="btn-excluir-item">Excluir</button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        async function adicionarItensManuais() {
+            const textarea = document.getElementById("textoItensManuais");
+            const btn = document.getElementById("btnAdicionarItensManuais");
+            const tabela = document.querySelector("#tabelaLances tbody");
+
+            if (!textarea || !btn || !tabela) return;
+
+            const texto = textarea.value.trim();
+            if (!texto) {
+                alert("Digite ou cole pelo menos um item.");
+                return;
+            }
+
+            const markupGeral = document.getElementById("markup_percentual");
+            const formData = new FormData();
+            formData.append("texto_itens", texto);
+            formData.append("markup_percentual", markupGeral ? markupGeral.value : "80");
+
+            btn.disabled = true;
+            btn.innerText = "Adicionando...";
+
+            try {
+                const resp = await fetch("/cotacoes/lances/adicionar-itens", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await resp.json();
+
+                if (!data.ok) {
+                    alert(data.erro || "Erro ao adicionar itens.");
+                    return;
+                }
+
+                const existentes = tabela.querySelectorAll("tr").length;
+                const itens = data.analise.itens || [];
+
+                itens.forEach((item, index) => {
+                    tabela.insertAdjacentHTML("beforeend", criarLinhaLanceManual(item, existentes + index + 1));
+                });
+
+                textarea.value = "";
+
+                // Reaplica os eventos já existentes da tela aprovada.
+                preparar();
+
+                alert(`${itens.length} item(ns) adicionado(s) à grade.`);
+
+            } catch (err) {
+                alert("Falha ao adicionar itens manuais.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Adicionar itens à grade";
+            }
+        }
+
+        const btnItensManuais = document.getElementById("btnAdicionarItensManuais");
+        if (btnItensManuais) {
+            btnItensManuais.addEventListener("click", adicionarItensManuais);
+        }
+
+
+
+        function renumerarItensLances() {
+            document.querySelectorAll("#tabelaLances tbody tr").forEach((row, index) => {
+                const primeiraCelula = row.querySelector("td:first-child");
+                if (primeiraCelula) {
+                    primeiraCelula.innerText = index + 1;
+                }
+            });
+        }
+
+        function atualizarResumoDepoisExclusao() {
+            if (typeof atualizarResumo === "function") {
+                atualizarResumo();
+            }
+        }
+
+        document.addEventListener("click", function(event) {
+            const btnExcluir = event.target.closest(".btn-excluir-item");
+            if (!btnExcluir) return;
+
+            const row = btnExcluir.closest("tr");
+            if (!row) return;
+
+            const descricao = row.querySelector("td:nth-child(2) strong")?.innerText || "este item";
+            const confirmar = confirm(`Excluir o item da cotação?\n\n${descricao}`);
+
+            if (!confirmar) return;
+
+            row.remove();
+            renumerarItensLances();
+            atualizarResumoDepoisExclusao();
+        });
+
+        document.addEventListener("input", function(event) {
+            const campo = event.target;
+
+            if (!campo.matches("input, textarea")) return;
+
+            const tiposIgnorados = ["number", "date", "file", "hidden"];
+            if (tiposIgnorados.includes((campo.type || "").toLowerCase())) return;
+
+            if (
+                campo.classList.contains("money-input") ||
+                campo.classList.contains("qtd-input") ||
+                campo.classList.contains("markup-atual-input")
+            ) {
+                return;
+            }
+
+            const inicio = campo.selectionStart;
+            const fim = campo.selectionEnd;
+
+            campo.value = campo.value.toUpperCase();
+
+            try {
+                campo.setSelectionRange(inicio, fim);
+            } catch (e) {}
+        });
+
+
+        function lancesParseMoeda(valor) {
+            valor = String(valor || "").trim();
+            valor = valor.replace("R$", "").replace(/\s/g, "");
+
+            if (!valor) return 0;
+
+            if (valor.includes(",")) {
+                valor = valor.replace(/\./g, "").replace(",", ".");
+            }
+
+            const numero = parseFloat(valor);
+            return Number.isFinite(numero) ? numero : 0;
+        }
+
+        function lancesFormatarMoeda(valor) {
+            const numero = Number(valor || 0);
+            return numero.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL"
+            });
+        }
+
+        function recalcularPrecoMedboxPorCustoManual(row) {
+            if (!row) return;
+
+            const custoInput = row.querySelector(".custo-manual-input");
+            const markupInput = row.querySelector(".markup-atual-input");
+            const medboxInput = row.querySelector(".medbox-input");
+
+            if (!custoInput || !markupInput || !medboxInput) return;
+
+            const custo = lancesParseMoeda(custoInput.value);
+
+            let markup = parseFloat(String(markupInput.value || "").replace(",", "."));
+
+            if (!Number.isFinite(markup) || markup <= 0) {
+                markup = 80;
+                markupInput.value = "80.00";
+            }
+
+            row.dataset.custo = custo;
+
+            if (custo > 0) {
+                const precoMedbox = custo * (1 + (markup / 100));
+                medboxInput.value = lancesFormatarMoeda(precoMedbox);
+
+                row.dataset.temPreco = "1";
+
+                const statusBadge = row.querySelector(".status-badge");
+                const skuInput = row.querySelector(".sku-master-input");
+                if (statusBadge && skuInput && skuInput.value.trim()) {
+                    statusBadge.innerText = "COMPETITIVO";
+                    row.dataset.statusAtual = "COMPETITIVO";
+                }
+            } else {
+                medboxInput.value = lancesFormatarMoeda(0);
+                row.dataset.temPreco = "0";
+            }
+
+            if (typeof atualizarLinha === "function") {
+                atualizarLinha(row);
+            }
+
+            if (typeof atualizarResumo === "function") {
+                atualizarResumo();
+            }
+        }
+
+        document.addEventListener("input", function(event) {
+            const campo = event.target;
+
+            if (campo.classList.contains("custo-manual-input")) {
+                const row = campo.closest("tr");
+                recalcularPrecoMedboxPorCustoManual(row);
+                return;
+            }
+
+            if (campo.classList.contains("markup-atual-input")) {
+                const row = campo.closest("tr");
+                const custoInput = row?.querySelector(".custo-manual-input");
+                if (custoInput && !custoInput.readOnly && lancesParseMoeda(custoInput.value) > 0) {
+                    recalcularPrecoMedboxPorCustoManual(row);
+                }
+            }
+        });
+
+        document.addEventListener("blur", function(event) {
+            const campo = event.target;
+
+            if (!campo.classList.contains("custo-manual-input")) return;
+
+            const valor = lancesParseMoeda(campo.value);
+            if (valor > 0) {
+                campo.value = lancesFormatarMoeda(valor);
+            }
+        }, true);
+
+
+        document.addEventListener("change", function(event) {
+            const select = event.target.closest(".sku-sugestao-select");
+            if (!select) return;
+
+            const option = select.options[select.selectedIndex];
+            if (!option || !option.value) return;
+
+            const row = select.closest("tr");
+            if (!row) return;
+
+            const skuInput = row.querySelector(".sku-master-input");
+            const categoriaInput = row.querySelector(".categoria-input");
+            const fornecedorInput = row.querySelector(".fornecedor-input");
+            const fabricanteInput = row.querySelector(".fabricante-input");
+            const custoInput = row.querySelector(".custo-manual-input");
+            const markupInput = row.querySelector(".markup-atual-input");
+            const statusBadge = row.querySelector(".status-badge");
+
+            if (skuInput) skuInput.value = option.value.toUpperCase();
+            if (categoriaInput) categoriaInput.value = (option.dataset.categoria || "").toUpperCase();
+            if (fornecedorInput) fornecedorInput.value = (option.dataset.fornecedor || "").toUpperCase();
+            if (fabricanteInput) fabricanteInput.value = (option.dataset.fabricante || "").toUpperCase();
+
+            if (markupInput && (!markupInput.value || Number(markupInput.value) <= 0)) {
+                markupInput.value = "80.00";
+            }
+
+            if (custoInput) {
+                custoInput.value = option.dataset.custoFormatado || "";
+                if (Number(option.dataset.custo || 0) > 0) {
+                    custoInput.readOnly = true;
+                }
+            }
+
+            row.dataset.skuEncontrado = "1";
+            row.dataset.temPreco = Number(option.dataset.custo || 0) > 0 ? "1" : "0";
+
+            if (statusBadge) {
+                statusBadge.innerText = Number(option.dataset.custo || 0) > 0 ? "COMPETITIVO" : "SEM PREÇO";
+                statusBadge.className = "status-badge status-" + (Number(option.dataset.custo || 0) > 0 ? "competitivo" : "sem-preco");
+            }
+
+            if (typeof recalcularPrecoMedboxPorCustoManual === "function") {
+                recalcularPrecoMedboxPorCustoManual(row);
+            } else if (typeof atualizarLinha === "function") {
+                atualizarLinha(row);
+            }
+
+            if (typeof atualizarResumo === "function") {
+                atualizarResumo();
+            }
+        });
+
+
+        let skuAutocompleteTimer = null;
+        let skuAutocompleteBox = null;
+
+        function removerAutocompleteSku() {
+            if (skuAutocompleteBox) {
+                skuAutocompleteBox.remove();
+                skuAutocompleteBox = null;
+            }
+        }
+
+        function obterTermoSugestaoSku(input) {
+            const digitado = String(input.value || "").trim();
+
+            if (digitado) {
+                return digitado;
+            }
+
+            const row = input.closest("tr");
+            const descricao = row?.querySelector("td:nth-child(2) strong")?.innerText || "";
+            return descricao.trim();
+        }
+
+        function aplicarSugestaoSkuNaLinha(row, sugestao) {
+            if (!row || !sugestao) return;
+
+            const skuInput = row.querySelector(".sku-master-input");
+            const categoriaInput = row.querySelector(".categoria-input");
+            const fornecedorInput = row.querySelector(".fornecedor-input");
+            const fabricanteInput = row.querySelector(".fabricante-input");
+            const custoInput = row.querySelector(".custo-manual-input");
+            const markupInput = row.querySelector(".markup-atual-input");
+            const statusBadge = row.querySelector(".status-badge");
+
+            if (skuInput) skuInput.value = String(sugestao.sku_master || "").toUpperCase();
+            if (categoriaInput) categoriaInput.value = String(sugestao.categoria || "").toUpperCase();
+            if (fornecedorInput) fornecedorInput.value = String(sugestao.fornecedor_menor_custo || "").toUpperCase();
+            if (fabricanteInput) fabricanteInput.value = String(sugestao.marca_fabricante || "").toUpperCase();
+
+            if (markupInput) {
+                markupInput.value = "80.00";
+            }
+
+            if (custoInput) {
+                custoInput.value = sugestao.menor_custo_unitario_formatado || "";
+                if (Number(sugestao.menor_custo_unitario || 0) > 0) {
+                    custoInput.readOnly = true;
+                } else {
+                    custoInput.readOnly = false;
+                }
+            }
+
+            row.dataset.skuEncontrado = "1";
+            row.dataset.temPreco = Number(sugestao.menor_custo_unitario || 0) > 0 ? "1" : "0";
+
+            if (statusBadge) {
+                const novoStatus = Number(sugestao.menor_custo_unitario || 0) > 0 ? "COMPETITIVO" : "SEM PREÇO";
+                statusBadge.innerText = novoStatus;
+                statusBadge.className = "status-badge status-" + (novoStatus === "COMPETITIVO" ? "competitivo" : "sem-preco");
+            }
+
+            if (typeof recalcularPrecoMedboxPorCustoManual === "function") {
+                recalcularPrecoMedboxPorCustoManual(row);
+            } else if (typeof atualizarLinha === "function") {
+                atualizarLinha(row);
+            }
+
+            if (typeof atualizarResumo === "function") {
+                atualizarResumo();
+            }
+
+            removerAutocompleteSku();
+        }
+
+        function renderizarAutocompleteSku(input, sugestoes) {
+            removerAutocompleteSku();
+
+            if (!sugestoes || !sugestoes.length) return;
+
+            const rect = input.getBoundingClientRect();
+            const row = input.closest("tr");
+
+            skuAutocompleteBox = document.createElement("div");
+            skuAutocompleteBox.className = "sku-autocomplete-box";
+            skuAutocompleteBox.style.left = `${rect.left + window.scrollX}px`;
+            skuAutocompleteBox.style.top = `${rect.bottom + window.scrollY + 4}px`;
+            skuAutocompleteBox.style.width = `${Math.max(rect.width, 360)}px`;
+
+            sugestoes.forEach(s => {
+                const item = document.createElement("div");
+                item.className = "sku-autocomplete-item";
+                item.innerHTML = `
+                    <strong>${escapeHtml(s.sku_master || "")}</strong>
+                    <small>
+                        Marca: ${escapeHtml(s.marca_fabricante || "-")}
+                        | Fornecedor: ${escapeHtml(s.fornecedor_menor_custo || "-")}
+                        | Custo: ${escapeHtml(s.menor_custo_unitario_formatado || "-")}
+                        | Score: ${Number(s.score || 0).toFixed(1)}
+                    </small>
+                `;
+                item.addEventListener("mousedown", function(event) {
+                    event.preventDefault();
+                    aplicarSugestaoSkuNaLinha(row, s);
+                });
+                skuAutocompleteBox.appendChild(item);
+            });
+
+            document.body.appendChild(skuAutocompleteBox);
+        }
+
+        async function buscarSugestoesSku(input) {
+            const termo = obterTermoSugestaoSku(input);
+
+            if (!termo || termo.length < 2) {
+                removerAutocompleteSku();
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/cotacoes/lances/sugerir-skus?q=${encodeURIComponent(termo)}`);
+                const data = await resp.json();
+
+                if (!data.ok) {
+                    removerAutocompleteSku();
+                    return;
+                }
+
+                renderizarAutocompleteSku(input, data.sugestoes || []);
+
+            } catch (e) {
+                removerAutocompleteSku();
+            }
+        }
+
+        document.addEventListener("focusin", function(event) {
+            const input = event.target.closest(".sku-master-input");
+            if (!input) return;
+
+            clearTimeout(skuAutocompleteTimer);
+            skuAutocompleteTimer = setTimeout(() => buscarSugestoesSku(input), 120);
+        });
+
+        document.addEventListener("input", function(event) {
+            const input = event.target.closest(".sku-master-input");
+            if (!input) return;
+
+            const row = input.closest("tr");
+
+            if (!input.value.trim()) {
+                if (row) {
+                    row.dataset.skuEncontrado = "0";
+                    const statusBadge = row.querySelector(".status-badge");
+                    if (statusBadge) {
+                        statusBadge.innerText = "REVISAR SKU";
+                        statusBadge.className = "status-badge status-revisar-sku";
+                    }
+                }
+            }
+
+            clearTimeout(skuAutocompleteTimer);
+            skuAutocompleteTimer = setTimeout(() => buscarSugestoesSku(input), 180);
+        });
+
+        document.addEventListener("click", function(event) {
+            if (
+                skuAutocompleteBox &&
+                !event.target.closest(".sku-autocomplete-box") &&
+                !event.target.closest(".sku-master-input")
+            ) {
+                removerAutocompleteSku();
+            }
+        });
+
+        window.addEventListener("scroll", removerAutocompleteSku, true);
+        window.addEventListener("resize", removerAutocompleteSku);
+
         document.addEventListener("DOMContentLoaded", preparar);
     } else {
         preparar();

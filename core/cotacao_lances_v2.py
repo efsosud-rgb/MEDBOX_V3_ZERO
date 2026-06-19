@@ -336,21 +336,116 @@ def score_simples(consulta, candidato):
     return round(cobertura * 100, 2)
 
 
+
+def montar_sugestao_sku_lance(produto, score):
+    preco = produto.get("preco") or {}
+    menor_custo = numero_br(preco.get("preco"), 0.0)
+
+    sku_master = (
+        produto.get("sku_master_exibicao")
+        or produto.get("produto_padrao")
+        or ""
+    )
+
+    marca = (
+        preco.get("marca")
+        or produto.get("fabricante")
+        or ""
+    )
+
+    fornecedor = preco.get("fornecedor") or ""
+
+    return {
+        "sku_master": sku_master,
+        "categoria": produto.get("categoria") or "",
+        "fornecedor_menor_custo": fornecedor,
+        "marca_fabricante": marca,
+        "menor_custo_unitario": menor_custo,
+        "menor_custo_unitario_formatado": moeda_br(menor_custo) if menor_custo else "",
+        "descricao_fornecedor": preco.get("descricao_fornecedor") or "",
+        "score": score,
+    }
+
+
 def encontrar_sku_equivalente(descricao, indice, score_minimo=72):
-    melhor = None
-    melhor_score = 0
+    """
+    Busca SKU equivalente, mas evita chute automático em descrições genéricas.
+
+    Regra:
+    - Só preenche automático se o melhor score for alto e bem separado do segundo.
+    - Se houver empate ou candidatos próximos, retorna REVISAR SKU com sugestões.
+    """
+    candidatos = []
 
     for p in indice:
         score = score_simples(descricao, p["texto_busca"])
-        if score > melhor_score:
-            melhor_score = score
-            melhor = p
+        if score >= score_minimo:
+            candidatos.append((score, p))
 
-    if melhor and melhor_score >= score_minimo:
-        return melhor, melhor_score
+    candidatos.sort(key=lambda x: x[0], reverse=True)
 
-    return None, melhor_score
+    if not candidatos:
+        return None, 0, []
 
+    melhor_score, melhor = candidatos[0]
+    segundo_score = candidatos[1][0] if len(candidatos) > 1 else 0
+    diferenca = melhor_score - segundo_score
+
+    sugestoes = [
+        montar_sugestao_sku_lance(produto, score)
+        for score, produto in candidatos[:8]
+    ]
+
+    # Preenchimento automático somente quando estiver muito seguro.
+    # Exemplo seguro: descrição completa com dose/apresentação.
+    # Exemplo NÃO seguro: "AGUA DESTILADA", "SORO", "DIPIRONA".
+    if melhor_score >= 88 and diferenca >= 8:
+        return melhor, melhor_score, []
+
+    return None, melhor_score, sugestoes
+
+
+
+def sugerir_skus_lances(termo, limite=12):
+    """
+    Sugere SKUs para preenchimento manual no módulo de Lances.
+    Usado quando o vendedor clica/digita no campo SKU Master.
+    """
+    termo = str(termo or "").strip()
+    if not termo:
+        return []
+
+    indice = carregar_indice_produtos()
+    candidatos = []
+
+    for p in indice:
+        score = score_simples(termo, p.get("texto_busca", ""))
+        if score <= 0:
+            continue
+
+        # Para autocomplete, aceitamos score menor, mas ordenamos pelos melhores.
+        if score >= 35:
+            candidatos.append((score, p))
+
+    candidatos.sort(key=lambda x: x[0], reverse=True)
+
+    vistos = set()
+    sugestoes = []
+
+    for score, produto in candidatos:
+        sugestao = montar_sugestao_sku_lance(produto, score)
+        sku = sugestao.get("sku_master", "").strip().upper()
+
+        if not sku or sku in vistos:
+            continue
+
+        vistos.add(sku)
+        sugestoes.append(sugestao)
+
+        if len(sugestoes) >= int(limite or 12):
+            break
+
+    return sugestoes
 
 def status_item(sku_encontrado, menor_custo, preco_medbox, preco_osinfo, ultima_compra, menor_lance):
     if not sku_encontrado:
@@ -375,7 +470,7 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=72):
 
     for idx, item in enumerate(itens, start=1):
         desc = item["descricao_cotacao"]
-        candidato, score = encontrar_sku_equivalente(desc, indice, score_minimo=score_minimo)
+        candidato, score, sugestoes_sku = encontrar_sku_equivalente(desc, indice, score_minimo=score_minimo)
 
         sku_encontrado = candidato is not None
 
@@ -428,6 +523,7 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=72):
             "sku_master": sku_master,
             "sku_encontrado": sku_encontrado,
             "score": score,
+            "sugestoes_sku": sugestoes_sku,
             "categoria": categoria,
             "descricao_fornecedor": desc_fornecedor,
             "preco_osinfo": preco_osinfo,
@@ -510,6 +606,91 @@ def analisar_arquivo_cotacao(caminho, markup_percentual=80):
     analise["itens_extraidos"] = len(itens)
     return analise
 
+
+
+def extrair_itens_manuais_lance(texto_itens):
+    """
+    Recebe texto colado/digitado pelo vendedor e transforma cada linha em item de cotação.
+
+    Exemplos aceitos:
+    AGUA DESTILADA ESTERIL 10ML - 3000
+    CEFAZOLINA SODICA 1G;700
+    CEFTRIAXONA 1G IV\t300
+    CLORETO DE SODIO 0,9% 500ML
+    """
+    itens = []
+
+    texto_itens = str(texto_itens or "").strip()
+    if not texto_itens:
+        return itens
+
+    linhas = [l.strip() for l in texto_itens.splitlines() if l.strip()]
+
+    for linha in linhas:
+        original = linha.strip()
+
+        # Remove numeração/bullets no começo, sem remover concentração do produto.
+        original = re.sub(r"^\s*[-•*]\s*", "", original)
+        original = re.sub(r"^\s*\d+\s*[\).\-\|]\s*", "", original)
+
+        descricao = original
+        quantidade = 1
+
+        # Prioridade 1: separadores claros no final: ; qtd | qtd TAB qtd
+        partes = re.split(r"\s*(?:;|\||\t)\s*", original)
+        if len(partes) >= 2:
+            possivel_qtd = partes[-1].strip()
+            qtd_num = numero_br(possivel_qtd, None)
+            if qtd_num is not None and qtd_num > 0:
+                quantidade = qtd_num
+                descricao = " ".join(partes[:-1]).strip()
+
+        # Prioridade 2: "descrição - 3000" ou "descrição = 3000"
+        if descricao == original:
+            m = re.search(r"^(?P<desc>.+?)\s+(?:-|=|:)\s*(?P<qtd>\d+(?:[.,]\d+)?)\s*$", original)
+            if m:
+                qtd_num = numero_br(m.group("qtd"), None)
+                if qtd_num is not None and qtd_num > 0:
+                    descricao = m.group("desc").strip()
+                    quantidade = qtd_num
+
+        # Prioridade 3: "descrição x 3000" no final
+        if descricao == original:
+            m = re.search(r"^(?P<desc>.+?)\s+[xX]\s*(?P<qtd>\d+(?:[.,]\d+)?)\s*$", original)
+            if m:
+                qtd_num = numero_br(m.group("qtd"), None)
+                if qtd_num is not None and qtd_num > 0:
+                    descricao = m.group("desc").strip()
+                    quantidade = qtd_num
+
+        descricao = descricao.strip(" -;|:")
+        if not descricao:
+            continue
+
+        itens.append({
+            "codigo_cliente": "",
+            "descricao_cotacao": descricao,
+            "unidade": "",
+            "quantidade": quantidade,
+            "preco_osinfo": 0,
+            "ultima_compra": 0,
+            "menor_lance": 0,
+            "empresa_melhor_lance": "",
+        })
+
+    return itens
+
+
+def analisar_itens_manuais_lance(texto_itens, markup_percentual=80):
+    """
+    Analisa itens digitados/colados manualmente usando a mesma regra da importação:
+    busca SKU Master, menor custo, fornecedor, fabricante, categoria e calcula Preço MedBox.
+    """
+    itens = extrair_itens_manuais_lance(texto_itens)
+    analise = analisar_itens_lances(itens, markup_percentual=markup_percentual)
+    analise["arquivo"] = "ITENS MANUAIS"
+    analise["itens_extraidos"] = len(itens)
+    return analise
 
 def salvar_sku_rapido_lances(descricao_cotacao, sku_master, fornecedor="", fabricante="", categoria=""):
     """

@@ -1,7 +1,7 @@
 import json
 import logging
 import traceback
-from flask import Flask, Response, render_template, request, redirect, url_for, flash
+from flask import Flask, Response, render_template, request, redirect, url_for, flash, jsonify
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -34,7 +34,7 @@ from core.auditoria_sku_master import (
     salvar_edicao_manual_produto,
     excluir_produto_logico,
 )
-from core.cotacao_lances_v2 import analisar_arquivo_cotacao, configurar_logger_cotacao, salvar_sku_rapido_lances
+from core.cotacao_lances_v2 import analisar_arquivo_cotacao, analisar_itens_manuais_lance, configurar_logger_cotacao, salvar_sku_rapido_lances, sugerir_skus_lances
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
@@ -353,13 +353,37 @@ def cotacoes():
     )
 
 
+
+
+def analise_lances_vazia(markup_percentual=80):
+    return {
+        "arquivo": "",
+        "itens_extraidos": 0,
+        "markup_percentual": float(markup_percentual or 80),
+        "itens": [],
+        "resumo": {
+            "total_itens": 0,
+            "itens_com_sku": 0,
+            "itens_revisar_sku": 0,
+            "itens_com_preco_medbox": 0,
+            "itens_sem_preco": 0,
+            "itens_competitivos": 0,
+            "itens_negociar": 0,
+            "total_medbox": 0,
+            "total_medbox_formatado": "R$ 0,00",
+            "total_menor_lance": 0,
+            "total_menor_lance_formatado": "R$ 0,00",
+        }
+    }
+
+
 @app.route("/cotacoes/lances")
 def cotacoes_lances():
     return render_template(
         "cotacao_lances.html",
         data_atual=DATA_ATUAL,
         resumo=resumo_dashboard(),
-        analise=None,
+        analise=analise_lances_vazia(80),
         erro=None,
         arquivo_nome="",
         markup_percentual=80,
@@ -435,6 +459,56 @@ def importar_cotacao_lances():
 
 
 
+
+
+
+@app.route("/cotacoes/lances/sugerir-skus")
+def sugerir_skus_lances_rota():
+    termo = request.args.get("q", "")
+    try:
+        sugestoes = sugerir_skus_lances(termo, limite=12)
+        return jsonify({
+            "ok": True,
+            "sugestoes": sugestoes
+        })
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "erro": str(exc),
+            "sugestoes": []
+        }), 500
+
+@app.route("/cotacoes/lances/adicionar-itens", methods=["POST"])
+def adicionar_itens_manuais_lances():
+    """
+    Adiciona vários itens manuais à Grade de Lances sem alterar o layout da tabela.
+    Retorna JSON para o frontend anexar as linhas na grade atual.
+    """
+    texto_itens = request.form.get("texto_itens", "")
+    markup_percentual = request.form.get("markup_percentual", 80)
+
+    try:
+        analise = analisar_itens_manuais_lance(
+            texto_itens,
+            markup_percentual=markup_percentual
+        )
+
+        if not analise.get("itens"):
+            return jsonify({
+                "ok": False,
+                "erro": "Nenhum item válido foi informado."
+            }), 400
+
+        return jsonify({
+            "ok": True,
+            "analise": analise
+        })
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "erro": str(exc)
+        }), 500
 
 @app.route("/cotacoes/lances/salvar-sku", methods=["POST"])
 def cotacoes_lances_salvar_sku():
