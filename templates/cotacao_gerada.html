@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+
+{% block title %}Cotações Geradas{% endblock %}
+
+{% block content %}
+<style>
+    .cotacao-card {
+        background:#fff;
+        border:1px solid #dbe3ef;
+        border-radius:12px;
+        padding:18px;
+        margin-bottom:14px;
+        box-shadow:0 2px 8px rgba(15,23,42,.04);
+    }
+
+    .cotacao-search {
+        display:flex;
+        gap:10px;
+        align-items:end;
+        margin-top:10px;
+    }
+
+    .cotacao-search input {
+        border:1px solid #dbe3ef;
+        border-radius:8px;
+        padding:10px;
+        min-width:260px;
+        font-weight:700;
+        text-transform:uppercase;
+    }
+
+    .cotacao-btn {
+        background:#e60033;
+        color:#fff;
+        border:none;
+        border-radius:8px;
+        padding:10px 16px;
+        font-weight:800;
+        cursor:pointer;
+        text-decoration:none;
+        display:inline-block;
+    }
+
+    .cotacao-btn-sec {
+        background:#00486c;
+    }
+
+    .cotacao-list-table,
+    .cotacao-print-table {
+        width:100%;
+        border-collapse:collapse;
+        margin-top:14px;
+        font-size:12px;
+    }
+
+    .cotacao-list-table th,
+    .cotacao-list-table td,
+    .cotacao-print-table th,
+    .cotacao-print-table td {
+        border-bottom:1px solid #e5edf6;
+        padding:9px;
+        text-align:left;
+    }
+
+    .cotacao-print {
+        background:#fff;
+        border:1px solid #dbe3ef;
+        border-radius:12px;
+        padding:26px;
+    }
+
+    .cotacao-header {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        border-bottom:3px solid #00486c;
+        padding-bottom:14px;
+        margin-bottom:18px;
+    }
+
+    .cotacao-logo {
+        max-height:86px;
+        max-width:280px;
+        object-fit:contain;
+    }
+
+    .cotacao-empresa {
+        text-align:right;
+        font-size:12px;
+        line-height:1.5;
+        color:#0b2545;
+    }
+
+    .cotacao-titulo {
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        margin:18px 0;
+    }
+
+    .cotacao-titulo h2 {
+        margin:0;
+        color:#00486c;
+        font-size:24px;
+    }
+
+    .cotacao-info-box {
+        border:1px solid #dbe3ef;
+        border-radius:8px;
+        padding:10px 14px;
+        min-width:260px;
+        font-size:12px;
+        background:#f8fafc;
+    }
+
+    .cotacao-total {
+        text-align:right;
+        margin-top:18px;
+        font-size:16px;
+        font-weight:900;
+        color:#00486c;
+    }
+
+    .cotacao-validade {
+        margin-top:18px;
+        border-left:4px solid #e60033;
+        padding:10px 14px;
+        background:#fff5f7;
+        font-weight:800;
+    }
+
+    .valor-zero {
+        color:#94a3b8;
+    }
+
+    
+    
+    
+    
+    @page {
+        size: A4 landscape;
+        margin: 5mm 6mm 5mm 4mm;
+    }
+
+    @media print {
+        html,
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            width: auto !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .sidebar,
+        .topbar,
+        .navbar,
+        .header,
+        .no-print,
+        .page-header,
+        aside,
+        nav {
+            display: none !important;
+        }
+
+        body,
+        main,
+        section,
+        article,
+        .app,
+        .layout,
+        .wrapper,
+        .main-wrapper,
+        .content-wrapper,
+        .content,
+        .main-content,
+        .page-content,
+        .container,
+        .container-fluid,
+        .cotacao-card,
+        .cotacao-print {
+            margin: 0 !important;
+            margin-left: 0 !important;
+            padding: 0 !important;
+            padding-left: 0 !important;
+            left: 0 !important;
+            right: auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 0 !important;
+            height: auto !important;
+            transform: none !important;
+            box-sizing: border-box !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .cotacao-print {
+            display: block !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+        }
+
+        .cotacao-header {
+            width: 100% !important;
+            margin: 0 0 8px 0 !important;
+            padding: 0 0 7px 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            border-bottom: 3px solid #00486c !important;
+            page-break-inside: avoid !important;
+        }
+
+        .cotacao-logo {
+            max-height: 58px !important;
+            max-width: 250px !important;
+        }
+
+        .cotacao-empresa {
+            font-size: 9.5px !important;
+            line-height: 1.22 !important;
+            text-align: right !important;
+            max-width: 520px !important;
+        }
+
+        .cotacao-titulo {
+            margin: 8px 0 10px 0 !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: flex-start !important;
+        }
+
+        .cotacao-titulo h2 {
+            font-size: 22px !important;
+            margin: 0 0 2px 0 !important;
+        }
+
+        .cotacao-titulo p {
+            margin: 2px 0 !important;
+        }
+
+        .cotacao-info-box {
+            font-size: 10px !important;
+            min-width: 270px !important;
+            padding: 7px 10px !important;
+            border: 1px solid #dbe3ef !important;
+        }
+
+        .cotacao-print-table {
+            width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            font-size: 10px !important;
+        }
+
+        .cotacao-print-table th,
+        .cotacao-print-table td {
+            padding: 4px 6px !important;
+            border-bottom: 1px solid #dbe3ef !important;
+            vertical-align: top !important;
+            line-height: 1.18 !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+
+        .cotacao-print-table tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .cotacao-print-table th:nth-child(1),
+        .cotacao-print-table td:nth-child(1) {
+            width: 40px !important;
+            text-align: center !important;
+        }
+
+        .cotacao-print-table th:nth-child(2),
+        .cotacao-print-table td:nth-child(2) {
+            width: 34% !important;
+        }
+
+        .cotacao-print-table th:nth-child(3),
+        .cotacao-print-table td:nth-child(3) {
+            width: 20% !important;
+        }
+
+        .cotacao-print-table th:nth-child(4),
+        .cotacao-print-table td:nth-child(4) {
+            width: 13% !important;
+        }
+
+        .cotacao-print-table th:nth-child(5),
+        .cotacao-print-table td:nth-child(5) {
+            width: 80px !important;
+            text-align: center !important;
+        }
+
+        .cotacao-print-table th:nth-child(6),
+        .cotacao-print-table td:nth-child(6),
+        .cotacao-print-table th:nth-child(7),
+        .cotacao-print-table td:nth-child(7) {
+            width: 105px !important;
+            text-align: right !important;
+        }
+
+        .cotacao-total {
+            text-align: right !important;
+            margin: 9px 0 0 0 !important;
+            font-size: 14px !important;
+            font-weight: 900 !important;
+            color: #00486c !important;
+        }
+
+        .cotacao-validade {
+            margin: 9px 0 0 0 !important;
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+            border-left: 5px solid #e60033 !important;
+            background: #fff5f7 !important;
+        }
+    }
+
+</style>
+
+<div class="page-header no-print">
+    <div>
+        <h1>COTAÇÕES GERADAS</h1>
+        <p>Pesquisa e visualização das cotações comerciais numeradas da MedBox.</p>
+    </div>
+</div>
+
+{% if modo == "lista" %}
+<div class="cotacao-card">
+    <h3>Pesquisar Cotação por Número</h3>
+
+    <form method="GET" action="/cotacoes/geradas" class="cotacao-search">
+        <div>
+            <label>Número da Cotação</label><br>
+            <input name="q" value="{{ busca or '' }}" placeholder="MEDBOX-2026-000001">
+        </div>
+        <button class="cotacao-btn" type="submit">Pesquisar</button>
+    </form>
+</div>
+
+<div class="cotacao-card">
+    <h3>Últimas Cotações</h3>
+
+    <table class="cotacao-list-table">
+        <thead>
+            <tr>
+                <th>Número</th>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>Total</th>
+                <th>Abrir</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in cotacoes %}
+            <tr>
+                <td><strong>{{ c.numero_cotacao }}</strong></td>
+                <td>{{ c.data_emissao }}</td>
+                <td>{{ c.cliente or '-' }}</td>
+                <td>{{ "R$ {:,.2f}".format(c.total_geral or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                <td><a class="cotacao-btn cotacao-btn-sec" href="/cotacoes/geradas/{{ c.numero_cotacao }}">Abrir</a></td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5">Nenhuma cotação encontrada.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+
+{% if modo == "detalhe" %}
+<div class="cotacao-card no-print">
+    <a class="cotacao-btn cotacao-btn-sec" href="/cotacoes/geradas">Voltar</a>
+    <button class="cotacao-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
+</div>
+
+<div class="cotacao-print">
+    <div class="cotacao-header">
+        <div>
+            <img src="{{ url_for('static', filename='img/logo_medbox.png') }}" class="cotacao-logo" onerror="this.style.display='none'">
+        </div>
+
+        <div class="cotacao-empresa">
+            <strong>{{ cotacao.empresa_nome }}</strong><br>
+            CNPJ: {{ cotacao.empresa_cnpj }}<br>
+            {{ cotacao.empresa_endereco }}<br>
+            E-mail: {{ cotacao.empresa_email }}<br>
+            Telefone: {{ cotacao.empresa_telefone }}
+        </div>
+    </div>
+
+    <div class="cotacao-titulo">
+        <div>
+            <h2>COTAÇÃO COMERCIAL</h2>
+            <p><strong>Cliente:</strong> {{ cotacao.cliente or '-' }}</p>
+        </div>
+
+        <div class="cotacao-info-box">
+            <strong>Nº da Cotação:</strong> {{ cotacao.numero_cotacao }}<br>
+            <strong>Data:</strong> {{ cotacao.data_emissao }}<br>
+            <strong>Validade:</strong> {{ cotacao.validade_dias }} dias
+        </div>
+    </div>
+
+    <table class="cotacao-print-table">
+        <thead>
+            <tr>
+                <th style="width:55px;">Item</th>
+                <th>Descrição do Produto</th>
+                <th>SKU_MASTER MedBox</th>
+                <th>Marca</th>
+                <th style="width:90px;">Quantidade</th>
+                <th style="width:120px;">Valor Unitário</th>
+                <th style="width:120px;">Valor Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in itens %}
+            <tr>
+                <td>{{ item.item_numero }}</td>
+                <td>{{ item.descricao_produto }}</td>
+                <td>{{ item.sku_master }}</td>
+                <td>{{ item.marca }}</td>
+                <td>{{ item.quantidade }}</td>
+                <td class="{% if not item.venceu_medbox %}valor-zero{% endif %}">{{ item.valor_unitario_formatado }}</td>
+                <td class="{% if not item.venceu_medbox %}valor-zero{% endif %}">{{ item.valor_total_formatado }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="cotacao-total">
+        Total Geral dos Itens Vencidos pela MedBox: {{ total_formatado }}
+    </div>
+
+    <div class="cotacao-validade">
+        Validade da proposta: 7 (sete) dias.
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

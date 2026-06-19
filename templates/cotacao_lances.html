@@ -294,6 +294,16 @@
 </div>
 
 <div class="card">
+    
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:end;" class="no-print">
+        <div>
+            <label style="font-size:11px;font-weight:800;text-transform:uppercase;">Cliente / Órgão</label><br>
+            <input id="clienteCotacaoGerada" class="sku-quick-input" placeholder="Informe o cliente/órgão" style="min-width:280px;">
+        </div>
+        <button type="button" class="btn-primary" id="btnGerarCotacaoMedbox">Gerar Cotação</button>
+        <a href="/cotacoes/geradas" class="btn-primary" style="text-decoration:none;display:inline-block;">Pesquisar Cotações</a>
+    </div>
+
     <h3>Grade de Lances</h3>
 
     <div class="lances-table-wrap">
@@ -1149,6 +1159,85 @@
 
         window.addEventListener("scroll", removerAutocompleteSku, true);
         window.addEventListener("resize", removerAutocompleteSku);
+
+
+        function coletarItensParaCotacaoGerada() {
+            const linhas = Array.from(document.querySelectorAll("#tabelaLances tbody tr"));
+
+            return linhas.map(row => {
+                const descricao = row.querySelector("td:nth-child(2) strong")?.innerText || "";
+                const sku = row.querySelector(".sku-master-input")?.value || "";
+                const marca = row.querySelector(".fabricante-input")?.value || "";
+                const quantidade = row.querySelector(".qtd-input")?.value || "0";
+                const precoMedbox = row.querySelector(".medbox-input")?.value || "R$ 0,00";
+                const vencedor = row.querySelector("td:nth-child(12) small")?.innerText || "";
+                const status = row.querySelector(".status-badge")?.innerText || "";
+
+                return {
+                    descricao_produto: descricao,
+                    sku_master: sku,
+                    marca: marca,
+                    quantidade: quantidade,
+                    preco_medbox: precoMedbox,
+                    vencedor: vencedor,
+                    status: status
+                };
+            }).filter(item => item.descricao_produto.trim());
+        }
+
+        async function gerarCotacaoMedbox() {
+            const itens = coletarItensParaCotacaoGerada();
+
+            if (!itens.length) {
+                alert("Não há itens na grade para gerar cotação.");
+                return;
+            }
+
+            const cliente = document.getElementById("clienteCotacaoGerada")?.value || "";
+
+            const confirmar = confirm("Gerar cotação comercial numerada com os itens atuais?");
+            if (!confirmar) return;
+
+            const btn = document.getElementById("btnGerarCotacaoMedbox");
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Gerando...";
+            }
+
+            try {
+                const resp = await fetch("/cotacoes/lances/gerar-cotacao", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        cliente: cliente,
+                        itens: itens
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (!data.ok) {
+                    alert(data.erro || "Erro ao gerar cotação.");
+                    return;
+                }
+
+                alert(`Cotação gerada: ${data.numero_cotacao}`);
+                window.location.href = data.url;
+
+            } catch (e) {
+                alert("Falha ao gerar cotação.");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Gerar Cotação";
+                }
+            }
+        }
+
+        const btnGerarCotacaoMedbox = document.getElementById("btnGerarCotacaoMedbox");
+        if (btnGerarCotacaoMedbox) {
+            btnGerarCotacaoMedbox.addEventListener("click", gerarCotacaoMedbox);
+        }
 
         document.addEventListener("DOMContentLoaded", preparar);
     } else {

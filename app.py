@@ -1,3 +1,4 @@
+import sqlite3
 import json
 import logging
 import traceback
@@ -509,6 +510,346 @@ def adicionar_itens_manuais_lances():
             "ok": False,
             "erro": str(exc)
         }), 500
+
+
+# =========================================================
+# COTAÇÕES GERADAS - LANCES
+# =========================================================
+
+EMPRESA_MEDBOX_COTACAO = {
+    "razao_social": "MEDBOX DISTRIBUIDORA DE MEDICAMENTOS E MATERIAL HOSPITALAR LTDA",
+    "cnpj": "37.141.903/0001-00",
+    "endereco": "AV. PREFEITO ISOLDAKSON CRUZ DE BRITO, 158",
+    "bairro": "VILA MARGARIDA",
+    "cidade_uf": "ITAGUAÍ/RJ",
+    "cep": "23.825-840",
+    "email": "contato.medbox@gmail.com",
+    "telefone": "(21) 2687-4954",
+}
+
+
+def moeda_float_lances(valor):
+    valor = str(valor or "").strip()
+    valor = valor.replace("R$", "").replace(" ", "")
+
+    if not valor:
+        return 0.0
+
+    if "," in valor:
+        valor = valor.replace(".", "").replace(",", ".")
+
+    try:
+        return float(valor)
+    except Exception:
+        return 0.0
+
+
+def moeda_br_lances(valor):
+    try:
+        valor = float(valor or 0)
+    except Exception:
+        valor = 0.0
+
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def garantir_tabelas_cotacoes_geradas():
+    conn = conectar()
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cotacoes_geradas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero_cotacao TEXT UNIQUE NOT NULL,
+            data_emissao TEXT NOT NULL,
+            cliente TEXT,
+            empresa_nome TEXT,
+            empresa_cnpj TEXT,
+            empresa_endereco TEXT,
+            empresa_email TEXT,
+            empresa_telefone TEXT,
+            validade_dias INTEGER DEFAULT 7,
+            total_geral REAL DEFAULT 0,
+            criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cotacoes_geradas_itens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cotacao_id INTEGER NOT NULL,
+            item_numero INTEGER,
+            descricao_produto TEXT,
+            sku_master TEXT,
+            marca TEXT,
+            quantidade REAL DEFAULT 0,
+            valor_unitario REAL DEFAULT 0,
+            valor_total REAL DEFAULT 0,
+            venceu_medbox INTEGER DEFAULT 0,
+            status_lance TEXT,
+            FOREIGN KEY(cotacao_id) REFERENCES cotacoes_geradas(id)
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def proximo_numero_cotacao():
+    garantir_tabelas_cotacoes_geradas()
+
+    ano = datetime.now().year
+    prefixo = f"MEDBOX-{ano}-"
+
+    conn = conectar()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT numero_cotacao
+        FROM cotacoes_geradas
+        WHERE numero_cotacao LIKE ?
+        ORDER BY id DESC
+        LIMIT 1
+    """, (prefixo + "%",))
+
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        sequencial = 1
+    else:
+        ultimo = row[0] if not isinstance(row, sqlite3.Row) else row["numero_cotacao"]
+        try:
+            sequencial = int(str(ultimo).split("-")[-1]) + 1
+        except Exception:
+            sequencial = 1
+
+    return f"{prefixo}{sequencial:06d}"
+
+
+def carregar_cotacao_gerada(numero_cotacao):
+    garantir_tabelas_cotacoes_geradas()
+
+    conn = conectar()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT *
+        FROM cotacoes_geradas
+        WHERE numero_cotacao = ?
+        LIMIT 1
+    """, (numero_cotacao,))
+
+    cotacao = cur.fetchone()
+
+    if not cotacao:
+        conn.close()
+        return None, []
+
+    cur.execute("""
+        SELECT *
+        FROM cotacoes_geradas_itens
+        WHERE cotacao_id = ?
+        ORDER BY item_numero ASC, id ASC
+    """, (cotacao["id"],))
+
+    itens = cur.fetchall()
+    conn.close()
+
+    return dict(cotacao), [dict(i) for i in itens]
+
+
+@app.route("/cotacoes/lances/gerar-cotacao", methods=["POST"])
+def gerar_cotacao_lances():
+    garantir_tabelas_cotacoes_geradas()
+
+    try:
+        payload = request.get_json(force=True) or {}
+        itens_payload = payload.get("itens") or []
+        cliente = str(payload.get("cliente") or "").strip().upper()
+
+        if not itens_payload:
+            return jsonify({
+                "ok": False,
+                "erro": "Nenhum item foi enviado para gerar a cotação."
+            }), 400
+
+        numero = proximo_numero_cotacao()
+        data_emissao = datetime.now().strftime("%d/%m/%Y")
+
+        itens_final = []
+        total_geral = 0.0
+
+        for idx, item in enumerate(itens_payload, start=1):
+            quantidade = moeda_float_lances(item.get("quantidade"))
+            preco_medbox = moeda_float_lances(item.get("preco_medbox"))
+            vencedor = str(item.get("vencedor") or "").upper()
+            status = str(item.get("status") or "").upper()
+
+            venceu_medbox = 1 if ("MEDBOX" in vencedor or status == "COMPETITIVO") and preco_medbox > 0 else 0
+
+            valor_unitario = preco_medbox if venceu_medbox else 0.0
+            valor_total = quantidade * valor_unitario
+
+            total_geral += valor_total
+
+            itens_final.append({
+                "item_numero": idx,
+                "descricao_produto": str(item.get("descricao_produto") or "").strip().upper(),
+                "sku_master": str(item.get("sku_master") or "").strip().upper(),
+                "marca": str(item.get("marca") or "").strip().upper(),
+                "quantidade": quantidade,
+                "valor_unitario": valor_unitario,
+                "valor_total": valor_total,
+                "venceu_medbox": venceu_medbox,
+                "status_lance": status,
+            })
+
+        conn = conectar()
+        cur = conn.cursor()
+
+        cur.execute("""
+            INSERT INTO cotacoes_geradas (
+                numero_cotacao,
+                data_emissao,
+                cliente,
+                empresa_nome,
+                empresa_cnpj,
+                empresa_endereco,
+                empresa_email,
+                empresa_telefone,
+                validade_dias,
+                total_geral
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            numero,
+            data_emissao,
+            cliente,
+            EMPRESA_MEDBOX_COTACAO["razao_social"],
+            EMPRESA_MEDBOX_COTACAO["cnpj"],
+            f'{EMPRESA_MEDBOX_COTACAO["endereco"]} - {EMPRESA_MEDBOX_COTACAO["bairro"]} - {EMPRESA_MEDBOX_COTACAO["cidade_uf"]} - CEP {EMPRESA_MEDBOX_COTACAO["cep"]}',
+            EMPRESA_MEDBOX_COTACAO["email"],
+            EMPRESA_MEDBOX_COTACAO["telefone"],
+            7,
+            total_geral,
+        ))
+
+        cotacao_id = cur.lastrowid
+
+        for item in itens_final:
+            cur.execute("""
+                INSERT INTO cotacoes_geradas_itens (
+                    cotacao_id,
+                    item_numero,
+                    descricao_produto,
+                    sku_master,
+                    marca,
+                    quantidade,
+                    valor_unitario,
+                    valor_total,
+                    venceu_medbox,
+                    status_lance
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                cotacao_id,
+                item["item_numero"],
+                item["descricao_produto"],
+                item["sku_master"],
+                item["marca"],
+                item["quantidade"],
+                item["valor_unitario"],
+                item["valor_total"],
+                item["venceu_medbox"],
+                item["status_lance"],
+            ))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "ok": True,
+            "numero_cotacao": numero,
+            "url": url_for("abrir_cotacao_gerada", numero_cotacao=numero)
+        })
+
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "erro": str(exc)
+        }), 500
+
+
+@app.route("/cotacoes/geradas")
+def cotacoes_geradas():
+    garantir_tabelas_cotacoes_geradas()
+
+    busca = str(request.args.get("q") or "").strip().upper()
+
+    conn = conectar()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    if busca:
+        cur.execute("""
+            SELECT *
+            FROM cotacoes_geradas
+            WHERE numero_cotacao LIKE ?
+            ORDER BY id DESC
+            LIMIT 50
+        """, (f"%{busca}%",))
+    else:
+        cur.execute("""
+            SELECT *
+            FROM cotacoes_geradas
+            ORDER BY id DESC
+            LIMIT 50
+        """)
+
+    cotacoes = [dict(r) for r in cur.fetchall()]
+    conn.close()
+
+    if busca and len(cotacoes) == 1 and cotacoes[0]["numero_cotacao"] == busca:
+        return redirect(url_for("abrir_cotacao_gerada", numero_cotacao=busca))
+
+    return render_template(
+        "cotacao_gerada.html",
+        modo="lista",
+        cotacoes=cotacoes,
+        busca=busca,
+        empresa=EMPRESA_MEDBOX_COTACAO,
+        data_atual=DATA_ATUAL,
+        resumo=resumo_dashboard(),
+    )
+
+
+@app.route("/cotacoes/geradas/<numero_cotacao>")
+def abrir_cotacao_gerada(numero_cotacao):
+    cotacao, itens = carregar_cotacao_gerada(numero_cotacao)
+
+    if not cotacao:
+        flash("Cotação não encontrada.", "erro")
+        return redirect(url_for("cotacoes_geradas"))
+
+    total_formatado = moeda_br_lances(cotacao.get("total_geral", 0))
+
+    for item in itens:
+        item["valor_unitario_formatado"] = moeda_br_lances(item.get("valor_unitario", 0))
+        item["valor_total_formatado"] = moeda_br_lances(item.get("valor_total", 0))
+
+    return render_template(
+        "cotacao_gerada.html",
+        modo="detalhe",
+        cotacao=cotacao,
+        itens=itens,
+        empresa=EMPRESA_MEDBOX_COTACAO,
+        total_formatado=total_formatado,
+        data_atual=DATA_ATUAL,
+        resumo=resumo_dashboard(),
+    )
+
 
 @app.route("/cotacoes/lances/salvar-sku", methods=["POST"])
 def cotacoes_lances_salvar_sku():
