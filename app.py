@@ -14,6 +14,7 @@ from core.banco import (
     listar_equivalencias, adicionar_equivalencia, excluir_equivalencia,
     listar_produtos_simples, listar_cotacoes
 )
+from core.lances_cotacao import importar_lances_cotacao
 from core.busca_inteligente import (
     buscar_produto_inteligente,
     buscar_produtos_por_fornecedor,
@@ -33,7 +34,7 @@ from core.auditoria_sku_master import (
     salvar_edicao_manual_produto,
     excluir_produto_logico,
 )
-from core.cotacao_lances import analisar_arquivo_cotacao, configurar_logger_cotacao
+from core.cotacao_lances_v2 import analisar_arquivo_cotacao, configurar_logger_cotacao, salvar_sku_rapido_lances
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
@@ -433,6 +434,22 @@ def importar_cotacao_lances():
         ), 400
 
 
+
+
+@app.route("/cotacoes/lances/salvar-sku", methods=["POST"])
+def cotacoes_lances_salvar_sku():
+    data = request.get_json(force=True) or {}
+
+    resultado = salvar_sku_rapido_lances(
+        descricao_cotacao=data.get("descricao_cotacao", ""),
+        sku_master=data.get("sku_master", ""),
+        fornecedor=data.get("fornecedor", ""),
+        fabricante=data.get("fabricante", ""),
+        categoria=data.get("categoria", ""),
+    )
+
+    return resultado
+
 @app.route("/cotacoes/importar", methods=["POST"])
 def importar_cotacao_rota():
     arquivo = request.files.get("arquivo")
@@ -781,3 +798,38 @@ def sku_master_auditoria_salvar_sku():
 if __name__ == "__main__":
     print("MEDBOX V3 rodando em http://127.0.0.1:5000")
     app.run(debug=True)
+
+# ============================================================
+# LANCES DE COTAÇÃO
+# ============================================================
+
+@app.route("/lances-cotacao")
+def lances_cotacao():
+    return render_template("lances_cotacao.html", resultado=None, erro=None)
+
+
+@app.route("/lances-cotacao/importar", methods=["POST"])
+def lances_cotacao_importar():
+    from pathlib import Path
+    from flask import request
+    import os
+    from werkzeug.utils import secure_filename
+
+    arquivo = request.files.get("arquivo")
+    markup = request.form.get("markup", "1.50")
+
+    if not arquivo or not arquivo.filename:
+        return render_template("lances_cotacao.html", resultado=None, erro="Nenhum arquivo enviado.")
+
+    uploads_dir = Path("uploads/lances_cotacao")
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    nome = secure_filename(arquivo.filename)
+    caminho = uploads_dir / nome
+    arquivo.save(caminho)
+
+    try:
+        resultado = importar_lances_cotacao(caminho, markup_padrao=markup)
+        return render_template("lances_cotacao.html", resultado=resultado, erro=None)
+    except Exception as exc:
+        return render_template("lances_cotacao.html", resultado=None, erro=f"Erro ao importar cotação: {exc}")
