@@ -118,11 +118,11 @@
                             </div>
                         </div>
 
-                        <!-- FAIXA MENOR PREÇO -->
+                        <!-- FAIXA PREÇO UNIDADE -->
                         <div class="best-price-strip">
                             <div class="best-price-title">
                                 <span>🏆</span>
-                                <strong>MENOR PREÇO ENCONTRADO</strong>
+                                <strong>PREÇO UNIDADE ENCONTRADO</strong>
                             </div>
                             <div class="best-price-value">
                                 {% if menor_preco %}
@@ -156,14 +156,17 @@
                                             <th>Pos.</th>
                                             <th>Fornecedor</th>
                                             <th>Descrição do Fornecedor</th>
+                                            <th>SKU_MASTER</th>
                                             <th>Marca</th>
                                             <th>Data</th>
-                                            <th>Preço Unit.</th>
+                                            <th>Qtd. Emb.</th>
+                                            <th>Preço Pacote</th>
+                                            <th>Preço Unidade</th>
                                             <th>Dif.</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {% set menor = precos[0].preco %}
+                                        {% set menor = precos[0].preco_unidade_calculado if precos[0].preco_unidade_calculado is defined else precos[0].preco %}
                                         {% for p in precos %}
                                         <tr {% if loop.first %}class="best-row"{% endif %}>
                                             <td class="position-cell">
@@ -180,6 +183,11 @@
                                                 <small>Código: {{ p.codigo_fornecedor if p.codigo_fornecedor else '—' }}</small>
                                             </td>
                                             <td>
+                                                <span style="font-size:0.80rem; font-weight:700; color:var(--text);">
+                                                    {{ p.sku_master_exibicao if p.sku_master_exibicao else (principal.sku_master_exibicao if principal.sku_master_exibicao else principal.produto_padrao) }}
+                                                </span>
+                                            </td>
+                                            <td>
                                                 <span style="font-size:0.83rem; font-weight:600; color:var(--text2);">
                                                     {{ p.marca if p.marca else '—' }}
                                                 </span>
@@ -187,16 +195,27 @@
                                             <td style="font-size:0.83rem;">
                                                 {{ p.data_cotacao if p.data_cotacao else '—' }}
                                             </td>
+                                            <td style="font-size:0.83rem; font-weight:700; text-align:center;">
+                                                {{ p.qtd_embalagem if p.qtd_embalagem else 1 }}
+                                            </td>
+                                            <td>
+                                                {% if p.venda_por_pacote %}
+                                                    <strong>{{ p.preco_pacote_formatado }}</strong>
+                                                {% else %}
+                                                    <span style="color:var(--muted);">—</span>
+                                                {% endif %}
+                                            </td>
                                             <td>
                                                 <strong class="{% if loop.first %}price-green{% endif %}">
-                                                    {{ p.preco_formatado if p.preco_formatado else ("R$ " ~ "%.2f"|format(p.preco)|replace(".", ",")) }}
+                                                    {{ p.preco_unidade_formatado if p.preco_unidade_formatado else (p.preco_formatado if p.preco_formatado else ("R$ " ~ "%.2f"|format(p.preco)|replace(".", ","))) }}
                                                 </strong>
                                             </td>
                                             <td>
                                                 {% if loop.first %}
                                                     <span style="color:#159447; font-size:0.78rem;">ref.</span>
                                                 {% else %}
-                                                    <small class="diff-price">+R$ {{ "%.2f"|format(p.preco - menor)|replace(".", ",") }}</small>
+                                                    {% set preco_comparacao = p.preco_unidade_calculado if p.preco_unidade_calculado is defined else p.preco %}
+                                                    <small class="diff-price">+R$ {{ "%.2f"|format(preco_comparacao - menor)|replace(".", ",") }}</small>
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -228,20 +247,30 @@
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>Produto (SKU Master)</th>
+                                        <th>Descrição do Fornecedor</th>
                                         <th>SKU_MASTER</th>
                                         <th>Categoria</th>
                                         <th>Marca</th>
-                                        <th>Menor Preço</th>
+                                        <th>Qtd. Emb.</th>
+                                        <th>Preço Pacote</th>
+                                        <th>Preço Unidade</th>
+                                        <th>Ação</th>
                                         <th>Fornecedor</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for item in resultados[1:] %}
-                                    <tr>
+                                    {% set desc_fornecedor = '' %}
+                                    {% if item.precos and item.precos|length > 0 %}
+                                        {% set primeiro_preco = item.precos[0] %}
+                                        {% set desc_fornecedor = primeiro_preco.descricao_original or primeiro_preco.descricao_fornecedor or primeiro_preco.descricao or '' %}
+                                    {% endif %}
+
+                                    <tr class="medbox-outros-row">
                                         <td class="position-cell">{{ loop.index + 1 }}</td>
-                                        <td>
-                                            <strong>{{ item.sku_master_exibicao if item.sku_master_exibicao else item.produto_padrao }}</strong>
+
+                                        <td class="outros-desc-fornecedor">
+                                            <strong>{{ desc_fornecedor if desc_fornecedor else '—' }}</strong>
                                             {% if item.sku %}
                                             <small style="display:block; color:var(--muted); font-size:0.78rem;">{{ item.sku }}</small>
                                             {% endif %}
@@ -249,30 +278,55 @@
                                             <small style="display:block; color:#b45309; font-weight:700;">SKU pendente</small>
                                             {% endif %}
                                         </td>
+
                                         <td style="font-size:0.80rem; color:var(--text2);"
-                                            title="{{ item.produto_padrao }}">
-                                            {{ item.produto_padrao if item.produto_padrao else '—' }}
+                                            title="{{ item.sku_master_exibicao if item.sku_master_exibicao else item.produto_padrao }}">
+                                            {{ item.sku_master_exibicao if item.sku_master_exibicao else (item.produto_padrao if item.produto_padrao else '—') }}
                                         </td>
-                                        <td style="font-size:0.82rem;">
-                                            {{ item.categoria if item.categoria and item.categoria != 'NONE' else '—' }}
+
+                                        <td>{{ item.categoria if item.categoria else '—' }}</td>
+                                        <td>{{ item.precos[0].marca if item.precos else '—' }}</td>
+
+                                        <td class="outros-qtd-emb" style="text-align:center;">
+                                            {% if item.menor_preco %}1{% else %}—{% endif %}
                                         </td>
-                                        <td style="font-size:0.82rem; font-weight:600;">
-                                            {{ item.precos[0].marca if item.precos else '—' }}
-                                        </td>
-                                        <td>
+
+                                        <td class="outros-preco-pacote" style="text-align:center;">—</td>
+
+                                        <td class="outros-preco-unidade">
                                             {% if item.menor_preco %}
                                                 <strong class="price-green">
                                                     {{ item.menor_preco_formatado if item.menor_preco_formatado else ("R$ " ~ "%.2f"|format(item.menor_preco)|replace(".", ",")) }}
                                                 </strong>
                                             {% else %}
-                                                <span style="color:var(--muted)">Sem preço</span>
+                                                <span style="color:var(--muted);">Sem preço</span>
                                             {% endif %}
                                         </td>
-                                        <td style="font-size:0.83rem;">
-                                            {% if item.tem_preco %}
-                                                {{ item.fornecedor_menor_formatado if item.fornecedor_menor_formatado else item.fornecedor_menor }}
+
+                                        <td class="outros-acao" style="text-align:center;">
+                                            {% if item.menor_preco %}
+                                                <button type="button"
+                                                        class="medbox-outros-pacote-btn"
+                                                        data-preco-original="{{ item.menor_preco }}"
+                                                        style="background:#00486C;color:#fff;border:0;border-radius:6px;padding:4px 6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                                    Pacote
+                                                </button>
                                             {% else %}
-                                                {{ item.origem_catalogo_formatada if item.origem_catalogo_formatada else 'Catalogo' }}
+                                                <button type="button"
+                                                        disabled
+                                                        style="background:#94a3b8;color:#fff;border:0;border-radius:6px;padding:4px 6px;font-size:10px;font-weight:700;opacity:.55;cursor:not-allowed;">
+                                                    Pacote
+                                                </button>
+                                            {% endif %}
+                                        </td>
+
+                                        <td>
+                                            {% if item.fornecedor_principal %}
+                                                {{ item.fornecedor_principal }}
+                                            {% elif item.precos and item.precos|length > 0 and item.precos[0].fornecedor %}
+                                                {{ item.precos[0].fornecedor }}
+                                            {% else %}
+                                                —
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -456,4 +510,480 @@
     {% endif %}
 
 </section>
+
+<!-- MEDBOX_PRECO_PACOTE_MANUAL_START -->
+<script>
+(function () {
+    function limpar(txt) {
+        return (txt || "")
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function moedaParaNumero(txt) {
+        txt = (txt || "").replace(/[^\d,.-]/g, "").trim();
+        if (!txt) return null;
+        if (txt.includes(",")) {
+            txt = txt.replace(/\./g, "").replace(",", ".");
+        }
+        const n = Number(txt);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function moeda(valor) {
+        return Number(valor).toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function detectarQtd(descricao) {
+        const texto = limpar(descricao);
+
+        const padroes = [
+            /\b(?:PC|PCT|PACOTE|CX|CAIXA|KIT|EMB|EMBALAGEM|CARTELA|DISPLAY)\s*C\s*\/\s*(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)?\b/,
+            /\b(?:PC|PCT|PACOTE|CX|CAIXA|KIT|EMB|EMBALAGEM|CARTELA|DISPLAY)\s+COM\s+(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)?\b/,
+            /\bC\s*\/\s*(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)\b/,
+            /\bCOM\s+(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)\b/
+        ];
+
+        for (const p of padroes) {
+            const achou = texto.match(p);
+            if (achou && Number(achou[1]) > 1) {
+                return Number(achou[1]);
+            }
+        }
+
+        return 1;
+    }
+
+    function acharTabelaComparacao() {
+        return Array.from(document.querySelectorAll("table")).find(tabela => {
+            const cabecalhos = Array.from(tabela.querySelectorAll("th")).map(th => limpar(th.innerText));
+            return cabecalhos.some(h => h.includes("DESCRICAO DO FORNECEDOR")) &&
+                   cabecalhos.some(h => h.includes("PRECO UNIDADE"));
+        });
+    }
+
+    function indice(tabela, nome) {
+        const ths = Array.from(tabela.querySelectorAll("thead th"));
+        return ths.findIndex(th => limpar(th.innerText).includes(nome));
+    }
+
+    function iniciarPrecoPacoteManual() {
+        const tabela = acharTabelaComparacao();
+        if (!tabela) {
+            console.warn("MEDBOX: tabela de comparação não encontrada.");
+            return;
+        }
+
+        const trHead = tabela.querySelector("thead tr");
+        if (!Array.from(trHead.children).some(th => limpar(th.innerText).includes("ACAO"))) {
+            const th = document.createElement("th");
+            th.innerText = "Ação";
+            trHead.appendChild(th);
+        }
+
+        const iDesc = indice(tabela, "DESCRICAO DO FORNECEDOR");
+        const iQtd = indice(tabela, "QTD");
+        const iPacote = indice(tabela, "PRECO PACOTE");
+        const iUnidade = indice(tabela, "PRECO UNIDADE");
+        const iDif = indice(tabela, "DIF");
+
+        if (iDesc < 0 || iQtd < 0 || iPacote < 0 || iUnidade < 0) {
+            console.warn("MEDBOX: colunas necessárias não encontradas.", {iDesc, iQtd, iPacote, iUnidade});
+            return;
+        }
+
+        const tbody = tabela.querySelector("tbody");
+
+        Array.from(tbody.querySelectorAll("tr")).forEach(row => {
+            if (row.querySelector(".medbox-preco-pacote-btn")) return;
+
+            const celulas = row.children;
+            const precoOriginal = moedaParaNumero(celulas[iUnidade].innerText || celulas[iPacote].innerText);
+
+            row.dataset.precoOriginal = String(precoOriginal || 0);
+            row.dataset.valorUnitario = String(precoOriginal || 999999999);
+            row.dataset.qtdOriginal = celulas[iQtd].innerText.trim() || "1";
+            row.dataset.pacoteOriginal = celulas[iPacote].innerText.trim() || "—";
+            row.dataset.unidadeOriginal = celulas[iUnidade].innerText.trim() || "";
+
+            const td = document.createElement("td");
+            const btn = document.createElement("button");
+
+            btn.type = "button";
+            btn.className = "medbox-preco-pacote-btn";
+            btn.innerText = "Preço é pacote";
+            btn.style.cssText = "background:#00486C;color:#fff;border:0;border-radius:6px;padding:5px 7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;";
+
+            btn.addEventListener("click", function () {
+                const emPacote = row.dataset.emPacote === "1";
+
+                if (emPacote) {
+                    row.dataset.emPacote = "0";
+                    celulas[iQtd].innerText = row.dataset.qtdOriginal;
+                    celulas[iPacote].innerText = row.dataset.pacoteOriginal;
+                    celulas[iUnidade].innerText = row.dataset.unidadeOriginal;
+                    row.dataset.valorUnitario = String(moedaParaNumero(row.dataset.unidadeOriginal) || row.dataset.precoOriginal || 999999999);
+                    btn.innerText = "Preço é pacote";
+                    btn.style.background = "#00486C";
+                } else {
+                    const qtd = detectarQtd(celulas[iDesc].innerText);
+                    const preco = Number(row.dataset.precoOriginal || "0");
+
+                    if (!qtd || qtd <= 1) {
+                        alert("Não consegui detectar a quantidade do pacote na descrição. Exemplo: C/ 10UN, PC C/ 500UN, CX C/ 100.");
+                        return;
+                    }
+
+                    if (!preco || preco <= 0) {
+                        alert("Não consegui detectar o preço original desta linha.");
+                        return;
+                    }
+
+                    const unitario = preco / qtd;
+
+                    row.dataset.emPacote = "1";
+                    row.dataset.valorUnitario = String(unitario);
+                    celulas[iQtd].innerText = String(qtd);
+                    celulas[iPacote].innerText = moeda(preco);
+                    celulas[iUnidade].innerText = moeda(unitario);
+                    btn.innerText = "Voltar unitário";
+                    btn.style.background = "#D80024";
+                }
+
+                ordenarEAtualizar();
+            });
+
+            td.appendChild(btn);
+            row.appendChild(td);
+        });
+
+        function ordenarEAtualizar() {
+            const linhas = Array.from(tbody.querySelectorAll("tr"));
+
+            linhas.sort((a, b) => {
+                const va = Number(a.dataset.valorUnitario || "999999999");
+                const vb = Number(b.dataset.valorUnitario || "999999999");
+                return va - vb;
+            });
+
+            linhas.forEach(row => tbody.appendChild(row));
+
+            const valores = linhas
+                .map(row => Number(row.dataset.valorUnitario || "999999999"))
+                .filter(v => v < 999999999);
+
+            if (!valores.length) return;
+
+            const menor = Math.min(...valores);
+
+            linhas.forEach(row => {
+                const valor = Number(row.dataset.valorUnitario || "999999999");
+                const tdDif = row.children[iDif];
+
+                if (!tdDif) return;
+
+                if (valor === menor) {
+                    tdDif.innerHTML = '<span style="color:green;font-weight:700;">ref.</span>';
+                } else {
+                    tdDif.innerHTML = '<span style="color:#D80024;font-weight:700;">+' + moeda(valor - menor) + '</span>';
+                }
+            });
+        }
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", iniciarPrecoPacoteManual);
+    } else {
+        iniciarPrecoPacoteManual();
+    }
+})();
+</script>
+<!-- MEDBOX_PRECO_PACOTE_MANUAL_END -->
+
+
+
+
+
+
+
+
+
+
+<!-- MEDBOX_TABELAS_BUSCA_COMPACTAS_START -->
+<style>
+/* Ajuste somente das tabelas da Busca Inteligente */
+.medbox-tabela-busca-compacta {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+}
+
+.medbox-tabela-busca-compacta th,
+.medbox-tabela-busca-compacta td {
+    padding: 7px 5px !important;
+    font-size: 0.68rem !important;
+    line-height: 1.22 !important;
+    vertical-align: middle !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+}
+
+/* Evita barra horizontal no card da tabela */
+.medbox-tabela-busca-compacta-wrap {
+    overflow-x: hidden !important;
+}
+
+/* Botões compactos */
+.medbox-preco-pacote-btn,
+.medbox-outros-pacote-btn,
+.medbox-tabela-busca-compacta button {
+    font-size: 0.62rem !important;
+    padding: 4px 5px !important;
+    min-width: 54px !important;
+    max-width: 62px !important;
+    white-space: normal !important;
+    line-height: 1.1 !important;
+}
+
+/* Comparação de Preços */
+.medbox-tabela-comparacao-compacta th:nth-child(1),
+.medbox-tabela-comparacao-compacta td:nth-child(1) { width: 4%; text-align:center; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(2),
+.medbox-tabela-comparacao-compacta td:nth-child(2) { width: 9%; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(3),
+.medbox-tabela-comparacao-compacta td:nth-child(3) { width: 21%; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(4),
+.medbox-tabela-comparacao-compacta td:nth-child(4) { width: 14%; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(5),
+.medbox-tabela-comparacao-compacta td:nth-child(5) { width: 7%; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(6),
+.medbox-tabela-comparacao-compacta td:nth-child(6) { width: 7%; text-align:center; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(7),
+.medbox-tabela-comparacao-compacta td:nth-child(7) { width: 6%; text-align:center; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(8),
+.medbox-tabela-comparacao-compacta td:nth-child(8) { width: 8%; text-align:center; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(9),
+.medbox-tabela-comparacao-compacta td:nth-child(9) { width: 8%; text-align:center; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(10),
+.medbox-tabela-comparacao-compacta td:nth-child(10) { width: 6%; text-align:center; }
+
+.medbox-tabela-comparacao-compacta th:nth-child(11),
+.medbox-tabela-comparacao-compacta td:nth-child(11) { width: 10%; text-align:center; }
+
+/* Outros Produtos Encontrados */
+.medbox-tabela-outros-compacta th:nth-child(1),
+.medbox-tabela-outros-compacta td:nth-child(1) { width: 4%; text-align:center; }
+
+.medbox-tabela-outros-compacta th:nth-child(2),
+.medbox-tabela-outros-compacta td:nth-child(2) { width: 20%; }
+
+.medbox-tabela-outros-compacta th:nth-child(3),
+.medbox-tabela-outros-compacta td:nth-child(3) { width: 16%; }
+
+.medbox-tabela-outros-compacta th:nth-child(4),
+.medbox-tabela-outros-compacta td:nth-child(4) { width: 11%; }
+
+.medbox-tabela-outros-compacta th:nth-child(5),
+.medbox-tabela-outros-compacta td:nth-child(5) { width: 8%; }
+
+.medbox-tabela-outros-compacta th:nth-child(6),
+.medbox-tabela-outros-compacta td:nth-child(6) { width: 6%; text-align:center; }
+
+.medbox-tabela-outros-compacta th:nth-child(7),
+.medbox-tabela-outros-compacta td:nth-child(7) { width: 8%; text-align:center; }
+
+.medbox-tabela-outros-compacta th:nth-child(8),
+.medbox-tabela-outros-compacta td:nth-child(8) { width: 8%; text-align:center; }
+
+.medbox-tabela-outros-compacta th:nth-child(9),
+.medbox-tabela-outros-compacta td:nth-child(9) { width: 9%; text-align:center; }
+
+.medbox-tabela-outros-compacta th:nth-child(10),
+.medbox-tabela-outros-compacta td:nth-child(10) { width: 10%; text-align:center; }
+</style>
+
+<script>
+(function () {
+    function limpar(txt) {
+        return (txt || "")
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function marcarTabelasCompactas() {
+        const tabelas = Array.from(document.querySelectorAll("table"));
+
+        tabelas.forEach(function (tabela) {
+            const headers = Array.from(tabela.querySelectorAll("th")).map(th => limpar(th.textContent));
+
+            const ehComparacao =
+                headers.some(h => h.includes("DESCRICAO DO FORNECEDOR")) &&
+                headers.some(h => h.includes("PRECO UNIDADE"));
+
+            const ehOutros =
+                headers.some(h => h.includes("PRODUTO")) &&
+                headers.some(h => h.includes("SKU")) &&
+                headers.some(h => h.includes("FORNECEDOR")) &&
+                !ehComparacao;
+
+            if (!ehComparacao && !ehOutros) return;
+
+            tabela.classList.add("medbox-tabela-busca-compacta");
+
+            if (ehComparacao) tabela.classList.add("medbox-tabela-comparacao-compacta");
+            if (ehOutros) tabela.classList.add("medbox-tabela-outros-compacta");
+
+            let el = tabela.parentElement;
+            for (let i = 0; i < 3 && el; i++) {
+                el.classList.add("medbox-tabela-busca-compacta-wrap");
+                el = el.parentElement;
+            }
+        });
+
+        // Encurta texto dos botões para caber melhor
+        document.querySelectorAll(".medbox-preco-pacote-btn, .medbox-outros-pacote-btn").forEach(function (btn) {
+            if ((btn.textContent || "").includes("Preço é pacote")) {
+                btn.textContent = "Pacote";
+            }
+            if ((btn.textContent || "").includes("Voltar unitário")) {
+                btn.textContent = "Unitário";
+            }
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", marcarTabelasCompactas);
+    } else {
+        marcarTabelasCompactas();
+    }
+
+    setTimeout(marcarTabelasCompactas, 300);
+})();
+</script>
+<!-- MEDBOX_TABELAS_BUSCA_COMPACTAS_END -->
+
+
+
+
+
+
+
+
+<!-- MEDBOX_OUTROS_PRECO_PACOTE_FIXO_START -->
+<script>
+(function () {
+    function limpar(txt) {
+        return (txt || "")
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function moeda(valor) {
+        return Number(valor).toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function detectarQtd(descricao) {
+        const texto = limpar(descricao);
+        const padroes = [
+            /\b(?:PC|PCT|PACOTE|CX|CAIXA|KIT|EMB|EMBALAGEM|CARTELA|DISPLAY)\s*C\s*\/\s*(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)?\b/,
+            /\b(?:PC|PCT|PACOTE|CX|CAIXA|KIT|EMB|EMBALAGEM|CARTELA|DISPLAY)\s+COM\s+(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)?\b/,
+            /\bC\s*\/\s*(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)\b/,
+            /\bCOM\s+(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)\b/
+        ];
+
+        for (const p of padroes) {
+            const m = texto.match(p);
+            if (m && Number(m[1]) > 1) return Number(m[1]);
+        }
+
+        return 1;
+    }
+
+    function iniciarPacoteOutros() {
+        document.querySelectorAll(".medbox-outros-pacote-btn").forEach(function (btn) {
+            if (btn.dataset.bindPacote === "1") return;
+            btn.dataset.bindPacote = "1";
+
+            btn.addEventListener("click", function () {
+                const row = btn.closest("tr");
+                if (!row) return;
+
+                const descCell = row.querySelector(".outros-desc-fornecedor");
+                const qtdCell = row.querySelector(".outros-qtd-emb");
+                const pacoteCell = row.querySelector(".outros-preco-pacote");
+                const unidadeCell = row.querySelector(".outros-preco-unidade");
+
+                const precoOriginal = Number(btn.dataset.precoOriginal || "0");
+                const emPacote = btn.dataset.emPacote === "1";
+
+                if (!precoOriginal || precoOriginal <= 0) {
+                    alert("Não consegui identificar o preço original desta linha.");
+                    return;
+                }
+
+                if (emPacote) {
+                    btn.dataset.emPacote = "0";
+                    row.dataset.valorUnitario = String(precoOriginal);
+                    qtdCell.textContent = "1";
+                    pacoteCell.textContent = "—";
+                    unidadeCell.innerHTML = '<strong class="price-green">' + moeda(precoOriginal) + '</strong>';
+                    btn.textContent = "Pacote";
+                    btn.style.background = "#00486C";
+                    return;
+                }
+
+                const qtd = detectarQtd(descCell ? descCell.innerText : "");
+
+                if (!qtd || qtd <= 1) {
+                    alert("Não consegui detectar quantidade de pacote na descrição. Ex.: C/ 10UN, PC C/ 500UN, CX C/ 100.");
+                    return;
+                }
+
+                const unitario = precoOriginal / qtd;
+
+                btn.dataset.emPacote = "1";
+                row.dataset.valorUnitario = String(unitario);
+                qtdCell.textContent = String(qtd);
+                pacoteCell.textContent = moeda(precoOriginal);
+                unidadeCell.innerHTML = '<strong class="price-green">' + moeda(unitario) + '</strong>';
+                btn.textContent = "Unitário";
+                btn.style.background = "#D80024";
+            });
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", iniciarPacoteOutros);
+    } else {
+        iniciarPacoteOutros();
+    }
+
+    setTimeout(iniciarPacoteOutros, 300);
+})();
+</script>
+<!-- MEDBOX_OUTROS_PRECO_PACOTE_FIXO_END -->
+
 {% endblock %}

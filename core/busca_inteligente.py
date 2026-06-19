@@ -13,6 +13,7 @@ from core.banco import (
 
 PESOS_CAMPOS = {
     "produto_padrao": 1.00,
+    "sku_master": 1.00,
     "sku": 0.95,
     "equivalencia": 0.95,
     "descricao_original": 0.80,
@@ -53,6 +54,79 @@ TERMOS_FORNECEDOR_GENERICOS = {
     "MEDICAMENTOS",
     "PRODUTOS",
 }
+
+
+
+def _formatar_moeda_br(valor):
+    try:
+        valor = float(valor)
+    except (TypeError, ValueError):
+        return ""
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _detectar_qtd_embalagem(descricao):
+    """
+    Detecta quantidade por embalagem somente quando houver indicador claro
+    de pacote/caixa/embalagem/unidades.
+
+    Exemplos que detecta:
+    - PC C/ 10UN
+    - PCT C/ 100UN
+    - CX C/ 50
+    - C/ 500UN
+    - PACOTE COM 20
+    - CAIXA COM 100
+
+    Não confunde medidas como 10ML, 500MG, 7,5X7,5 ou 13FIOS.
+    """
+    bruto = str(descricao or "").upper()
+    texto = normalizar_texto(descricao or "").upper()
+
+    candidatos = [bruto, texto]
+
+    padroes = [
+        # PC C/ 10UN, PC C / 10 UN, PCT C/100UN, CX C/50
+        r"\b(?:PC|PCT|PACOTE|CX|CAIXA|KIT|EMB|EMBALAGEM|CARTELA|DISPLAY)\s*C\s*/\s*(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)?\b",
+
+        # PC COM 10UN, PACOTE COM 20 UNIDADES, CAIXA COM 100
+        r"\b(?:PC|PCT|PACOTE|CX|CAIXA|KIT|EMB|EMBALAGEM|CARTELA|DISPLAY)\s+COM\s+(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)?\b",
+
+        # C/ 10UN, C/500 UN, C/ 12 FRASCOS
+        r"\bC\s*/\s*(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)\b",
+
+        # COM 10 UNIDADES
+        r"\bCOM\s+(\d{1,5})\s*(?:UN|UND|UNID|UNIDADES|PCS|PECAS|PEÇAS|AMP|AMPOLAS|FR|FRASCOS)\b",
+    ]
+
+    for origem in candidatos:
+        for padrao in padroes:
+            achou = re.search(padrao, origem)
+            if achou:
+                qtd = int(achou.group(1))
+                if qtd > 1:
+                    return qtd, True
+
+    return 1, False
+
+
+def _aplicar_preco_unitario_embalagem(preco):
+    """
+    Não divide automaticamente preço por pacote.
+
+    Regra ERP:
+    - preço recebido do fornecedor permanece como preço unidade/original;
+    - divisão por pacote só acontece quando o usuário clicar no botão
+      "Preço é pacote" na tela.
+    """
+    preco_original = preco.get("preco")
+    preco["qtd_embalagem"] = 1
+    preco["venda_por_pacote"] = False
+    preco["preco_pacote"] = None
+    preco["preco_pacote_formatado"] = ""
+    preco["preco_unidade_calculado"] = preco_original
+    preco["preco_unidade_formatado"] = preco.get("preco_formatado") or _formatar_moeda_br(preco_original)
+    return preco
 
 
 def _termos_expandidos(termo):
@@ -189,7 +263,9 @@ def _produto_padrao_suspeito(produto_padrao, precos=None):
 
 
 def _buscar_sku_limpo_equivalente(resultado, todos_resultados):
-    assinatura = _assinatura_sku(resultado.get("produto_padrao", ""))
+    assinatura = _assinatura_sku(
+        resultado.get("sku_master_exibicao") or resultado.get("produto_padrao", "")
+    )
     if not assinatura:
         return ""
 
@@ -199,7 +275,7 @@ def _buscar_sku_limpo_equivalente(resultado, todos_resultados):
             continue
         if candidato.get("suspeito_contaminado"):
             continue
-        nome = candidato.get("produto_padrao", "")
+        nome = candidato.get("sku_master_exibicao") or candidato.get("produto_padrao", "")
         if not nome:
             continue
 
@@ -256,11 +332,34 @@ def _aplicar_regras_ranking(termo, resultados):
             resultados[:] = resultados_compativeis
 
 
+def _row_get(row, campo, padrao=""):
+    """Lê sqlite3.Row com segurança, mantendo compatibilidade com dict."""
+    try:
+        if hasattr(row, "keys") and campo not in row.keys():
+            return padrao
+        valor = row[campo]
+    except (KeyError, IndexError, TypeError):
+        return padrao
+    return valor if valor is not None else padrao
+
+
+def _sku_master_exibicao_linha(row):
+    """SKU operacional corrigido; fallback para produto_padrao quando vazio."""
+    sku_master = (_row_get(row, "sku_master", "") or "").strip()
+    produto_padrao = (_row_get(row, "produto_padrao", "") or "").strip()
+    return sku_master or produto_padrao
+
+
 def _produto_base(row):
+    sku_master = (_row_get(row, "sku_master", "") or "").strip()
+    sku_master_exibicao = _sku_master_exibicao_linha(row)
+
     return {
         "id": row["id"],
         "sku": row["sku"],
         "produto_padrao": row["produto_padrao"],
+        "sku_master": sku_master,
+        "sku_master_exibicao": sku_master_exibicao,
         "fabricante": row["fabricante"],
         "categoria": row["categoria"],
         "evidencias_busca": defaultdict(set),
@@ -289,7 +388,7 @@ def _buscar_por_campo_produto(cursor, candidatos, campo_sql, campo_evidencia, te
     like = _like_escape(termo)
     cursor.execute(
         f"""
-        SELECT id, sku, produto_padrao, fabricante, categoria, {campo_sql} AS texto_match
+        SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, {campo_sql} AS texto_match
         FROM produtos
         WHERE UPPER({campo_sql}) LIKE ? ESCAPE '\\' AND ativo = 1
         """,
@@ -303,7 +402,7 @@ def _buscar_por_equivalencias(cursor, candidatos, termo):
     like = _like_escape(termo)
     cursor.execute(
         """
-        SELECT p.id, p.sku, p.produto_padrao, p.fabricante, p.categoria,
+        SELECT p.id, p.sku, p.produto_padrao, p.sku_master, p.fabricante, p.categoria,
                e.descricao_equivalente AS texto_match
         FROM produtos p
         JOIN equivalencias e ON e.produto_id = p.id
@@ -319,7 +418,7 @@ def _buscar_por_precos(cursor, candidatos, campo_sql, campo_evidencia, termo):
     like = _like_escape(termo)
     cursor.execute(
         f"""
-        SELECT p.id, p.sku, p.produto_padrao, p.fabricante, p.categoria,
+        SELECT p.id, p.sku, p.produto_padrao, p.sku_master, p.fabricante, p.categoria,
                pf.{campo_sql} AS texto_match
         FROM produtos p
         JOIN precos_fornecedores pf ON pf.produto_id = p.id
@@ -335,7 +434,7 @@ def _buscar_por_fornecedor(cursor, candidatos, termo):
     like = _like_escape(termo)
     cursor.execute(
         """
-        SELECT p.id, p.sku, p.produto_padrao, p.fabricante, p.categoria,
+        SELECT p.id, p.sku, p.produto_padrao, p.sku_master, p.fabricante, p.categoria,
                f.nome AS texto_match
         FROM produtos p
         JOIN precos_fornecedores pf ON pf.produto_id = p.id
@@ -355,6 +454,7 @@ def _recuperar_candidatos(cursor, termos):
         _buscar_por_campo_produto(
             cursor, candidatos, "produto_padrao", "produto_padrao", termo
         )
+        _buscar_por_campo_produto(cursor, candidatos, "sku_master", "sku_master", termo)
         _buscar_por_campo_produto(cursor, candidatos, "sku", "sku", termo)
         _buscar_por_campo_produto(cursor, candidatos, "fabricante", "fabricante", termo)
         _buscar_por_equivalencias(cursor, candidatos, termo)
@@ -431,7 +531,7 @@ def buscar_produtos_por_fornecedor(termo, limite=50):
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT p.id, p.sku, p.produto_padrao, p.fabricante, p.categoria,
+            SELECT p.id, p.sku, p.produto_padrao, p.sku_master, p.fabricante, p.categoria,
                    pf.preco, pf.descricao_original, pf.codigo_fornecedor,
                    pf.marca, pf.data_importacao,
                    f.id AS fornecedor_id, f.nome AS fornecedor
@@ -445,7 +545,7 @@ def buscar_produtos_por_fornecedor(termo, limite=50):
                 WHERE pf2.produto_id = pf.produto_id
                 AND pf2.fornecedor_id = pf.fornecedor_id
             )
-            ORDER BY p.produto_padrao ASC, pf.preco ASC
+            ORDER BY COALESCE(NULLIF(TRIM(p.sku_master), ''), p.produto_padrao) ASC, pf.preco ASC
             LIMIT ?
             """,
             (fornecedor["id"], limite),
@@ -456,6 +556,9 @@ def buscar_produtos_por_fornecedor(termo, limite=50):
 
     resultados = []
     for row in rows:
+        sku_master_corrigido = bool((row.get("sku_master") if hasattr(row, "get") else row["sku_master"]) or "")
+        sku_master_exibicao = _sku_master_exibicao_linha(row)
+
         preco = {
             "preco": row["preco"],
             "descricao_original": row["descricao_original"],
@@ -474,8 +577,9 @@ def buscar_produtos_por_fornecedor(termo, limite=50):
             "id": row["id"],
             "sku": row["sku"],
             "produto_padrao": row["produto_padrao"],
-            "sku_master": row["produto_padrao"],
-            "sku_master_exibicao": row["produto_padrao"],
+            "sku_master": sku_master_exibicao,
+            "sku_master_exibicao": sku_master_exibicao,
+            "sku_master_corrigido": sku_master_corrigido,
             "fabricante": row["fabricante"],
             "categoria": row["categoria"],
             "apresentacao": "",
@@ -506,10 +610,10 @@ def buscar_produtos_por_fornecedor(termo, limite=50):
         )
         item["suspeito_contaminado"] = suspeito
         item["motivos_sku_suspeito"] = motivos
-        item["sku_pendente_padronizacao"] = suspeito
+        item["sku_pendente_padronizacao"] = bool(suspeito and not item.get("sku_master_corrigido"))
 
     for item in resultados:
-        if item["suspeito_contaminado"]:
+        if item["suspeito_contaminado"] and not item.get("sku_master_corrigido"):
             sku_limpo = _buscar_sku_limpo_equivalente(item, resultados)
             if sku_limpo:
                 item["sku_master_exibicao"] = sku_limpo
@@ -647,13 +751,17 @@ def _montar_resultado(cursor, termo, produto):
         for campo, textos in produto["evidencias_busca"].items()
     }
 
+    sku_master_corrigido = bool((produto.get("sku_master") or "").strip())
+    sku_master_exibicao = produto.get("sku_master_exibicao") or produto.get("produto_padrao", "")
+
     resultado = {
         "id": produto["id"],
         "sku": produto.get("sku", ""),
         "produto_padrao": produto.get("produto_padrao", ""),
+        "sku_master_original": produto.get("sku_master", ""),
         "fabricante": produto.get("fabricante", ""),
         "categoria": produto.get("categoria", ""),
-        "sku_master": produto.get("produto_padrao", ""),
+        "sku_master": sku_master_exibicao,
         "apresentacao": "",
         "concentracao": "",
         "forma": "",
@@ -673,13 +781,461 @@ def _montar_resultado(cursor, termo, produto):
     suspeito, motivos = _produto_padrao_suspeito(resultado["produto_padrao"], precos)
     resultado["suspeito_contaminado"] = suspeito
     resultado["motivos_sku_suspeito"] = motivos
-    resultado["sku_master_exibicao"] = resultado["produto_padrao"]
-    resultado["sku_pendente_padronizacao"] = suspeito
+    resultado["sku_master_exibicao"] = sku_master_exibicao
+    resultado["sku_master_corrigido"] = sku_master_corrigido
+    resultado["sku_pendente_padronizacao"] = bool(suspeito and not sku_master_corrigido)
 
     if resultado["fabricante"] in (None, "", "NONE"):
         resultado["fabricante"] = precos[0]["marca"] if precos else ""
 
     return resultado
+
+
+
+def _normalizar_precos_embalagem_resultados(resultados):
+    """
+    Normaliza preços sem dividir automaticamente por embalagem.
+
+    A decisão de preço pacote agora é manual na tela:
+    botão "Preço é pacote".
+    """
+    if not resultados:
+        return resultados
+
+    def moeda(valor):
+        try:
+            valor = float(valor)
+        except (TypeError, ValueError):
+            return ""
+        return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    for item in resultados:
+        precos = item.get("precos") or []
+
+        for preco in precos:
+            preco_original = preco.get("preco")
+            preco["qtd_embalagem"] = 1
+            preco["venda_por_pacote"] = False
+            preco["preco_pacote"] = None
+            preco["preco_pacote_formatado"] = ""
+            preco["preco_unidade_calculado"] = preco_original
+            preco["preco_unidade_formatado"] = preco.get("preco_formatado") or moeda(preco_original)
+
+        if precos:
+            # Ordenação original por preço recebido, sem divisão automática.
+            precos.sort(
+                key=lambda p: (
+                    p.get("preco")
+                    if p.get("preco") is not None
+                    else 999999999
+                )
+            )
+
+            menor = precos[0].get("preco")
+
+            item["precos"] = precos
+            item["menor_preco"] = menor
+            item["menor_preco_formatado"] = moeda(menor)
+            item["preco_unitario_real"] = menor
+            item["preco_unitario_real_formatado"] = moeda(menor)
+            item["preco"] = menor
+            item["preco_formatado"] = moeda(menor)
+
+    return resultados
+
+
+
+def _descricao_fornecedor_do_item(item):
+    """
+    Retorna descrição real do fornecedor/preço para exibição.
+    Não usa SKU Master como fallback, para evitar duplicidade visual.
+    """
+    for preco in item.get("precos") or []:
+        desc = (
+            preco.get("descricao_original")
+            or preco.get("descricao_fornecedor")
+            or preco.get("descricao")
+            or ""
+        )
+        if desc and desc.strip():
+            return desc.strip()
+
+    return ""
+
+
+def _ordenar_outros_produtos_por_preco_unitario(resultados):
+    """
+    Mantém primeiro item como principal e ordena os demais pelo menor preço original.
+    A reordenação por preço unitário calculado acontece no frontend após o clique manual.
+    """
+    if not resultados:
+        return resultados
+
+    for item in resultados:
+        precos = item.get("precos") or []
+        if precos:
+            melhor = precos[0]
+            item["tem_preco"] = True
+            item["descricao_fornecedor_exibicao"] = (
+                melhor.get("descricao_original")
+                or melhor.get("descricao_fornecedor")
+                or item.get("produto_padrao")
+                or item.get("sku_master_exibicao")
+                or ""
+            )
+            item["melhor_qtd_embalagem"] = 1
+            item["melhor_preco_pacote"] = None
+            item["melhor_preco_pacote_formatado"] = ""
+            item["melhor_preco_unidade"] = melhor.get("preco")
+            item["melhor_preco_unidade_formatado"] = melhor.get("preco_formatado") or item.get("menor_preco_formatado", "")
+        else:
+            item["tem_preco"] = False
+            item["descricao_fornecedor_exibicao"] = (
+                item.get("produto_padrao")
+                or item.get("sku_master_exibicao")
+                or ""
+            )
+            item["melhor_qtd_embalagem"] = 1
+            item["melhor_preco_pacote"] = None
+            item["melhor_preco_pacote_formatado"] = ""
+            item["melhor_preco_unidade"] = None
+            item["melhor_preco_unidade_formatado"] = ""
+
+    if len(resultados) <= 1:
+        return resultados
+
+    principal = resultados[0]
+    demais = resultados[1:]
+
+    demais.sort(
+        key=lambda item: (
+            0 if item.get("tem_preco") else 1,
+            item.get("melhor_preco_unidade") if item.get("melhor_preco_unidade") is not None else 999999999,
+            item.get("sku_master_exibicao", "") or item.get("produto_padrao", "")
+        )
+    )
+
+    return [principal] + demais
+
+
+
+
+def _extrair_medidas_obrigatorias_consulta(termo):
+    """
+    Extrai medidas explícitas da busca.
+    Ex.: soro 500ml -> ["500ML"]
+    """
+    texto = normalizar_texto(termo or "").upper()
+    medidas = []
+
+    padrao = re.compile(r"\b(\d+(?:[,.]\d+)?)\s*(ML|L|MG|G|MCG|UI|%)\b", re.I)
+
+    for valor, unidade in padrao.findall(texto):
+        unidade = unidade.upper()
+        valor_norm = valor.replace(",", ".")
+
+        try:
+            numero = float(valor_norm)
+        except ValueError:
+            continue
+
+        if unidade == "L":
+            numero = numero * 1000
+            unidade = "ML"
+
+        if float(numero).is_integer():
+            valor_final = str(int(numero))
+        else:
+            valor_final = str(numero).replace(".", ",")
+
+        medidas.append(f"{valor_final}{unidade}")
+
+    return list(dict.fromkeys(medidas))
+
+
+def _extrair_palavras_obrigatorias_consulta(termo):
+    """
+    Extrai palavras relevantes da busca, ignorando medidas e termos genéricos.
+    Ex.: soro 500ml -> ["SORO"]
+    """
+    texto = normalizar_texto(termo or "").upper()
+
+    # Remove medidas explícitas para não virar palavra solta.
+    texto = re.sub(r"\b\d+(?:[,.]\d+)?\s*(ML|L|MG|G|MCG|UI|%)\b", " ", texto, flags=re.I)
+
+    palavras = re.findall(r"\b[A-Z]{3,}\b", texto)
+
+    stopwords = {
+        "COM", "SEM", "PARA", "POR", "UND", "UNID", "UNIDADE", "UNIDADES",
+        "CAIXA", "PACOTE", "PCT", "KIT", "FR", "FRASCO", "AMP", "AMPOLA",
+        "ITEM", "GENERICO", "SIMILAR"
+    }
+
+    palavras = [p for p in palavras if p not in stopwords]
+
+    return list(dict.fromkeys(palavras))
+
+
+def _texto_completo_resultado_para_medidas(item):
+    """
+    Junta campos relevantes do resultado para validar palavras e medidas.
+    """
+    partes = [
+        item.get("sku_master_exibicao", ""),
+        item.get("sku_master", ""),
+        item.get("produto_padrao", ""),
+        item.get("sku", ""),
+        item.get("fabricante", ""),
+        item.get("categoria", ""),
+    ]
+
+    for preco in item.get("precos") or []:
+        partes.extend([
+            preco.get("descricao_original", ""),
+            preco.get("descricao_fornecedor", ""),
+            preco.get("sku_master_exibicao", ""),
+            preco.get("sku_master", ""),
+            preco.get("codigo_fornecedor", ""),
+        ])
+
+    for eq in item.get("equivalencias") or item.get("descricoes_equivalentes") or []:
+        if isinstance(eq, dict):
+            partes.append(eq.get("descricao_equivalente", ""))
+            partes.append(eq.get("descricao", ""))
+        else:
+            partes.append(str(eq))
+
+    texto = " ".join(str(p or "") for p in partes)
+    return normalizar_texto(texto).upper()
+
+
+def _contem_medida_exata(texto, medida):
+    """
+    Valida medida exata.
+    500ML não pode bater com 1500ML.
+    """
+    medida = normalizar_texto(medida).upper().replace(" ", "")
+
+    m = re.match(r"^(\d+(?:[,.]\d+)?)(ML|L|MG|G|MCG|UI|%)$", medida)
+    if not m:
+        return medida in texto.replace(" ", "")
+
+    valor, unidade = m.groups()
+
+    # Aceita 500ML, 500 ML, 500-ML, mas não 1500ML.
+    padrao = r"(?<!\d)" + re.escape(valor) + r"\s*" + re.escape(unidade) + r"\b"
+    return re.search(padrao, texto, flags=re.I) is not None
+
+
+def _resultado_atende_medidas_obrigatorias(item, medidas, palavras):
+    texto = _texto_completo_resultado_para_medidas(item)
+
+    for palavra in palavras:
+        if not re.search(r"\b" + re.escape(palavra) + r"\b", texto, flags=re.I):
+            return False
+
+    for medida in medidas:
+        if not _contem_medida_exata(texto, medida):
+            return False
+
+    return True
+
+
+def _filtrar_resultados_por_medidas_da_consulta(resultados, termo):
+    """
+    Se a busca tiver medida explícita, filtra por:
+    - palavras obrigatórias relevantes;
+    - medida exata.
+
+    Ex.: "soro 500ml" não deve listar:
+    - soro 10ml;
+    - soro 250ml;
+    - saco 1500ml;
+    - almotolia 500ml;
+    - agua 500ml.
+    """
+    medidas = _extrair_medidas_obrigatorias_consulta(termo)
+    palavras = _extrair_palavras_obrigatorias_consulta(termo)
+
+    if not medidas and not palavras:
+        return resultados
+
+    # Só aplica esse filtro rígido quando houver medida explícita.
+    # Para busca genérica "soro", mantém comportamento amplo.
+    if not medidas:
+        return resultados
+
+    filtrados = [
+        item for item in resultados
+        if _resultado_atende_medidas_obrigatorias(item, medidas, palavras)
+    ]
+
+    return filtrados if filtrados else resultados
+
+
+
+
+def _aplicar_descricao_fornecedor_exibicao(resultados):
+    """
+    Define a coluna 'Descrição do Fornecedor' para a tabela Outros Produtos.
+
+    Regra:
+    - usar descrição original do fornecedor/preço quando existir;
+    - NÃO usar produto_padrao nem sku_master como fallback;
+    - se não houver descrição do fornecedor, deixar vazio para o template exibir '—'.
+    """
+    if not resultados:
+        return resultados
+
+    for item in resultados:
+        descricao = ""
+
+        for preco in item.get("precos") or []:
+            descricao = (
+                preco.get("descricao_original")
+                or preco.get("descricao_fornecedor")
+                or preco.get("descricao")
+                or ""
+            )
+            if descricao:
+                break
+
+        item["descricao_fornecedor_exibicao"] = descricao or ""
+
+    return resultados
+
+
+
+def _aplicar_descricao_fornecedor_outros(resultados):
+    if not resultados:
+        return resultados
+
+    for item in resultados:
+        item["descricao_fornecedor_exibicao"] = _descricao_fornecedor_do_item(item)
+
+    return resultados
+
+
+
+def _deduplicar_outros_produtos_por_sku_fornecedor_fabricante(resultados):
+    """
+    Consolida 'Outros Produtos Encontrados' na Busca Inteligente.
+
+    Regra ERP:
+    - Mesmo SKU_MASTER + mesmo fornecedor + mesmo fabricante/marca = uma linha só.
+    - Mantém o item com preço mais recente/importação mais recente quando possível.
+    - Não remove dados do banco; apenas evita duplicidade visual na busca.
+    """
+    if not resultados or len(resultados) <= 1:
+        return resultados
+
+    principal = resultados[0]
+    outros = resultados[1:]
+
+    def norm(valor):
+        return normalizar_texto(str(valor or "")).strip().upper()
+
+    def primeiro_preco(item):
+        precos = item.get("precos") or []
+        return precos[0] if precos else {}
+
+    def chave(item):
+        preco = primeiro_preco(item)
+
+        sku_master = (
+            item.get("sku_master_exibicao")
+            or item.get("sku_master")
+            or item.get("produto_padrao")
+            or ""
+        )
+
+        fornecedor = (
+            item.get("fornecedor_principal")
+            or preco.get("fornecedor")
+            or preco.get("nome_fornecedor")
+            or ""
+        )
+
+        fabricante = (
+            preco.get("marca")
+            or item.get("fabricante")
+            or item.get("marca")
+            or ""
+        )
+
+        return (
+            norm(sku_master),
+            norm(fornecedor),
+            norm(fabricante),
+        )
+
+    def ranking_atualidade(item):
+        """
+        Ordena por evidências de atualização.
+        Strings YYYY-MM-DD funcionam bem em comparação lexicográfica.
+        Quando existir ID de preço/importação, usa como desempate.
+        """
+        preco = primeiro_preco(item)
+
+        data = (
+            preco.get("data_importacao")
+            or preco.get("data_cotacao")
+            or item.get("data_importacao")
+            or item.get("data_cotacao")
+            or ""
+        )
+
+        try:
+            preco_id = int(
+                preco.get("preco_id")
+                or preco.get("id")
+                or item.get("preco_id")
+                or item.get("id")
+                or 0
+            )
+        except Exception:
+            preco_id = 0
+
+        try:
+            valor = float(
+                preco.get("preco")
+                if preco.get("preco") is not None
+                else item.get("menor_preco") or 999999999
+            )
+        except Exception:
+            valor = 999999999
+
+        # Mais recente primeiro; se empatar, menor preço; se empatar, maior ID.
+        return (str(data), -valor, preco_id)
+
+    consolidados = {}
+
+    for item in outros:
+        k = chave(item)
+
+        # Se não tem SKU ou fornecedor, não consolida agressivamente.
+        if not k[0] or not k[1]:
+            k = ("__UNICO__", str(item.get("id") or item.get("sku") or id(item)))
+
+        atual = consolidados.get(k)
+        if atual is None:
+            consolidados[k] = item
+            continue
+
+        if ranking_atualidade(item) > ranking_atualidade(atual):
+            consolidados[k] = item
+
+    deduplicados = list(consolidados.values())
+
+    deduplicados.sort(
+        key=lambda item: (
+            0 if item.get("tem_preco") or item.get("menor_preco") else 1,
+            item.get("menor_preco") if item.get("menor_preco") is not None else 999999999,
+            norm(item.get("sku_master_exibicao") or item.get("produto_padrao"))
+        )
+    )
+
+    return [principal] + deduplicados
 
 
 def buscar_produto_inteligente(termo, limite=20):
@@ -702,7 +1258,7 @@ def buscar_produto_inteligente(termo, limite=20):
         conn.close()
 
     for item in resultados:
-        if item["suspeito_contaminado"]:
+        if item["suspeito_contaminado"] and not item.get("sku_master_corrigido"):
             sku_limpo = _buscar_sku_limpo_equivalente(item, resultados)
             if sku_limpo:
                 item["sku_master_exibicao"] = sku_limpo
@@ -715,7 +1271,7 @@ def buscar_produto_inteligente(termo, limite=20):
                 round(_score_texto(termo, item["sku_master_exibicao"]), 2),
             )
 
-        if item["suspeito_contaminado"] and item["sku_pendente_padronizacao"]:
+        if item["suspeito_contaminado"] and item["sku_pendente_padronizacao"] and not item.get("sku_master_corrigido"):
             item["score_busca"] = max(0.0, round(item["score_busca"] - 4.0, 2))
 
     _aplicar_regras_ranking(termo, resultados)
@@ -731,4 +1287,10 @@ def buscar_produto_inteligente(termo, limite=20):
         )
     )
 
+    resultados = _filtrar_resultados_por_medidas_da_consulta(resultados, termo)
+    resultados = _normalizar_precos_embalagem_resultados(resultados)
+    resultados = _ordenar_outros_produtos_por_preco_unitario(resultados)
+    resultados = _aplicar_descricao_fornecedor_outros(resultados)
+    resultados = _aplicar_descricao_fornecedor_exibicao(resultados)
+    resultados = _deduplicar_outros_produtos_por_sku_fornecedor_fabricante(resultados)
     return resultados[:limite]
