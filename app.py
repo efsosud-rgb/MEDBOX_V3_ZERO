@@ -163,8 +163,9 @@ def produtos():
 def sku_master_auditoria():
     q = request.args.get("q", "").strip()
     page = int(request.args.get("page", 1))
-    # Note: 'filtro' logic is deprecated in UI, but kept for backend compatibility
-    filtro = request.args.get("filtro", "todos")
+    # A tela atual usa apenas busca textual e paginação.
+    # O parâmetro legado "filtro" deve ser ignorado para não esconder produtos.
+    filtro = "todos"
     auditoria = gerar_auditoria_sku_master(filtro=filtro, q=q, pagina=page, limite=50)
     return render_template(
         "sku_master_auditoria.html",
@@ -178,9 +179,9 @@ def sku_master_auditoria():
 @app.route("/sku-master/auditoria.csv")
 def sku_master_auditoria_csv():
     q = request.args.get("q", "").strip()
-    filtro = request.args.get("filtro", "todos")
+    filtro = "todos"
     conteudo = gerar_csv_auditoria_sku_master(filtro=filtro, q=q)
-    nome_arquivo = f"auditoria_sku_master_{filtro}.csv"
+    nome_arquivo = "auditoria_sku_master.csv"
     return Response(
         conteudo,
         content_type="text/csv; charset=utf-8",
@@ -641,7 +642,9 @@ def sku_master_auditoria_preview_cascata():
 def sku_master_auditoria_salvar_edicao():
     data = request.get_json(force=True) or {}
     produto_id = data.get("produto_id")
-    dados = data.get("dados", {})
+    dados = dict(data.get("dados", {}) or {})
+    # Segurança backend: produto_padrao é referência fixa e nunca deve ser alterado por payload.
+    dados.pop("produto_padrao", None)
     opcoes_cascata = data.get("opcoes_cascata", [])
     ids_cascata_selecionados = data.get("ids_cascata_selecionados")
 

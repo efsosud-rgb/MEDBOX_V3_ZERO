@@ -237,7 +237,9 @@ def _sugerir_sku_limpo(produto, indice_limpos):
 
 
 def gerar_auditoria_sku_master(filtro="todos", q="", pagina=1, limite=50):
-    filtro = filtro if filtro in FILTROS else "todos"
+    # A Auditoria SKU Master agora lista todos os produtos ativos.
+    # Filtros antigos de classificação são ignorados nesta tela.
+    filtro = "todos"
     pagina = max(1, int(pagina or 1))
     limite = max(1, int(limite or 50))
     offset = (pagina - 1) * limite
