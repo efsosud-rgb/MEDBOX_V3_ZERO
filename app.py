@@ -163,10 +163,8 @@ def produtos():
 def sku_master_auditoria():
     q = request.args.get("q", "").strip()
     page = int(request.args.get("page", 1))
-    # A tela atual usa apenas busca textual e paginação.
-    # O parâmetro legado "filtro" deve ser ignorado para não esconder produtos.
-    filtro = "todos"
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, q=q, pagina=page, limite=50)
+    # 'filtro' parameter is now ignored to focus on universal keyword search
+    auditoria = gerar_auditoria_sku_master(filtro="todos", q=q, pagina=page, limite=50)
     return render_template(
         "sku_master_auditoria.html",
         data_atual=DATA_ATUAL,
@@ -179,9 +177,8 @@ def sku_master_auditoria():
 @app.route("/sku-master/auditoria.csv")
 def sku_master_auditoria_csv():
     q = request.args.get("q", "").strip()
-    filtro = "todos"
-    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro, q=q)
-    nome_arquivo = "auditoria_sku_master.csv"
+    conteudo = gerar_csv_auditoria_sku_master(filtro="todos", q=q)
+    nome_arquivo = f"auditoria_sku_master.csv"
     return Response(
         conteudo,
         content_type="text/csv; charset=utf-8",
@@ -642,9 +639,7 @@ def sku_master_auditoria_preview_cascata():
 def sku_master_auditoria_salvar_edicao():
     data = request.get_json(force=True) or {}
     produto_id = data.get("produto_id")
-    dados = dict(data.get("dados", {}) or {})
-    # Segurança backend: produto_padrao é referência fixa e nunca deve ser alterado por payload.
-    dados.pop("produto_padrao", None)
+    dados = data.get("dados", {})
     opcoes_cascata = data.get("opcoes_cascata", [])
     ids_cascata_selecionados = data.get("ids_cascata_selecionados")
 
@@ -718,7 +713,6 @@ def sku_master_auditoria_salvar_sku_ajax():
 
 @app.route("/sku-master/auditoria/corrigir-todos", methods=["POST"])
 def sku_master_auditoria_corrigir_todos():
-    filtro = request.form.get("filtro", "todos")
     itens_raw = request.form.get("itens", "[]")
     try:
         itens = json.loads(itens_raw)
@@ -744,7 +738,7 @@ def sku_master_auditoria_corrigir_todos():
         flash(msg)
     except Exception as e:
         flash(f"Erro em Corrigir Todos: {e}")
-    return redirect(url_for("sku_master_auditoria", filtro=filtro))
+    return redirect(url_for("sku_master_auditoria"))
 
 
 @app.route("/sku-master/skus-json")
@@ -767,7 +761,6 @@ def sku_master_skus_json():
 def sku_master_auditoria_salvar_sku():
     produto_id = request.form.get("produto_id")
     sku_manual = request.form.get("sku_manual", "").strip()
-    filtro = request.form.get("filtro", "todos")
     try:
         resultado = aplicar_correcao_manual_sku_master(
             produto_origem_id=produto_id,
@@ -782,7 +775,7 @@ def sku_master_auditoria_salvar_sku():
         )
     except Exception as erro:
         flash(f"Erro ao salvar SKU: {erro}")
-    return redirect(url_for("sku_master_auditoria", filtro=filtro))
+    return redirect(url_for("sku_master_auditoria"))
 
 
 if __name__ == "__main__":
