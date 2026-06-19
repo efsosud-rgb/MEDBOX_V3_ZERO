@@ -174,6 +174,11 @@ def criar_banco():
         pass
 
     try:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN sku_master TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
         cursor.execute("ALTER TABLE precos_fornecedores ADD COLUMN arquivo_origem TEXT")
     except sqlite3.OperationalError:
         pass

@@ -161,8 +161,10 @@ def produtos():
 
 @app.route("/sku-master/auditoria")
 def sku_master_auditoria():
-    filtro = request.args.get("filtro", "todos")
-    auditoria = gerar_auditoria_sku_master(filtro=filtro, limite=250)
+    q = request.args.get("q", "").strip()
+    page = int(request.args.get("page", 1))
+    # 'filtro' parameter is now ignored to focus on universal keyword search
+    auditoria = gerar_auditoria_sku_master(filtro="todos", q=q, pagina=page, limite=50)
     return render_template(
         "sku_master_auditoria.html",
         data_atual=DATA_ATUAL,
@@ -174,9 +176,9 @@ def sku_master_auditoria():
 
 @app.route("/sku-master/auditoria.csv")
 def sku_master_auditoria_csv():
-    filtro = request.args.get("filtro", "todos")
-    conteudo = gerar_csv_auditoria_sku_master(filtro=filtro)
-    nome_arquivo = f"auditoria_sku_master_{filtro}.csv"
+    q = request.args.get("q", "").strip()
+    conteudo = gerar_csv_auditoria_sku_master(filtro="todos", q=q)
+    nome_arquivo = f"auditoria_sku_master.csv"
     return Response(
         conteudo,
         content_type="text/csv; charset=utf-8",
@@ -639,12 +641,14 @@ def sku_master_auditoria_salvar_edicao():
     produto_id = data.get("produto_id")
     dados = data.get("dados", {})
     opcoes_cascata = data.get("opcoes_cascata", [])
+    ids_cascata_selecionados = data.get("ids_cascata_selecionados")
 
     try:
         resultado = salvar_edicao_manual_produto(
             produto_id=produto_id,
             dados_novos=dados,
             opcoes_cascata=opcoes_cascata,
+            ids_cascata_selecionados=ids_cascata_selecionados,
             usuario="compras"
         )
         return Response(
@@ -709,7 +713,6 @@ def sku_master_auditoria_salvar_sku_ajax():
 
 @app.route("/sku-master/auditoria/corrigir-todos", methods=["POST"])
 def sku_master_auditoria_corrigir_todos():
-    filtro = request.form.get("filtro", "todos")
     itens_raw = request.form.get("itens", "[]")
     try:
         itens = json.loads(itens_raw)
@@ -735,17 +738,21 @@ def sku_master_auditoria_corrigir_todos():
         flash(msg)
     except Exception as e:
         flash(f"Erro em Corrigir Todos: {e}")
-    return redirect(url_for("sku_master_auditoria", filtro=filtro))
+    return redirect(url_for("sku_master_auditoria"))
 
 
 @app.route("/sku-master/skus-json")
 def sku_master_skus_json():
     conn = conectar()
     cursor = conn.cursor()
+    # Use COALESCE to prioritize sku_master over produto_padrao in suggestions
     cursor.execute(
-        "SELECT produto_padrao FROM produtos WHERE ativo = 1 AND produto_padrao IS NOT NULL ORDER BY produto_padrao"
+        """SELECT DISTINCT COALESCE(NULLIF(TRIM(sku_master), ''), produto_padrao) as sku
+           FROM produtos
+           WHERE ativo = 1
+           ORDER BY sku"""
     )
-    skus = [row["produto_padrao"] for row in cursor.fetchall() if row["produto_padrao"]]
+    skus = [row["sku"] for row in cursor.fetchall() if row["sku"]]
     conn.close()
     return Response(json.dumps(skus, ensure_ascii=False), content_type="application/json")
 
@@ -754,7 +761,6 @@ def sku_master_skus_json():
 def sku_master_auditoria_salvar_sku():
     produto_id = request.form.get("produto_id")
     sku_manual = request.form.get("sku_manual", "").strip()
-    filtro = request.form.get("filtro", "todos")
     try:
         resultado = aplicar_correcao_manual_sku_master(
             produto_origem_id=produto_id,
@@ -769,7 +775,7 @@ def sku_master_auditoria_salvar_sku():
         )
     except Exception as erro:
         flash(f"Erro ao salvar SKU: {erro}")
-    return redirect(url_for("sku_master_auditoria", filtro=filtro))
+    return redirect(url_for("sku_master_auditoria"))
 
 
 if __name__ == "__main__":
