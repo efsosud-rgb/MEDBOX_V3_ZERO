@@ -964,6 +964,34 @@
 }
 </style>
 
+
+<style>
+/* ============================================================
+   AJUSTE IMPRESSÃO - ALINHAR 2 ÚLTIMAS COLUNAS À DIREITA
+   ============================================================ */
+
+.cotacao-print-table-oas th:nth-last-child(1),
+.cotacao-print-table-oas th:nth-last-child(2),
+.cotacao-print-table-oas td:nth-last-child(1),
+.cotacao-print-table-oas td:nth-last-child(2) {
+    text-align: right !important;
+}
+
+@media print {
+    .cotacao-print-table-oas th:nth-last-child(1),
+    .cotacao-print-table-oas th:nth-last-child(2),
+    .cotacao-print-table-oas td:nth-last-child(1),
+    .cotacao-print-table-oas td:nth-last-child(2) {
+        text-align: right !important;
+    }
+
+    .cotacao-print-table-oas td:nth-last-child(1) span,
+    .cotacao-print-table-oas td:nth-last-child(2) span {
+        text-align: right !important;
+    }
+}
+</style>
+
 {% endblock %}
 
 
