@@ -862,9 +862,186 @@ def previsualizar_lote_correcoes_sku_master(itens, caminho_banco=None):
         conn.close()
 
 
+def _garantir_colunas_correcao_sku(cursor):
+    """
+    Colunas leves para rastrear que o SKU já foi tratado.
+    Não quebra bancos antigos: adiciona somente se ainda não existir.
+    """
+    cursor.execute("PRAGMA table_info(produtos)")
+    colunas = {row[1] for row in cursor.fetchall()}
+
+    if "sku_corrigido" not in colunas:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN sku_corrigido INTEGER DEFAULT 0")
+
+    if "corrigido_em" not in colunas:
+        cursor.execute("ALTER TABLE produtos ADD COLUMN corrigido_em TEXT")
+
+
+def _normalizar_valor_campo(valor):
+    return str(valor or "").strip().upper()
+
+
+def _produto_por_id_para_correcao(cursor, produto_id):
+    cursor.execute(
+        """
+        SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
+        FROM produtos
+        WHERE id = ?
+        LIMIT 1
+        """,
+        (produto_id,),
+    )
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def _sincronizar_destino_corrigido(cursor, produto_destino_id, origem=None):
+    """
+    Garante que o produto destino fique com SKU_MASTER, fabricante/categoria,
+    marca nos preços e sinalização de corrigido.
+    """
+    _garantir_colunas_correcao_sku(cursor)
+
+    destino = _produto_por_id_para_correcao(cursor, produto_destino_id)
+    if not destino:
+        return {
+            "precos_marca_atualizados": 0,
+            "produto_destino_atualizado": 0,
+        }
+
+    origem = origem or {}
+
+    sku_destino = _normalizar_valor_campo(destino.get("sku_master")) or _normalizar_valor_campo(destino.get("produto_padrao"))
+    fabricante = _normalizar_valor_campo(destino.get("fabricante")) or _normalizar_valor_campo(origem.get("fabricante"))
+    categoria = _normalizar_valor_campo(destino.get("categoria")) or _normalizar_valor_campo(origem.get("categoria"))
+
+    cursor.execute(
+        """
+        UPDATE produtos
+        SET sku_master = COALESCE(NULLIF(?, ''), sku_master),
+            fabricante = COALESCE(NULLIF(?, ''), fabricante),
+            categoria = COALESCE(NULLIF(?, ''), categoria),
+            sku_corrigido = 1,
+            corrigido_em = CURRENT_TIMESTAMP,
+            ativo = 1
+        WHERE id = ?
+        """,
+        (sku_destino, fabricante, categoria, produto_destino_id),
+    )
+    produto_destino_atualizado = cursor.rowcount
+
+    # Preenche marca vazia nos preços do produto corrigido.
+    precos_marca_atualizados = 0
+    if fabricante:
+        cursor.execute(
+            """
+            UPDATE precos_fornecedores
+            SET marca = ?
+            WHERE produto_id = ?
+              AND (marca IS NULL OR TRIM(marca) = '')
+            """,
+            (fabricante, produto_destino_id),
+        )
+        precos_marca_atualizados = cursor.rowcount
+
+    return {
+        "precos_marca_atualizados": precos_marca_atualizados,
+        "produto_destino_atualizado": produto_destino_atualizado,
+    }
+
+
+def _consolidar_produtos_mesmo_sku_master(cursor, produto_destino_id):
+    """
+    Consolida produtos ativos que já estejam com o mesmo SKU_MASTER do destino.
+    Isso evita que a Auditoria continue mostrando duplicatas corrigidas.
+    """
+    destino = _produto_por_id_para_correcao(cursor, produto_destino_id)
+    if not destino:
+        return {
+            "produtos_consolidados": 0,
+            "precos_migrados": 0,
+            "equivalencias_migradas": 0,
+        }
+
+    sku_destino = _normalizar_valor_campo(destino.get("sku_master")) or _normalizar_valor_campo(destino.get("produto_padrao"))
+    if not sku_destino or sku_destino.startswith("SKU PENDENTE"):
+        return {
+            "produtos_consolidados": 0,
+            "precos_migrados": 0,
+            "equivalencias_migradas": 0,
+        }
+
+    cursor.execute(
+        """
+        SELECT id
+        FROM produtos
+        WHERE ativo = 1
+          AND id != ?
+          AND (
+                UPPER(TRIM(COALESCE(sku_master, ''))) = UPPER(TRIM(?))
+             OR UPPER(TRIM(COALESCE(produto_padrao, ''))) = UPPER(TRIM(?))
+          )
+        ORDER BY id
+        """,
+        (produto_destino_id, sku_destino, sku_destino),
+    )
+    duplicados = [row["id"] for row in cursor.fetchall()]
+
+    produtos_consolidados = 0
+    precos_migrados = 0
+    equivalencias_migradas = 0
+
+    for origem_id in duplicados:
+        if origem_id == produto_destino_id:
+            continue
+
+        cursor.execute(
+            "UPDATE precos_fornecedores SET produto_id = ? WHERE produto_id = ?",
+            (produto_destino_id, origem_id),
+        )
+        precos_migrados += cursor.rowcount
+
+        cursor.execute(
+            "UPDATE equivalencias SET produto_id = ? WHERE produto_id = ?",
+            (produto_destino_id, origem_id),
+        )
+        equivalencias_migradas += cursor.rowcount
+
+        cursor.execute(
+            """
+            UPDATE produtos
+            SET ativo = 0,
+                sku_corrigido = 1,
+                corrigido_em = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (origem_id,),
+        )
+        produtos_consolidados += cursor.rowcount
+
+    _sincronizar_destino_corrigido(cursor, produto_destino_id)
+
+    return {
+        "produtos_consolidados": produtos_consolidados,
+        "precos_migrados": precos_migrados,
+        "equivalencias_migradas": equivalencias_migradas,
+    }
+
+
 def _aplicar_item_validado(cursor, item):
     produto_origem_id = item["produto_origem_id"]
     produto_destino_id = item["produto_destino_id"]
+
+    origem = _produto_por_id_para_correcao(cursor, produto_origem_id)
+    destino = _produto_por_id_para_correcao(cursor, produto_destino_id)
+
+    if not origem:
+        raise RuntimeError("Produto origem nao encontrado.")
+    if not destino:
+        raise RuntimeError("Produto destino nao encontrado.")
+
+    # Antes de migrar, garante que o destino herde fabricante/categoria quando estiver vazio.
+    _sincronizar_destino_corrigido(cursor, produto_destino_id, origem=origem)
 
     cursor.execute(
         "UPDATE precos_fornecedores SET produto_id = ? WHERE produto_id = ?",
@@ -878,15 +1055,27 @@ def _aplicar_item_validado(cursor, item):
     )
     equivalencias_migradas = cursor.rowcount
 
-    cursor.execute("UPDATE produtos SET ativo = 0 WHERE id = ?", (produto_origem_id,))
+    cursor.execute(
+        """
+        UPDATE produtos
+        SET ativo = 0,
+            sku_corrigido = 1,
+            corrigido_em = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (produto_origem_id,),
+    )
     produtos_inativados = cursor.rowcount
     if produtos_inativados != 1:
         raise RuntimeError("Produto origem nao foi inativado corretamente.")
+
+    sync = _sincronizar_destino_corrigido(cursor, produto_destino_id, origem=origem)
 
     return {
         "precos_migrados": precos_migrados,
         "equivalencias_migradas": equivalencias_migradas,
         "produtos_inativados": produtos_inativados,
+        "precos_marca_atualizados": sync.get("precos_marca_atualizados", 0),
     }
 
 
@@ -1026,6 +1215,8 @@ def aplicar_correcao_manual_sku_master(
                         "precos_migrados": contadores_casc["precos_migrados"],
                     })
 
+        consolidacao_mesmo_sku = _consolidar_produtos_mesmo_sku_master(cursor, destino_id)
+
         conn.commit()
 
         registro = {
@@ -1045,6 +1236,7 @@ def aplicar_correcao_manual_sku_master(
             "equivalencias_migradas": contadores["equivalencias_migradas"],
             "produtos_inativados": contadores["produtos_inativados"],
             "cascata": itens_cascata,
+            "consolidacao_mesmo_sku": consolidacao_mesmo_sku,
             "backup": backup,
         }
         caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
@@ -1094,6 +1286,8 @@ def aplicar_correcao_sku_master(
             "produto_destino_id": int(produto_destino_id),
         })
 
+        consolidacao_mesmo_sku = _consolidar_produtos_mesmo_sku_master(cursor, int(produto_destino_id))
+
         conn.commit()
 
         registro = {
@@ -1111,6 +1305,7 @@ def aplicar_correcao_sku_master(
             "precos_migrados": contadores["precos_migrados"],
             "equivalencias_migradas": contadores["equivalencias_migradas"],
             "produtos_inativados": contadores["produtos_inativados"],
+            "consolidacao_mesmo_sku": consolidacao_mesmo_sku,
             "backup": backup,
         }
         caminho_log_final = registrar_log_correcao(registro, caminho_log=caminho_log)
