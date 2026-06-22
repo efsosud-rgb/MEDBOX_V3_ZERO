@@ -1,3 +1,179 @@
+
+<style>
+/* ============================================================
+   MODELO OAS FINAL - DESTAQUE AZUL DO MELHOR LANCE
+   ============================================================ */
+
+.melhor-preco-oas {
+    color: #004aad !important;
+    font-weight: 900 !important;
+    background: #eaf3ff !important;
+    border: 1px solid #9ec5ff !important;
+    border-radius: 5px !important;
+    padding: 4px 7px !important;
+    display: inline-block !important;
+}
+
+.empresa-melhor-lance {
+    display: block !important;
+    font-size: 10px !important;
+    color: #52647a !important;
+    margin-top: 2px !important;
+    font-weight: 800 !important;
+}
+
+.total-menor-lance {
+    color: #004aad !important;
+    font-weight: 900 !important;
+}
+
+@media print {
+    .melhor-preco-oas {
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+    }
+
+    .empresa-melhor-lance {
+        font-size: 7px !important;
+    }
+
+    .cotacao-print-table th,
+    .cotacao-print-table td {
+        font-size: 8px !important;
+        padding: 3px 4px !important;
+        line-height: 1.12 !important;
+    }
+}
+</style>
+
+
+<style>
+/* ============================================================
+   MODELO FINAL - COTAÇÃO COM OAS
+   ============================================================ */
+
+.cotacao-preco-menor {
+    background: #e8fff3 !important;
+    color: #005c32 !important;
+    font-weight: 900 !important;
+    border: 1px solid #00a65a !important;
+}
+
+.cotacao-vencedor-info {
+    display: block;
+    font-size: 9px;
+    font-weight: 900;
+    margin-top: 2px;
+    color: #005c32;
+}
+
+@media print {
+    .cotacao-print-table th,
+    .cotacao-print-table td {
+        font-size: 8px !important;
+        padding: 3px 4px !important;
+        line-height: 1.10 !important;
+    }
+
+    .cotacao-vencedor-info {
+        font-size: 7px !important;
+    }
+}
+</style>
+
+
+<style>
+/* ============================================================
+   COTAÇÃO GERADA - MODELO FINAL COM / SEM OSINFO
+   ============================================================ */
+
+.cotacao-preco-menor {
+    background: #e8fff3 !important;
+    color: #005c32 !important;
+    font-weight: 900 !important;
+    border: 1px solid #00a65a !important;
+}
+
+.cotacao-preco-zero {
+    color: #8a94a6 !important;
+}
+
+@media print {
+    .cotacao-print-table th,
+    .cotacao-print-table td {
+        font-size: 8.5px !important;
+        padding: 3px 4px !important;
+        line-height: 1.12 !important;
+    }
+}
+</style>
+
+
+<style>
+/* ============================================================
+   COTAÇÃO GERADA - COMPARATIVO OSINFO x LANCE x MEDBOX
+   ============================================================ */
+
+.cotacao-print-table th,
+.cotacao-print-table td {
+    font-size: 11px;
+}
+
+.cotacao-preco-menor {
+    background: #e8fff3 !important;
+    color: #005c32 !important;
+    font-weight: 900 !important;
+    border: 1px solid #00a65a !important;
+}
+
+.cotacao-preco-zero {
+    color: #8a94a6 !important;
+}
+
+.cotacao-badge-menor {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #e8fff3;
+    color: #005c32;
+    border: 1px solid #00a65a;
+    font-size: 10px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.cotacao-badge-negociar {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #fff3e8;
+    color: #9a4a00;
+    border: 1px solid #ff9f43;
+    font-size: 10px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+@media print {
+    .cotacao-print-table {
+        font-size: 8.5px !important;
+    }
+
+    .cotacao-print-table th,
+    .cotacao-print-table td {
+        padding: 3px 4px !important;
+        font-size: 8.5px !important;
+        line-height: 1.12 !important;
+    }
+
+    .cotacao-badge-menor,
+    .cotacao-badge-negociar {
+        font-size: 7.5px !important;
+        padding: 2px 4px !important;
+    }
+}
+</style>
+
 {% extends "base.html" %}
 
 {% block title %}Cotações Geradas{% endblock %}
@@ -367,7 +543,7 @@
                 <td>{{ c.data_emissao }}</td>
                 <td>{{ c.cliente or '-' }}</td>
                 <td>{{ "R$ {:,.2f}".format(c.total_geral or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
-                <td><a class="cotacao-btn cotacao-btn-sec" href="/cotacoes/geradas/{{ c.numero_cotacao }}">Abrir</a></td>
+                <td><a class="cotacao-btn cotacao-btn-sec" href="/cotacoes/geradas/{{ c.numero_cotacao }}">Abrir</a> <a href="/cotacoes/geradas/{{ c.numero_cotacao }}/editar" class="btn-editar-cotacao-direto" style="display:inline-block;margin-left:8px;padding:7px 11px;border-radius:6px;background:#ff9f1c;color:#fff;font-weight:900;text-decoration:none;font-size:12px;">Editar</a></td>
             </tr>
             {% else %}
             <tr>
@@ -414,32 +590,216 @@
         </div>
     </div>
 
-    <table class="cotacao-print-table">
-        <thead>
-            <tr>
-                <th style="width:55px;">Item</th>
-                <th>Descrição do Produto</th>
-                <th>SKU_MASTER MedBox</th>
-                <th>Marca</th>
-                <th style="width:90px;">Quantidade</th>
-                <th style="width:120px;">Valor Unitário</th>
-                <th style="width:120px;">Valor Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in itens %}
-            <tr>
-                <td>{{ item.item_numero }}</td>
-                <td>{{ item.descricao_produto }}</td>
-                <td>{{ item.sku_master }}</td>
-                <td>{{ item.marca }}</td>
-                <td>{{ item.quantidade }}</td>
-                <td class="{% if not item.venceu_medbox %}valor-zero{% endif %}">{{ item.valor_unitario_formatado }}</td>
-                <td class="{% if not item.venceu_medbox %}valor-zero{% endif %}">{{ item.valor_total_formatado }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    
+{% set ns = namespace(mostrar_comparativo=false) %}
+{% for item in itens %}
+    {% if item.preco_osinfo and item.preco_osinfo > 0 %}
+        {% set ns.mostrar_comparativo = true %}
+    {% endif %}
+{% endfor %}
+
+{% if ns.mostrar_comparativo %}
+
+{% set ns = namespace(mostrar_osinfo=false) %}
+{% for item in itens %}
+    {% if item.preco_osinfo and item.preco_osinfo > 0 %}
+        {% set ns.mostrar_osinfo = true %}
+    {% endif %}
+{% endfor %}
+
+{% if ns.mostrar_osinfo %}
+
+{% set ns = namespace(mostrar_osinfo=false) %}
+{% for item in itens %}
+    {% if item.preco_osinfo and item.preco_osinfo > 0 %}
+        {% set ns.mostrar_osinfo = true %}
+    {% endif %}
+{% endfor %}
+
+{% if ns.mostrar_osinfo %}
+
+{% set ns = namespace(mostrar_osinfo=false) %}
+{% for item in itens %}
+    {% if item.preco_osinfo and item.preco_osinfo > 0 %}
+        {% set ns.mostrar_osinfo = true %}
+    {% endif %}
+{% endfor %}
+
+{% if ns.mostrar_osinfo %}
+<table class="cotacao-print-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Descrição do Produto</th>
+            <th>SKU_MASTER MedBox</th>
+            <th>Marca</th>
+            <th>Quantidade</th>
+            <th>Preço OSINFO</th>
+            <th>Preço MedBox</th>
+            <th>Preço Empresa Melhor Lance</th>
+            <th>Valor Total pelo Menor Lance</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in itens %}
+        <tr>
+            <td>{{ item.item_numero or item.item or loop.index }}</td>
+            <td>{{ item.descricao_produto }}</td>
+            <td>{{ item.sku_master }}</td>
+            <td>{{ item.marca or item.marca_fabricante or '-' }}</td>
+            <td>{{ item.quantidade }}</td>
+
+            <td>
+                <span class="{% if item.destaque_osinfo %}melhor-preco-oas{% endif %}">
+                    {{ item.preco_osinfo_formatado or 'R$ 0,00' }}
+                </span>
+            </td>
+
+            <td>
+                <span class="{% if item.destaque_medbox %}melhor-preco-oas{% endif %}">
+                    {{ item.preco_medbox_formatado or item.preco_medbox_original_formatado or 'R$ 0,00' }}
+                </span>
+            </td>
+
+            <td>
+                <span class="{% if item.destaque_outra %}melhor-preco-oas{% endif %}">
+                    {{ item.preco_outra_empresa_formatado or item.menor_lance_formatado or 'R$ 0,00' }}
+                </span>
+                {% if item.empresa_melhor_lance %}
+                    <span class="empresa-melhor-lance">{{ item.empresa_melhor_lance }}</span>
+                {% endif %}
+            </td>
+
+            <td>
+                <span class="total-menor-lance">
+                    {{ item.valor_total_vencedor_formatado or 'R$ 0,00' }}
+                </span>
+                {% if item.menor_empresa and item.menor_empresa != '-' %}
+                    <span class="empresa-melhor-lance">
+                        Melhor lance: {{ item.menor_empresa }} - {{ item.menor_valor_comparativo_formatado }}
+                    </span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="cotacao-print-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Descrição do Produto</th>
+            <th>SKU_MASTER MedBox</th>
+            <th>Marca</th>
+            <th>Quantidade</th>
+            <th>Valor Unitário</th>
+            <th>Valor Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in itens %}
+        <tr>
+            <td>{{ item.item_numero or item.item or loop.index }}</td>
+            <td>{{ item.descricao_produto }}</td>
+            <td>{{ item.sku_master }}</td>
+            <td>{{ item.marca or item.marca_fabricante or '-' }}</td>
+            <td>{{ item.quantidade }}</td>
+            <td>{{ item.valor_unitario_formatado }}</td>
+            <td>{{ item.valor_total_formatado }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% else %}
+<table class="cotacao-print-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Descrição do Produto</th>
+            <th>SKU_MASTER MedBox</th>
+            <th>Marca</th>
+            <th>Quantidade</th>
+            <th>Valor Unitário</th>
+            <th>Valor Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in itens %}
+        <tr>
+            <td>{{ item.item_numero or item.item or loop.index }}</td>
+            <td>{{ item.descricao_produto }}</td>
+            <td>{{ item.sku_master }}</td>
+            <td>{{ item.marca }}</td>
+            <td>{{ item.quantidade }}</td>
+            <td>{{ item.valor_unitario_formatado }}</td>
+            <td>{{ item.valor_total_formatado }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% else %}
+<table class="cotacao-print-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Descrição do Produto</th>
+            <th>SKU_MASTER MedBox</th>
+            <th>Marca</th>
+            <th>Quantidade</th>
+            <th>Valor Unitário</th>
+            <th>Valor Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in itens %}
+        <tr>
+            <td>{{ item.item_numero or item.item or loop.index }}</td>
+            <td>{{ item.descricao_produto }}</td>
+            <td>{{ item.sku_master }}</td>
+            <td>{{ item.marca }}</td>
+            <td>{{ item.quantidade }}</td>
+            <td>{{ item.valor_unitario_formatado }}</td>
+            <td>{{ item.valor_total_formatado }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% else %}
+<table class="cotacao-print-table">
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Descrição do Produto</th>
+            <th>SKU_MASTER MedBox</th>
+            <th>Marca</th>
+            <th>Quantidade</th>
+            <th>Valor Unitário</th>
+            <th>Valor Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in itens %}
+        <tr>
+            <td>{{ item.item_numero or item.item or loop.index }}</td>
+            <td>{{ item.descricao_produto }}</td>
+            <td>{{ item.sku_master }}</td>
+            <td>{{ item.marca }}</td>
+            <td>{{ item.quantidade }}</td>
+            <td>{{ item.valor_unitario_formatado }}</td>
+            <td>{{ item.valor_total_formatado }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
 
     <div class="cotacao-total">
         Total Geral dos Itens Vencidos pela MedBox: {{ total_formatado }}
@@ -452,3 +812,141 @@
 {% endif %}
 
 {% endblock %}
+
+
+<script>
+/* ============================================================
+   BOTÃO EDITAR COTAÇÃO GERADA
+   ============================================================ */
+(function () {
+    function adicionarBotoesEditar() {
+        // Tela de detalhe
+        const numeroBox = Array.from(document.querySelectorAll("*")).find(el =>
+            (el.textContent || "").includes("Nº da Cotação:")
+        );
+
+        if (numeroBox && !document.getElementById("btnEditarCotacaoGeradaDetalhe")) {
+            const texto = numeroBox.textContent || "";
+            const match = texto.match(/MEDBOX-\d{4}-\d{6}/);
+
+            if (match) {
+                const numero = match[0];
+
+                const btn = document.createElement("a");
+                btn.id = "btnEditarCotacaoGeradaDetalhe";
+                btn.href = "/cotacoes/geradas/" + numero + "/editar";
+                btn.textContent = "Editar Cotação";
+                btn.style.display = "inline-block";
+                btn.style.marginLeft = "8px";
+                btn.style.padding = "9px 14px";
+                btn.style.borderRadius = "7px";
+                btn.style.background = "#ff9f1c";
+                btn.style.color = "#fff";
+                btn.style.fontWeight = "900";
+                btn.style.textDecoration = "none";
+
+                const barra = Array.from(document.querySelectorAll("a, button")).find(el =>
+                    (el.textContent || "").toUpperCase().includes("IMPRIMIR")
+                );
+
+                if (barra && barra.parentElement) {
+                    barra.parentElement.appendChild(btn);
+                }
+            }
+        }
+
+        // Tela de lista
+        document.querySelectorAll("table tbody tr").forEach(row => {
+            if (row.dataset.editarAplicado === "1") return;
+
+            const texto = row.textContent || "";
+            const match = texto.match(/MEDBOX-\d{4}-\d{6}/);
+
+            if (!match) return;
+
+            const numero = match[0];
+            const ultimaCelula = row.children[row.children.length - 1];
+
+            if (!ultimaCelula) return;
+
+            const btn = document.createElement("a");
+            btn.href = "/cotacoes/geradas/" + numero + "/editar";
+            btn.textContent = "Editar";
+            btn.style.display = "inline-block";
+            btn.style.marginLeft = "6px";
+            btn.style.padding = "7px 10px";
+            btn.style.borderRadius = "6px";
+            btn.style.background = "#ff9f1c";
+            btn.style.color = "#fff";
+            btn.style.fontWeight = "900";
+            btn.style.textDecoration = "none";
+
+            ultimaCelula.appendChild(btn);
+            row.dataset.editarAplicado = "1";
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", adicionarBotoesEditar);
+    window.addEventListener("load", adicionarBotoesEditar);
+    setTimeout(adicionarBotoesEditar, 500);
+    setTimeout(adicionarBotoesEditar, 1500);
+})();
+</script>
+
+
+<script>
+/* ============================================================
+   FORÇA BOTÃO EDITAR NA LISTA DE COTAÇÕES GERADAS
+   ============================================================ */
+(function () {
+    function adicionarBotaoEditarLista() {
+        const linhas = document.querySelectorAll("table tbody tr");
+
+        linhas.forEach(function (row) {
+            if (row.dataset.botaoEditarAplicado === "1") return;
+
+            const textoLinha = row.textContent || "";
+            const match = textoLinha.match(/MEDBOX-\d{4}-\d{6}/);
+
+            if (!match) return;
+
+            const numero = match[0];
+            const ultimaCelula = row.children[row.children.length - 1];
+
+            if (!ultimaCelula) return;
+
+            const jaExiste = Array.from(ultimaCelula.querySelectorAll("a, button")).some(function (el) {
+                return (el.textContent || "").toUpperCase().includes("EDITAR");
+            });
+
+            if (jaExiste) {
+                row.dataset.botaoEditarAplicado = "1";
+                return;
+            }
+
+            const btn = document.createElement("a");
+            btn.href = "/cotacoes/geradas/" + numero + "/editar";
+            btn.textContent = "Editar";
+            btn.style.display = "inline-block";
+            btn.style.marginLeft = "8px";
+            btn.style.padding = "7px 11px";
+            btn.style.borderRadius = "6px";
+            btn.style.background = "#ff9f1c";
+            btn.style.color = "#ffffff";
+            btn.style.fontWeight = "900";
+            btn.style.textDecoration = "none";
+            btn.style.fontSize = "12px";
+
+            ultimaCelula.appendChild(btn);
+            row.dataset.botaoEditarAplicado = "1";
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", adicionarBotaoEditarLista);
+    window.addEventListener("load", adicionarBotaoEditarLista);
+
+    setTimeout(adicionarBotaoEditarLista, 300);
+    setTimeout(adicionarBotaoEditarLista, 1000);
+    setTimeout(adicionarBotaoEditarLista, 2000);
+})();
+</script>

@@ -534,6 +534,11 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=72):
             "empresa_melhor_lance": item.get("empresa_melhor_lance", ""),
             "menor_valor": menor_valor,
             "menor_valor_nome": menor_nome,
+            "menor_origem": disputa.get("menor_origem", "-"),
+            "medbox_vencedora": bool(disputa.get("medbox_vencedora")),
+            "classe_osinfo": disputa.get("classe_osinfo", ""),
+            "classe_lance": disputa.get("classe_lance", ""),
+            "classe_medbox": disputa.get("classe_medbox", ""),
             "menor_custo_unitario": menor_custo if menor_custo else None,
             "fornecedor_menor_custo": fornecedor,
             "marca_fabricante": fabricante,
@@ -827,3 +832,710 @@ def salvar_sku_rapido_lances(descricao_cotacao, sku_master, fornecedor="", fabri
         "fabricante": fabricante,
         "categoria": categoria,
     }
+
+
+
+# ============================================================
+# OVERRIDE FINAL - IMPORTADOR RÁPIDO OAS / LANCES
+# Este bloco sobrescreve extrair_itens_arquivo sem depender
+# das funções antigas do arquivo.
+# ============================================================
+
+def _lances_limpar_texto(valor):
+    texto = str(valor or "")
+    texto = texto.replace("_x000D_", " ")
+    texto = texto.replace("\r", " ").replace("\n", " ")
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto
+
+
+def _lances_header(valor):
+    texto = _lances_limpar_texto(valor).upper()
+    texto = texto.replace("Ç", "C").replace("Ã", "A").replace("Á", "A")
+    texto = texto.replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
+    texto = re.sub(r"[^A-Z0-9 ]+", " ", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto
+
+
+def _lances_coluna(headers, aliases):
+    """
+    Localiza coluna respeitando prioridade.
+    Ex.: tenta DESCRICAO antes de PRODUTO.
+    """
+    headers_norm = [_lances_header(h) for h in headers]
+    aliases_norm = [_lances_header(a) for a in aliases]
+
+    for alias in aliases_norm:
+        for idx, header in enumerate(headers_norm):
+            if header == alias:
+                return idx
+
+    for alias in aliases_norm:
+        for idx, header in enumerate(headers_norm):
+            if alias and header and alias in header:
+                return idx
+
+    return None
+
+
+def _lances_detectar_cabecalho_excel(ws, max_linhas=80):
+    aliases_desc = [
+        "DESCRICAO",
+        "DESCRICAO DO PRODUTO",
+        "NOME DO PRODUTO",
+        "NOME",
+        "MEDICAMENTO",
+        "ITEM",
+        "PRODUTO",
+    ]
+
+    aliases_qtd = [
+        "QUANTIDADE SOLICITADA",
+        "QUANTIDADE ORCADA",
+        "QUANTIDADE",
+        "QTD",
+        "QTDE",
+        "QTD.",
+        "QTDE.",
+    ]
+
+    aliases_unidade = [
+        "UNIDADE SOLICITADA",
+        "UNIDADE ORCADA",
+        "UNIDADE",
+        "UND",
+        "UN",
+        "UM",
+    ]
+
+    aliases_osinfo = [
+        "OSINFO",
+        "PRECO OSINFO",
+        "PRECO OS INFO",
+        "VALOR OSINFO",
+    ]
+
+    aliases_ultima = [
+        "ULTIMA COMPRA",
+        "ULT COMPRA",
+        "ULTIMA COMPRA DA COTACAO",
+        "ULT COMPRA DA COTACAO",
+    ]
+
+    aliases_menor_lance = [
+        "MENOR PRECO",
+        "MENOR LANCE",
+        "PRECO UNITARIO",
+        "VALOR UNITARIO",
+    ]
+
+    melhor = None
+
+    for linha_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=max_linhas, values_only=True), start=1):
+        headers = [_lances_limpar_texto(v) for v in row]
+
+        col_desc = _lances_coluna(headers, aliases_desc)
+        col_qtd = _lances_coluna(headers, aliases_qtd)
+
+        pontos = 0
+        if col_desc is not None:
+            pontos += 10
+        if col_qtd is not None:
+            pontos += 10
+
+        # Garante que DESCRICAO vença PRODUTO quando existir.
+        headers_norm = [_lances_header(h) for h in headers]
+        if "DESCRICAO" in headers_norm:
+            col_desc = headers_norm.index("DESCRICAO")
+            pontos += 5
+
+        if "QUANTIDADE SOLICITADA" in headers_norm:
+            col_qtd = headers_norm.index("QUANTIDADE SOLICITADA")
+            pontos += 5
+
+        candidato = {
+            "pontos": pontos,
+            "linha": linha_idx,
+            "headers": headers,
+            "descricao": col_desc,
+            "quantidade": col_qtd,
+            "unidade": _lances_coluna(headers, aliases_unidade),
+            "preco_osinfo": _lances_coluna(headers, aliases_osinfo),
+            "ultima_compra": _lances_coluna(headers, aliases_ultima),
+            "menor_lance": _lances_coluna(headers, aliases_menor_lance),
+            "codigo_cliente": _lances_coluna(headers, ["CODIGO", "COD PRODUTO", "CODIGO PRODUTO", "CODITEM"]),
+        }
+
+        if melhor is None or candidato["pontos"] > melhor["pontos"]:
+            melhor = candidato
+
+        if candidato["pontos"] >= 20:
+            return candidato
+
+    return melhor if melhor and melhor["pontos"] >= 15 else None
+
+
+def _lances_escolher_aba_excel(wb):
+    prioridades = [
+        "ITENS_ORCAMENTO",
+        "ITENS ORCAMENTO",
+        "ITENS_ORÇAMENTO",
+        "ITENS",
+        "ORCAMENTO",
+        "ORÇAMENTO",
+        "COTACAO",
+        "COTAÇÃO",
+    ]
+
+    for prioridade in prioridades:
+        for ws in wb.worksheets:
+            if _lances_header(ws.title) == _lances_header(prioridade):
+                cab = _lances_detectar_cabecalho_excel(ws)
+                if cab:
+                    return ws, cab
+
+    melhor_ws = None
+    melhor_cab = None
+
+    for ws in wb.worksheets:
+        cab = _lances_detectar_cabecalho_excel(ws)
+        if cab and (melhor_cab is None or cab["pontos"] > melhor_cab["pontos"]):
+            melhor_ws = ws
+            melhor_cab = cab
+
+    return melhor_ws, melhor_cab
+
+
+def _lances_extrair_excel_rapido(caminho):
+    wb = load_workbook(caminho, read_only=True, data_only=True)
+    ws, cab = _lances_escolher_aba_excel(wb)
+
+    if not ws or not cab:
+        try:
+            wb.close()
+        except Exception:
+            pass
+        raise ValueError("Não consegui detectar as colunas DESCRICAO e QUANTIDADE da cotação.")
+
+    itens = []
+
+    for row in ws.iter_rows(min_row=cab["linha"] + 1, values_only=True):
+        desc = ""
+        if cab["descricao"] is not None and cab["descricao"] < len(row):
+            desc = _lances_limpar_texto(row[cab["descricao"]])
+
+        if not desc:
+            continue
+
+        desc_norm = norm_busca(desc)
+
+        if len(desc_norm) < 3:
+            continue
+
+        if any(x in desc_norm for x in [
+            "TOTAL GERAL",
+            "OBSERVACOES",
+            "CONDICAO DE PAGAMENTO",
+            "TRANSPORTADORA",
+            "VALIDADE",
+            "PRECO UNITARIO",
+            "VALOR TOTAL",
+        ]):
+            continue
+
+        qtd = 1
+        if cab["quantidade"] is not None and cab["quantidade"] < len(row):
+            qtd = numero_br(row[cab["quantidade"]], 1)
+
+        unidade = ""
+        if cab.get("unidade") is not None and cab["unidade"] < len(row):
+            unidade = _lances_limpar_texto(row[cab["unidade"]])
+
+        preco_osinfo = 0
+        if cab.get("preco_osinfo") is not None and cab["preco_osinfo"] < len(row):
+            preco_osinfo = numero_br(row[cab["preco_osinfo"]], 0)
+
+        ultima_compra = 0
+        if cab.get("ultima_compra") is not None and cab["ultima_compra"] < len(row):
+            ultima_compra = numero_br(row[cab["ultima_compra"]], 0)
+
+        menor_lance = 0
+        if cab.get("menor_lance") is not None and cab["menor_lance"] < len(row):
+            menor_lance = numero_br(row[cab["menor_lance"]], 0)
+
+        codigo = ""
+        if cab.get("codigo_cliente") is not None and cab["codigo_cliente"] < len(row):
+            codigo = _lances_limpar_texto(row[cab["codigo_cliente"]])
+
+        itens.append({
+            "codigo_cliente": codigo,
+            "descricao_cotacao": desc.upper(),
+            "unidade": unidade.upper(),
+            "quantidade": qtd,
+            "preco_osinfo": preco_osinfo,
+            "ultima_compra": ultima_compra,
+            "menor_lance": menor_lance,
+            "empresa_melhor_lance": "",
+        })
+
+    try:
+        wb.close()
+    except Exception:
+        pass
+
+    return itens
+
+
+def _lances_texto_pdf(caminho):
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        try:
+            from PyPDF2 import PdfReader
+        except Exception:
+            raise ValueError("Para importar PDF, instale: pip install pypdf")
+
+    reader = PdfReader(str(caminho))
+    textos = []
+
+    for page in reader.pages:
+        try:
+            textos.append(page.extract_text() or "")
+        except Exception:
+            continue
+
+    return "\n".join(textos)
+
+
+def _lances_extrair_pdf_rapido(caminho):
+    texto = _lances_texto_pdf(caminho)
+    texto = texto.replace("\r", "\n")
+    linhas = [_lances_limpar_texto(l) for l in texto.splitlines() if _lances_limpar_texto(l)]
+
+    texto_unico = " ".join(linhas)
+    texto_unico = re.sub(r"\s+", " ", texto_unico).strip()
+
+    itens = []
+    vistos = set()
+
+    unidades = r"(?:AMP|FR|COMP|TB|SER|UN|ENV|CP|F/A|FA|UND|CX|PCT|BISN|BOL)"
+
+    pattern = re.compile(
+        rf"(?P<item>\b\d{{1,3}}\b)\s+"
+        rf"(?:(?P<unidade1>{unidades})\s+)?"
+        rf"(?P<desc>[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9,./%+\-\s]{{8,220}}?)\s+"
+        rf"(?P<qtd>\d{{1,7}},\d{{1,4}})"
+        rf"(?:\s+(?P<unidade2>{unidades}))?",
+        re.IGNORECASE
+    )
+
+    for m in pattern.finditer(texto_unico):
+        desc = _lances_limpar_texto(m.group("desc"))
+        desc = re.sub(r"^\d{5,}\s+", "", desc).strip()
+        desc = re.sub(r"^\d{3}\s+", "", desc).strip()
+
+        desc_norm = norm_busca(desc)
+
+        if len(desc_norm) < 5:
+            continue
+
+        if any(x in desc_norm for x in [
+            "PRECO UN",
+            "PRECO TOTAL",
+            "NOME UND",
+            "DATA LIMITE",
+            "PEDIDO DE COTACAO",
+        ]):
+            continue
+
+        qtd = numero_br(m.group("qtd"), 1)
+        unidade = (m.group("unidade1") or m.group("unidade2") or "").upper()
+
+        chave = (desc_norm, qtd)
+        if chave in vistos:
+            continue
+
+        vistos.add(chave)
+
+        itens.append({
+            "codigo_cliente": "",
+            "descricao_cotacao": desc.upper(),
+            "unidade": unidade,
+            "quantidade": qtd,
+            "preco_osinfo": 0,
+            "ultima_compra": 0,
+            "menor_lance": 0,
+            "empresa_melhor_lance": "",
+        })
+
+    if not itens:
+        raise ValueError("Não consegui extrair itens do PDF. Se for imagem/escaneado, será necessário OCR.")
+
+    return itens
+
+
+def extrair_itens_arquivo(caminho):
+    caminho = Path(caminho)
+    ext = caminho.suffix.lower()
+
+    if ext in [".xlsx", ".xlsm", ".xltx", ".xltm"]:
+        return _lances_extrair_excel_rapido(caminho)
+
+    if ext == ".pdf":
+        return _lances_extrair_pdf_rapido(caminho)
+
+    raise ValueError(f"Formato não suportado: {ext}. Use Excel ou PDF pesquisável.")
+
+
+
+
+
+# ============================================================
+# OVERRIDE FINAL - FUNÇÕES BASE DO ÍNDICE RÁPIDO DE LANCES
+# Necessário para analisar cotações grandes sem varrer a base inteira.
+# ============================================================
+
+_CACHE_TOKEN_MAP_LANCES = None
+_CACHE_INDICE_RAPIDO_LANCES = None
+
+_STOPWORDS_LANCES = {
+    "DE", "DA", "DO", "DAS", "DOS", "E", "EM", "PARA", "COM", "SEM",
+    "USO", "SOL", "SOLUCAO", "SOLUÇÃO", "INJETAVEL", "INJETÁVEL",
+    "COMPRIMIDO", "COMP", "FRASCO", "AMPOLA", "AMP", "FR", "UN",
+    "UND", "ORAL", "IV", "IM", "SC", "PO", "SODICA", "SODICO",
+    "CLORIDRATO", "DISSODICO", "FOSFATO"
+}
+
+
+def _tokens_lances(texto):
+    texto = norm_busca(texto)
+    tokens = []
+
+    for t in texto.split():
+        t = t.strip()
+
+        if len(t) < 3:
+            continue
+
+        if t in _STOPWORDS_LANCES:
+            continue
+
+        tokens.append(t)
+
+    return tokens
+
+
+def _montar_indice_rapido_lances():
+    global _CACHE_TOKEN_MAP_LANCES, _CACHE_INDICE_RAPIDO_LANCES
+
+    if _CACHE_TOKEN_MAP_LANCES is not None and _CACHE_INDICE_RAPIDO_LANCES is not None:
+        return _CACHE_INDICE_RAPIDO_LANCES, _CACHE_TOKEN_MAP_LANCES
+
+    indice = carregar_indice_produtos()
+    token_map = {}
+
+    for produto in indice:
+        texto = produto.get("texto_busca", "")
+        tokens = set(_tokens_lances(texto))
+
+        produto["_tokens_rapidos"] = tokens
+
+        for token in tokens:
+            if token not in token_map:
+                token_map[token] = []
+            token_map[token].append(produto)
+
+    _CACHE_INDICE_RAPIDO_LANCES = indice
+    _CACHE_TOKEN_MAP_LANCES = token_map
+
+    return indice, token_map
+
+
+def _candidatos_rapidos_lances(descricao, limite=80):
+    indice, token_map = _montar_indice_rapido_lances()
+
+    tokens = _tokens_lances(descricao)
+
+    if not tokens:
+        return []
+
+    contagem = {}
+
+    for token in tokens:
+        produtos = token_map.get(token, [])
+
+        for produto in produtos:
+            chave = id(produto)
+
+            if chave not in contagem:
+                contagem[chave] = [0, produto]
+
+            contagem[chave][0] += 1
+
+    if not contagem:
+        return []
+
+    candidatos = sorted(
+        contagem.values(),
+        key=lambda x: x[0],
+        reverse=True
+    )
+
+    return [produto for _, produto in candidatos[:limite]]
+
+
+def limpar_cache_lances():
+    global _CACHE_INDICE_LANCES, _CACHE_TOKEN_MAP_LANCES, _CACHE_INDICE_RAPIDO_LANCES
+
+    try:
+        _CACHE_INDICE_LANCES = None
+    except Exception:
+        pass
+
+    _CACHE_TOKEN_MAP_LANCES = None
+    _CACHE_INDICE_RAPIDO_LANCES = None
+
+
+# ============================================================
+# OVERRIDE FINAL - ANÁLISE EM MASSA RÁPIDA
+# Na importação grande, não monta sugestões para cada item.
+# As sugestões ficam sob demanda no autocomplete do campo SKU.
+# ============================================================
+
+def encontrar_sku_automatico_rapido_lances(descricao, score_minimo=72):
+    """
+    Busca apenas preenchimento automático seguro.
+    Não retorna sugestões em massa para não travar cotações grandes.
+    """
+    candidatos_produtos = _candidatos_rapidos_lances(descricao, limite=80)
+
+    if not candidatos_produtos:
+        return None, 0
+
+    candidatos = []
+
+    for produto in candidatos_produtos:
+        score = score_simples(descricao, produto.get("texto_busca", ""))
+
+        if score >= score_minimo:
+            candidatos.append((score, produto))
+
+    candidatos.sort(key=lambda x: x[0], reverse=True)
+
+    if not candidatos:
+        return None, 0
+
+    melhor_score, melhor = candidatos[0]
+    segundo_score = candidatos[1][0] if len(candidatos) > 1 else 0
+    diferenca = melhor_score - segundo_score
+
+    # Continua evitando chute:
+    # só preenche automático se o melhor for bem superior.
+    if melhor_score >= 88 and diferenca >= 8:
+        return melhor, melhor_score
+
+    return None, melhor_score
+
+
+def analisar_itens_lances(itens, markup_percentual=80, score_minimo=72):
+    """
+    Versão otimizada para importação de cotações grandes.
+
+    Diferença principal:
+    - não gera sugestoes_sku em massa;
+    - deixa sugestoes_sku vazio;
+    - o vendedor busca sugestões sob demanda ao clicar no campo SKU Master.
+    """
+    markup_percentual = numero_br(markup_percentual, 80.0)
+
+    # Garante que o índice rápido seja montado uma única vez.
+    _montar_indice_rapido_lances()
+
+    analisados = []
+
+    for idx, item in enumerate(itens, start=1):
+        desc = item["descricao_cotacao"]
+        candidato, score = encontrar_sku_automatico_rapido_lances(
+            desc,
+            score_minimo=score_minimo
+        )
+
+        sku_encontrado = candidato is not None
+
+        sku_master = "REVISAR SKU"
+        fornecedor = "-"
+        fabricante = "-"
+        categoria = "-"
+        menor_custo = 0.0
+        desc_fornecedor = "-"
+
+        if candidato:
+            sku_master = candidato.get("sku_master_exibicao") or candidato.get("produto_padrao") or "REVISAR SKU"
+            fabricante = candidato.get("fabricante") or "-"
+            categoria = candidato.get("categoria") or "-"
+
+            preco = candidato.get("preco") or {}
+            menor_custo = numero_br(preco.get("preco"), 0.0)
+            fornecedor = preco.get("fornecedor") or "-"
+            fabricante = preco.get("marca") or fabricante or "-"
+            desc_fornecedor = preco.get("descricao_fornecedor") or "-"
+
+        preco_medbox = round(menor_custo * (1 + markup_percentual / 100), 4) if menor_custo else 0.0
+
+        preco_osinfo = numero_br(item.get("preco_osinfo"), 0.0)
+        ultima_compra = numero_br(item.get("ultima_compra"), 0.0)
+        menor_lance = numero_br(item.get("menor_lance"), 0.0)
+
+        disputa = calcular_disputa_precos_lances(
+            preco_osinfo=preco_osinfo,
+            menor_lance=menor_lance,
+            preco_medbox=preco_medbox,
+            empresa_melhor_lance=item.get("empresa_melhor_lance", "")
+        )
+
+        menor_nome = disputa.get("menor_empresa") or "-"
+        menor_valor = disputa.get("menor_valor") or 0.0
+
+        status = status_item(
+            sku_encontrado,
+            menor_custo,
+            preco_medbox,
+            preco_osinfo,
+            ultima_compra,
+            menor_lance
+        )
+
+        qtd = item.get("quantidade", 1)
+        qtd = numero_br(qtd, 1)
+
+        analisados.append({
+            "item": idx,
+            "codigo_cliente": item.get("codigo_cliente", ""),
+            "descricao_produto": desc,
+            "descricao_cotacao": desc,
+            "unidade": item.get("unidade", ""),
+            "quantidade": qtd,
+            "sku_master": sku_master,
+            "sku_encontrado": sku_encontrado,
+            "score": score,
+            "sugestoes_sku": [],
+            "categoria": categoria,
+            "descricao_fornecedor": desc_fornecedor,
+            "preco_osinfo": preco_osinfo,
+            "ultima_compra": ultima_compra,
+            "preco_medbox": preco_medbox,
+            "markup_atual": markup_percentual if menor_custo else None,
+            "menor_preco_ofertado": menor_lance,
+            "empresa_melhor_lance": item.get("empresa_melhor_lance", ""),
+            "menor_valor": menor_valor,
+            "menor_valor_nome": menor_nome,
+            "menor_custo_unitario": menor_custo if menor_custo else None,
+            "fornecedor_menor_custo": fornecedor,
+            "marca_fabricante": fabricante,
+            "status": status,
+            "tem_preco": bool(menor_custo),
+            "preco_osinfo_formatado": moeda_br(preco_osinfo),
+            "ultima_compra_formatada": moeda_br(ultima_compra),
+            "preco_medbox_formatado": moeda_br(preco_medbox),
+            "menor_preco_ofertado_formatado": moeda_br(menor_lance),
+            "menor_valor_formatado": moeda_br(menor_valor),
+            "menor_custo_unitario_formatado": moeda_br(menor_custo) if menor_custo else "-",
+            "total_medbox": preco_medbox * qtd,
+            "total_osinfo": preco_osinfo * qtd,
+            "total_ultima_compra": ultima_compra * qtd,
+            "total_menor_valor": menor_valor * qtd,
+        })
+
+    return {
+        "markup_percentual": markup_percentual,
+        "itens": analisados,
+        "resumo": montar_resumo_lances(analisados),
+    }
+
+
+
+# ============================================================
+# OVERRIDE FINAL - COMPARATIVO OSINFO x LANCE x MEDBOX
+# Regra:
+# - mostra os três preços quando existirem;
+# - destaca automaticamente o menor;
+# - vencedor só é MedBox se Preço MedBox for o menor preço válido.
+# ============================================================
+
+def calcular_disputa_precos_lances(preco_osinfo=0, menor_lance=0, preco_medbox=0, empresa_melhor_lance=""):
+    preco_osinfo = numero_br(preco_osinfo, 0.0)
+    menor_lance = numero_br(menor_lance, 0.0)
+    preco_medbox = numero_br(preco_medbox, 0.0)
+
+    opcoes = []
+
+    if preco_osinfo > 0:
+        opcoes.append({
+            "origem": "OSINFO",
+            "empresa": "OSINFO",
+            "valor": preco_osinfo,
+        })
+
+    if menor_lance > 0:
+        opcoes.append({
+            "origem": "LANCE",
+            "empresa": empresa_melhor_lance or "LANCE GANHADOR",
+            "valor": menor_lance,
+        })
+
+    if preco_medbox > 0:
+        opcoes.append({
+            "origem": "MEDBOX",
+            "empresa": "MEDBOX",
+            "valor": preco_medbox,
+        })
+
+    if not opcoes:
+        return {
+            "menor_origem": "-",
+            "menor_empresa": "-",
+            "menor_valor": 0.0,
+            "medbox_vencedora": False,
+            "classe_osinfo": "",
+            "classe_lance": "",
+            "classe_medbox": "",
+        }
+
+    opcoes.sort(key=lambda x: x["valor"])
+    vencedor = opcoes[0]
+
+    return {
+        "menor_origem": vencedor["origem"],
+        "menor_empresa": vencedor["empresa"],
+        "menor_valor": vencedor["valor"],
+        "medbox_vencedora": vencedor["origem"] == "MEDBOX",
+        "classe_osinfo": "menor-oferta" if vencedor["origem"] == "OSINFO" else "",
+        "classe_lance": "menor-oferta" if vencedor["origem"] == "LANCE" else "",
+        "classe_medbox": "menor-oferta" if vencedor["origem"] == "MEDBOX" else "",
+    }
+
+
+def status_item(sku_encontrado, menor_custo, preco_medbox, preco_osinfo, ultima_compra, menor_lance):
+    disputa = calcular_disputa_precos_lances(
+        preco_osinfo=preco_osinfo,
+        menor_lance=menor_lance,
+        preco_medbox=preco_medbox,
+        empresa_melhor_lance=""
+    )
+
+    if not sku_encontrado:
+        return "REVISAR SKU"
+
+    if not menor_custo:
+        return "SEM PREÇO"
+
+    if disputa.get("medbox_vencedora"):
+        return "MEDBOX VENCE"
+
+    if disputa.get("menor_origem") in ["OSINFO", "LANCE"]:
+        return "NEGOCIAR"
+
+    return "COMPETITIVO"
+
+

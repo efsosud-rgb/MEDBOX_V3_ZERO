@@ -1,3 +1,319 @@
+
+<style>
+/* ============================================================
+   DESTAQUE DE MENOR OFERTA - OSINFO x LANCE x MEDBOX
+   ============================================================ */
+
+.menor-oferta,
+input.menor-oferta,
+td.menor-oferta,
+.campo-menor-oferta {
+    background: #e8fff3 !important;
+    border: 2px solid #00a65a !important;
+    color: #005c32 !important;
+    font-weight: 900 !important;
+}
+
+.vencedor-medbox {
+    background: #e8fff3 !important;
+}
+
+.vencedor-concorrente {
+    background: #fff3e8 !important;
+}
+
+.badge-vencedor {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 900;
+    background: #e8fff3;
+    color: #005c32;
+    border: 1px solid #00a65a;
+}
+
+.badge-negociar {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 900;
+    background: #fff3e8;
+    color: #9a4a00;
+    border: 1px solid #ff9f43;
+}
+</style>
+
+
+<style>
+/* ============================================================
+   CORREÇÃO DEFINITIVA - LANCES DE COTAÇÃO
+   Remove coluna vazia lateral e coloca ações no topo direito
+   ============================================================ */
+
+.medbox-lances-top-actions {
+    position: fixed !important;
+    top: 14px !important;
+    right: 24px !important;
+    z-index: 9999 !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    background: #ffffff !important;
+    border: 1px solid #dbe3ef !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+    padding: 8px 10px !important;
+}
+
+.medbox-lances-top-actions .meta-field {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+}
+
+.medbox-lances-top-actions label {
+    font-size: 9px !important;
+    font-weight: 900 !important;
+    color: #0b2c4d !important;
+    text-transform: uppercase !important;
+    margin: 0 !important;
+}
+
+.medbox-lances-top-actions input {
+    width: 150px !important;
+    height: 28px !important;
+    border: 1px solid #c9d7e8 !important;
+    border-radius: 6px !important;
+    padding: 5px 7px !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    box-sizing: border-box !important;
+}
+
+.medbox-lances-top-actions button,
+.medbox-lances-top-actions a,
+#btnGerarCotacaoMedbox,
+#btnPesquisarCotacoes {
+    height: 38px !important;
+    min-width: 78px !important;
+    padding: 6px 10px !important;
+    border-radius: 7px !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+}
+
+/* Esconde barras antigas que espremiam a grade */
+.lances-meta-bar:not(.medbox-lances-top-actions),
+.lances-meta-bar-topo-direita,
+.cotacao-meta-bar,
+.grade-meta-bar,
+.cotacao-gerada-bar,
+.lances-cotacao-bar {
+    display: none !important;
+}
+
+/* Força a área da grade a ocupar largura total */
+.grade-lances-wrapper,
+.lances-grade-wrapper,
+.grade-lances-container,
+.tabela-lances-wrapper,
+.table-lances-wrapper,
+.lances-table-wrapper,
+.table-responsive,
+.table-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    clear: both !important;
+    box-sizing: border-box !important;
+    float: none !important;
+}
+
+/* Mata o layout flex que criou a margem lateral */
+div:has(> table),
+div:has(table) {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Qualquer container direto da tabela vira bloco */
+table {
+    width: max-content !important;
+    min-width: 100% !important;
+    margin-left: 0 !important;
+    clear: both !important;
+}
+
+/* Remove coluna/título lateral "Grade de Lances" quando ele vira coluna */
+.grade-lances-title,
+.titulo-grade-lances {
+    display: block !important;
+    width: 100% !important;
+    margin: 8px 0 !important;
+    padding: 0 !important;
+    clear: both !important;
+}
+
+/* Corrige casos onde o template usa grid/flex em volta da grade */
+.row:has(table),
+.card:has(table),
+section:has(table),
+article:has(table) {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* Ajuda visual do SKU */
+.lances-sku-ajuda {
+    display: block !important;
+    margin-top: 3px !important;
+    font-size: 9px !important;
+    color: #52647a !important;
+    font-weight: 800 !important;
+}
+
+.btn-sugestao-sku-linha {
+    display: inline-block !important;
+    margin-top: 4px !important;
+    border: none !important;
+    background: #00486c !important;
+    color: #fff !important;
+    border-radius: 5px !important;
+    font-size: 9px !important;
+    font-weight: 900 !important;
+    padding: 4px 7px !important;
+    cursor: pointer !important;
+}
+
+.btn-sugestao-sku-linha:hover {
+    background: #003652 !important;
+}
+
+input[placeholder*="SKU"],
+.sku-master-input {
+    min-width: 170px !important;
+}
+
+@media (max-width: 1400px) {
+    .medbox-lances-top-actions {
+        position: static !important;
+        margin: 8px 16px 10px auto !important;
+        width: fit-content !important;
+    }
+}
+</style>
+
+
+<style>
+/* ============================================================
+   AJUSTE ERP - CLIENTE / OAS / PROJETO NO TOPO DIREITO
+   ============================================================ */
+
+.lances-meta-bar,
+.cotacao-meta-bar,
+.grade-meta-bar,
+.cotacao-gerada-bar,
+.lances-cotacao-bar {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: flex-end !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 0 12px 0 !important;
+    padding: 10px 16px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #dbe3ef !important;
+    box-sizing: border-box !important;
+    clear: both !important;
+}
+
+.lances-meta-field {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    min-width: 170px !important;
+}
+
+.lances-meta-field label {
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    color: #0b2c4d !important;
+    text-transform: uppercase !important;
+}
+
+#clienteCotacaoGerada,
+#oasCotacaoGerada,
+#projetoCotacaoGerada,
+#controleClienteCotacaoGerada {
+    width: 180px !important;
+    height: 32px !important;
+    border: 1px solid #c9d7e8 !important;
+    border-radius: 6px !important;
+    padding: 6px 8px !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    background: #fff !important;
+    box-sizing: border-box !important;
+}
+
+.lances-meta-actions {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: flex-end !important;
+}
+
+.lances-meta-actions .btn,
+.lances-meta-actions button,
+#btnGerarCotacaoMedbox,
+#btnPesquisarCotacoes {
+    height: 44px !important;
+    min-width: 92px !important;
+    padding: 8px 14px !important;
+    white-space: nowrap !important;
+}
+
+/* A grade nunca fica ao lado dos campos */
+.grade-lances-wrapper,
+.lances-grade-wrapper,
+.grade-lances-container,
+.tabela-lances-wrapper,
+.table-lances-wrapper,
+.lances-table-wrapper,
+table {
+    clear: both !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* Em telas menores, joga para esquerda para não quebrar */
+@media (max-width: 1200px) {
+    .lances-meta-bar,
+    .cotacao-meta-bar,
+    .grade-meta-bar,
+    .cotacao-gerada-bar,
+    .lances-cotacao-bar {
+        justify-content: flex-start !important;
+    }
+}
+</style>
+
 {% extends "base.html" %}
 {% block title %}Cotação - Lances{% endblock %}
 
@@ -426,823 +742,446 @@
 </div>
 {% endif %}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <script>
+/* ============================================================
+   MEDBOX FINAL - LANCES / OAS / EDIÇÃO DE COTAÇÃO
+   Único script ativo para gerar e salvar cotação OAS.
+   ============================================================ */
 (function () {
-    function parseMoeda(valor) {
-        valor = String(valor || "").replace(/[^\d,.-]/g, "").trim();
-        if (!valor) return 0;
-        if (valor.includes(",")) valor = valor.replace(/\./g, "").replace(",", ".");
-        const n = Number(valor);
-        return Number.isFinite(n) ? n : 0;
+    const NUMERO_EDITANDO = "{{ numero_cotacao_editando|default('', true) }}";
+
+    function norm(txt) {
+        return String(txt || "")
+            .replace(/þ/g, "c")
+            .replace(/Þ/g, "C")
+            .replace(/ç/g, "c")
+            .replace(/Ç/g, "C")
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
     }
 
-    function moeda(valor) {
-        valor = Number(valor || 0);
-        return valor.toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
+    function parseValor(valor) {
+        let txt = String(valor || "").trim();
+
+        txt = txt.replace("R$", "").replace("%", "").trim();
+        txt = txt.replace(/[^\d,.\-]/g, "");
+
+        if (!txt) return 0;
+
+        // Decimal com ponto vindo de input: 90.0, 9000.0, 2.41
+        if (/^-?\d+\.\d+$/.test(txt) && !txt.includes(",")) {
+            const n = parseFloat(txt);
+            return isNaN(n) ? 0 : n;
+        }
+
+        // Formato BR: 2,10 ou 1.234,56
+        if (txt.includes(",")) {
+            txt = txt.replace(/\./g, "").replace(",", ".");
+            const n = parseFloat(txt);
+            return isNaN(n) ? 0 : n;
+        }
+
+        const n = parseFloat(txt);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function valorCelula(td) {
+        if (!td) return "";
+
+        const campo = td.querySelector("input, textarea, select");
+
+        if (campo) {
+            return campo.value || campo.getAttribute("value") || "";
+        }
+
+        return td.textContent || "";
+    }
+
+    function acharTabelaLances() {
+        return Array.from(document.querySelectorAll("table")).find(function (table) {
+            const headers = norm(
+                Array.from(table.querySelectorAll("thead th"))
+                    .map(th => th.textContent)
+                    .join(" | ")
+            );
+
+            return headers.includes("DESCRICAO DO PRODUTO") &&
+                   headers.includes("SKU MASTER") &&
+                   headers.includes("PRECO OSINFO") &&
+                   headers.includes("PRECO MEDBOX") &&
+                   headers.includes("MENOR PRECO OFERTADO");
         });
     }
 
-    function classeStatus(status) {
-        return "status-badge status-" + status.toLowerCase().replaceAll(" ", "-").replace("ç", "c");
+    function mapaColunas(table) {
+        const mapa = {};
+
+        Array.from(table.querySelectorAll("thead th")).forEach(function (th, idx) {
+            const h = norm(th.textContent);
+
+            if (h.includes("DESCRICAO DO PRODUTO")) mapa.descricao = idx;
+            if (h.includes("SKU MASTER")) mapa.sku = idx;
+            if (h.includes("CATEGORIA")) mapa.categoria = idx;
+            if (h.includes("QUANTIDADE")) mapa.quantidade = idx;
+            if (h.includes("PRECO OSINFO")) mapa.osinfo = idx;
+            if (h.includes("ULT COMPRA")) mapa.ultima_compra = idx;
+            if (h.includes("PRECO MEDBOX")) mapa.medbox = idx;
+            if (h.includes("MARKUP")) mapa.markup = idx;
+            if (h.includes("MENOR PRECO OFERTADO")) mapa.outra_valor = idx;
+            if (h.includes("EMPRESA MELHOR LANCE")) mapa.outra_empresa = idx;
+            if (h.includes("MENOR VALOR") || h.includes("VENCEDOR")) mapa.menor_valor = idx;
+            if (h.includes("MENOR CUSTO ENCONTRADO")) mapa.menor_custo = idx;
+            if (h.includes("FORNECEDOR MENOR CUSTO")) mapa.fornecedor = idx;
+            if (h.includes("MARCA") || h.includes("FABRICANTE")) mapa.marca = idx;
+            if (h.includes("STATUS")) mapa.status = idx;
+        });
+
+        return mapa;
     }
 
-    function recalcularLinha(row) {
-        const custo = Number(row.dataset.custo || 0);
-        const qtd = parseMoeda(row.querySelector(".qtd-input")?.value || 1) || 1;
-        const markup = Number(String(row.querySelector(".markup-atual-input")?.value || 80).replace(",", "."));
-        const precoMedbox = custo > 0 ? custo * (1 + markup / 100) : 0;
-
-        const medboxInput = row.querySelector(".medbox-input");
-        if (medboxInput) medboxInput.value = moeda(precoMedbox);
-
-        const osinfo = parseMoeda(row.querySelector(".osinfo-input")?.value || 0);
-        const ultima = parseMoeda(row.querySelector(".ultima-input")?.value || 0);
-        const concorrente = parseMoeda(row.querySelector(".concorrente-input")?.value || 0);
-        const empresa = row.querySelector(".empresa-input")?.value || "Concorrente";
-
-        const candidatos = [];
-        if (osinfo > 0) candidatos.push({nome:"OSINFO", valor:osinfo});
-        if (ultima > 0) candidatos.push({nome:"Última Compra", valor:ultima});
-        if (concorrente > 0) candidatos.push({nome:empresa, valor:concorrente});
-        if (precoMedbox > 0) candidatos.push({nome:"MedBox", valor:precoMedbox});
-
-        candidatos.sort((a,b) => a.valor - b.valor);
-
-        const vencedor = candidatos.length ? candidatos[0] : {nome:"-", valor:0};
-
-        const menorCell = row.querySelector(".menor-valor-cell");
-        if (menorCell) {
-            menorCell.innerHTML = "<strong>" + moeda(vencedor.valor) + "</strong><small style='display:block;'>" + vencedor.nome + "</small>";
-        }
-
-        let status = "REVISAR SKU";
-        const sku = row.querySelector(".sku-master-input")?.value || "";
-
-        if (sku.trim()) {
-            if (!custo || custo <= 0) {
-                status = "SEM PREÇO";
-            } else if (!vencedor.valor || vencedor.nome === "MedBox" || precoMedbox <= vencedor.valor) {
-                status = "COMPETITIVO";
-            } else {
-                status = "NEGOCIAR";
-            }
-        }
-
-        const statusCell = row.querySelector(".status-cell");
-        if (statusCell) {
-            statusCell.innerHTML = '<span class="' + classeStatus(status) + '">' + status + '</span>';
-        }
-
-        row.dataset.totalMedbox = precoMedbox * qtd;
-        row.dataset.totalOsinfo = osinfo * qtd;
-        row.dataset.totalUltima = ultima * qtd;
-        row.dataset.totalMenor = vencedor.valor * qtd;
-        row.dataset.statusAtual = status;
-        row.dataset.markupAtual = markup;
+    function td(row, idx) {
+        if (idx === undefined || idx === null) return null;
+        return Array.from(row.children || [])[idx] || null;
     }
 
-    function atualizarKpis() {
-        const linhas = Array.from(document.querySelectorAll("#tabelaLances tbody tr"));
-
-        function kpi(nome, valor) {
-            const el = document.querySelector('[data-kpi="' + nome + '"]');
-            if (el) el.textContent = valor;
-        }
-
-        function soma(attr) {
-            return linhas.reduce((acc, row) => acc + Number(row.dataset[attr] || 0), 0);
-        }
-
-        kpi("total_medbox", moeda(soma("totalMedbox")));
-        kpi("itens_competitivos", linhas.filter(r => r.dataset.statusAtual === "COMPETITIVO").length);
-        kpi("itens_negociar", linhas.filter(r => r.dataset.statusAtual === "NEGOCIAR").length);
-        kpi("itens_revisar_sku", linhas.filter(r => r.dataset.statusAtual === "REVISAR SKU").length);
-        kpi("itens_sem_preco", linhas.filter(r => r.dataset.statusAtual === "SEM PREÇO").length);
+    function texto(row, mapa, chave) {
+        return String(valorCelula(td(row, mapa[chave])) || "").trim();
     }
 
-    function preparar() {
-        document.querySelectorAll("#tabelaLances tbody tr").forEach(row => {
-            row.querySelectorAll("input").forEach(input => {
-                if (input.dataset.bind === "1") return;
-                input.dataset.bind = "1";
-                input.addEventListener("input", () => {
-                    recalcularLinha(row);
-                    atualizarKpis();
-                });
+    function numero(row, mapa, chave) {
+        return parseValor(valorCelula(td(row, mapa[chave])));
+    }
+
+    function coletarItensLances() {
+        const table = acharTabelaLances();
+
+        if (!table) {
+            alert("Não encontrei a Grade de Lances correta.");
+            return [];
+        }
+
+        const mapa = mapaColunas(table);
+        const itens = [];
+
+        Array.from(table.querySelectorAll("tbody tr")).forEach(function (row, idx) {
+            const descricao = texto(row, mapa, "descricao");
+
+            if (!descricao) return;
+
+            itens.push({
+                item: idx + 1,
+                descricao_produto: descricao,
+                descricao: descricao,
+                sku_master: texto(row, mapa, "sku"),
+                categoria: texto(row, mapa, "categoria"),
+                marca_fabricante: texto(row, mapa, "marca"),
+                marca: texto(row, mapa, "marca"),
+                fornecedor_menor_custo: texto(row, mapa, "fornecedor"),
+                status: texto(row, mapa, "status"),
+
+                quantidade: numero(row, mapa, "quantidade"),
+                preco_osinfo: numero(row, mapa, "osinfo"),
+                preco_medbox: numero(row, mapa, "medbox"),
+                menor_preco_ofertado: numero(row, mapa, "outra_valor"),
+                menor_lance: numero(row, mapa, "outra_valor"),
+                empresa_melhor_lance: texto(row, mapa, "outra_empresa"),
+                menor_valor: numero(row, mapa, "menor_valor"),
+                menor_custo_unitario: numero(row, mapa, "menor_custo")
+            });
+        });
+
+        console.log("MEDBOX FINAL - PRIMEIRO ITEM:", itens[0]);
+        console.log("MEDBOX FINAL - TOTAL ITENS:", itens.length);
+
+        return itens;
+    }
+
+    function confirmarPrimeiroItem(itens, acao) {
+        const p = itens[0] || {};
+
+        return confirm(
+            "CONFIRA ANTES DE " + acao + ":\n\n" +
+            "Descrição: " + (p.descricao_produto || "") + "\n" +
+            "Quantidade: " + p.quantidade + "\n" +
+            "Preço OSINFO: " + p.preco_osinfo + "\n" +
+            "Preço MedBox: " + p.preco_medbox + "\n" +
+            "Preço Empresa Melhor Lance: " + p.menor_lance + "\n" +
+            "Empresa Melhor Lance: " + p.empresa_melhor_lance + "\n\n" +
+            "Clique OK se estiver correto."
+        );
+    }
+
+    async function gerarCotacao(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const itens = coletarItensLances();
+
+        if (!itens.length) {
+            alert("Nenhum item encontrado para gerar a cotação.");
+            return false;
+        }
+
+        if (!confirmarPrimeiroItem(itens, "GERAR")) return false;
+
+        const cliente = (document.getElementById("clienteCotacaoGerada") || {}).value || "";
+        const oas = (document.getElementById("oasCotacaoGerada") || {}).value || "";
+        const projeto = (document.getElementById("projetoCotacaoGerada") || {}).value || "";
+        const controle = (document.getElementById("controleClienteCotacaoGerada") || {}).value || "";
+
+        const resp = await fetch("/cotacoes/lances/gerar-cotacao", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                cliente: cliente,
+                cliente_orgao: cliente,
+                oas: oas,
+                projeto: projeto,
+                controle_cliente: controle,
+                itens: itens
+            })
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+            alert(data.erro || "Erro ao gerar cotação.");
+            return false;
+        }
+
+        window.location.href = data.url;
+        return false;
+    }
+
+    async function salvarAlteracoes(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const itens = coletarItensLances();
+
+        if (!itens.length) {
+            alert("Nenhum item encontrado para salvar.");
+            return false;
+        }
+
+        if (!confirmarPrimeiroItem(itens, "SALVAR")) return false;
+
+        const cliente = (document.getElementById("clienteCotacaoGerada") || {}).value || "";
+        const oas = (document.getElementById("oasCotacaoGerada") || {}).value || "";
+        const projeto = (document.getElementById("projetoCotacaoGerada") || {}).value || "";
+        const controle = (document.getElementById("controleClienteCotacaoGerada") || {}).value || "";
+
+        const resp = await fetch("/cotacoes/lances/atualizar-cotacao/" + NUMERO_EDITANDO, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                cliente: cliente,
+                cliente_orgao: cliente,
+                oas: oas,
+                projeto: projeto,
+                controle_cliente: controle,
+                itens: itens
+            })
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+            alert(data.erro || "Erro ao salvar alterações.");
+            return false;
+        }
+
+        alert("Cotação " + NUMERO_EDITANDO + " salva com sucesso.");
+        window.location.href = data.url;
+        return false;
+    }
+
+    function instalarBotoes() {
+        const btnGerar = document.getElementById("btnGerarCotacaoMedbox");
+
+        if (btnGerar && btnGerar.dataset.medboxFinalOk !== "1") {
+            const clone = btnGerar.cloneNode(true);
+            clone.dataset.medboxFinalOk = "1";
+            clone.type = "button";
+            clone.addEventListener("click", gerarCotacao, true);
+            btnGerar.parentNode.replaceChild(clone, btnGerar);
+        }
+
+        if (NUMERO_EDITANDO) {
+            let btnSalvar = Array.from(document.querySelectorAll("button, a")).find(function (el) {
+                return norm(el.textContent).includes("SALVAR ALTERACOES");
             });
 
-            const btn = row.querySelector(".btn-salvar-sku");
-            if (btn && btn.dataset.bind !== "1") {
-                btn.dataset.bind = "1";
-                btn.addEventListener("click", async () => {
-                    const payload = {
-                        descricao_cotacao: row.querySelector("td:nth-child(2) strong")?.innerText || "",
-                        sku_master: row.querySelector(".sku-master-input")?.value || "",
-                        fornecedor: row.querySelector(".fornecedor-input")?.value || "",
-                        fabricante: row.querySelector(".fabricante-input")?.value || "",
-                        categoria: row.querySelector(".categoria-input")?.value || ""
-                    };
-
-                    if (!payload.sku_master.trim()) {
-                        alert("Informe o SKU Master antes de salvar.");
-                        return;
-                    }
-
-                    btn.disabled = true;
-                    btn.innerText = "Salvando...";
-
-                    try {
-                        const resp = await fetch("/cotacoes/lances/salvar-sku", {
-                            method: "POST",
-                            headers: {"Content-Type": "application/json"},
-                            body: JSON.stringify(payload)
-                        });
-
-                        const data = await resp.json();
-
-                        if (!data.ok) {
-                            alert(data.erro || "Erro ao salvar SKU.");
-                            return;
-                        }
-
-                        row.dataset.skuEncontrado = "1";
-                        recalcularLinha(row);
-                        atualizarKpis();
-                        alert("SKU salvo na base MedBox.");
-                    } catch (e) {
-                        alert("Falha ao salvar SKU.");
-                    } finally {
-                        btn.disabled = false;
-                        btn.innerText = "Salvar SKU";
-                    }
-                });
-            }
-
-            recalcularLinha(row);
-        });
-
-        const markupGeral = document.getElementById("markupGeral");
-        if (markupGeral && markupGeral.dataset.bind !== "1") {
-            markupGeral.dataset.bind = "1";
-            markupGeral.addEventListener("input", () => {
-                const valor = Number(String(markupGeral.value || 80).replace(",", "."));
-                document.querySelectorAll(".markup-atual-input").forEach(input => {
-                    input.value = Number.isFinite(valor) ? valor.toFixed(2) : "80.00";
-                    const row = input.closest("tr");
-                    if (row) recalcularLinha(row);
-                });
-                atualizarKpis();
-            });
-        }
-
-        atualizarKpis();
-    }
-
-    if (document.readyState === "loading") {
-
-        function escapeHtml(valor) {
-            return String(valor ?? "")
-                .replaceAll("&", "&amp;")
-                .replaceAll("<", "&lt;")
-                .replaceAll(">", "&gt;")
-                .replaceAll('"', "&quot;")
-                .replaceAll("'", "&#039;");
-        }
-
-        function classeStatus(status) {
-            return String(status || "")
-                .toLowerCase()
-                .replaceAll(" ", "-")
-                .replaceAll("ç", "c")
-                .replaceAll("ã", "a")
-                .replaceAll("á", "a")
-                .replaceAll("é", "e");
-        }
-
-
-        function sugestoesSkuHtml(item) {
-            const sugestoes = item.sugestoes_sku || [];
-            if (!sugestoes.length) return "";
-
-            const options = sugestoes.map(s => `
-                <option
-                    value="${escapeHtml(s.sku_master || "")}"
-                    data-categoria="${escapeHtml(s.categoria || "")}"
-                    data-fornecedor="${escapeHtml(s.fornecedor_menor_custo || "")}"
-                    data-fabricante="${escapeHtml(s.marca_fabricante || "")}"
-                    data-custo="${escapeHtml(s.menor_custo_unitario || 0)}"
-                    data-custo-formatado="${escapeHtml(s.menor_custo_unitario_formatado || "")}"
-                    data-score="${escapeHtml(s.score || 0)}"
-                >
-                    ${escapeHtml(s.sku_master || "")} | ${escapeHtml(s.marca_fabricante || "")} | ${escapeHtml(s.menor_custo_unitario_formatado || "")}
-                </option>
-            `).join("");
-
-            return `
-                <select class="sku-sugestao-select">
-                    <option value="">Escolher SKU...</option>
-                    ${options}
-                </select>
-            `;
-        }
-
-        function criarLinhaLanceManual(item, numeroItem) {
-            const status = item.status || "REVISAR SKU";
-            const linhaClasse = status === "REVISAR SKU" ? "linha-revisar" : (status === "SEM PREÇO" ? "linha-sem-preco" : "linha-ok");
-            const skuValue = item.sku_master && item.sku_master !== "REVISAR SKU" ? item.sku_master : "";
-            const categoriaValue = item.categoria && item.categoria !== "-" ? item.categoria : "";
-            const fornecedorValue = item.fornecedor_menor_custo && item.fornecedor_menor_custo !== "-" ? item.fornecedor_menor_custo : "";
-            const fabricanteValue = item.marca_fabricante && item.marca_fabricante !== "-" ? item.marca_fabricante : "";
-
-            return `
-                <tr class="${linhaClasse}"
-                    data-custo="${item.menor_custo_unitario || 0}"
-                    data-tem-preco="${item.tem_preco ? 1 : 0}"
-                    data-sku-encontrado="${item.sku_encontrado ? 1 : 0}">
-                    <td>${numeroItem}</td>
-                    <td>
-                        <strong>${escapeHtml(item.descricao_produto || item.descricao_cotacao || "")}</strong>
-                    </td>
-                    <td>
-                        <input class="sku-quick-input sku-master-input" value="${escapeHtml(skuValue)}" placeholder="Informe o SKU Master">
-                        <small style="display:block;color:var(--muted);">Score: ${Number(item.score || 0).toFixed(1)}</small>
-                        ${sugestoesSkuHtml(item)}
-                    </td>
-                    <td>
-                        <input class="sku-quick-input categoria-input" value="${escapeHtml(categoriaValue)}" placeholder="Categoria">
-                    </td>
-                    <td><input class="lance-input qtd-input" value="${escapeHtml(item.quantidade || 1)}"></td>
-                    <td><input class="lance-input money-input osinfo-input" value="${escapeHtml(item.preco_osinfo_formatado || "R$ 0,00")}"></td>
-                    <td><input class="lance-input money-input ultima-input" value="${escapeHtml(item.ultima_compra_formatada || "R$ 0,00")}"></td>
-                    <td><input class="lance-input money-input medbox-input medbox-readonly" readonly value="${escapeHtml(item.preco_medbox_formatado || "R$ 0,00")}"></td>
-                    <td><input class="lance-input markup-atual-input" type="number" step="0.01" min="0" value="${Number(item.markup_atual || 80).toFixed(2)}"></td>
-                    <td><input class="lance-input money-input concorrente-input" value="${escapeHtml(item.menor_preco_ofertado_formatado || "R$ 0,00")}"></td>
-                    <td><input class="lance-input empresa-input" value="${escapeHtml(item.empresa_melhor_lance || "")}" placeholder="Empresa"></td>
-                    <td>
-                        <strong>${escapeHtml(item.menor_valor_formatado || "R$ 0,00")}</strong>
-                        <small style="display:block;">${escapeHtml(item.menor_valor_nome || "-")}</small>
-                    </td>
-                    <td>
-                        <input
-                            class="lance-input money-input custo-manual-input"
-                            value="${escapeHtml(item.menor_custo_unitario ? (item.menor_custo_unitario_formatado || "") : "")}"
-                            placeholder="R$ 0,00"
-                            ${item.sku_encontrado && item.tem_preco ? "readonly" : ""}
-                        >
-                    </td>
-                    <td>
-                        <input class="sku-quick-input fornecedor-input" value="${escapeHtml(fornecedorValue)}" placeholder="Fornecedor">
-                    </td>
-                    <td>
-                        <input class="sku-quick-input fabricante-input" value="${escapeHtml(fabricanteValue)}" placeholder="Fabricante">
-                    </td>
-                    <td>
-                        <span class="status-badge status-${classeStatus(status)}">${escapeHtml(status)}</span>
-                    </td>
-                    <td>
-                        <button type="button" class="btn-salvar-sku">Salvar SKU</button>
-                        <button type="button" class="btn-excluir-item">Excluir</button>
-                    </td>
-                </tr>
-            `;
-        }
-
-        async function adicionarItensManuais() {
-            const textarea = document.getElementById("textoItensManuais");
-            const btn = document.getElementById("btnAdicionarItensManuais");
-            const tabela = document.querySelector("#tabelaLances tbody");
-
-            if (!textarea || !btn || !tabela) return;
-
-            const texto = textarea.value.trim();
-            if (!texto) {
-                alert("Digite ou cole pelo menos um item.");
-                return;
-            }
-
-            const markupGeral = document.getElementById("markup_percentual");
-            const formData = new FormData();
-            formData.append("texto_itens", texto);
-            formData.append("markup_percentual", markupGeral ? markupGeral.value : "80");
-
-            btn.disabled = true;
-            btn.innerText = "Adicionando...";
-
-            try {
-                const resp = await fetch("/cotacoes/lances/adicionar-itens", {
-                    method: "POST",
-                    body: formData
-                });
-
-                const data = await resp.json();
-
-                if (!data.ok) {
-                    alert(data.erro || "Erro ao adicionar itens.");
-                    return;
-                }
-
-                const existentes = tabela.querySelectorAll("tr").length;
-                const itens = data.analise.itens || [];
-
-                itens.forEach((item, index) => {
-                    tabela.insertAdjacentHTML("beforeend", criarLinhaLanceManual(item, existentes + index + 1));
-                });
-
-                textarea.value = "";
-
-                // Reaplica os eventos já existentes da tela aprovada.
-                preparar();
-
-                alert(`${itens.length} item(ns) adicionado(s) à grade.`);
-
-            } catch (err) {
-                alert("Falha ao adicionar itens manuais.");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Adicionar itens à grade";
-            }
-        }
-
-        const btnItensManuais = document.getElementById("btnAdicionarItensManuais");
-        if (btnItensManuais) {
-            btnItensManuais.addEventListener("click", adicionarItensManuais);
-        }
-
-
-
-        function renumerarItensLances() {
-            document.querySelectorAll("#tabelaLances tbody tr").forEach((row, index) => {
-                const primeiraCelula = row.querySelector("td:first-child");
-                if (primeiraCelula) {
-                    primeiraCelula.innerText = index + 1;
-                }
-            });
-        }
-
-        function atualizarResumoDepoisExclusao() {
-            if (typeof atualizarResumo === "function") {
-                atualizarResumo();
-            }
-        }
-
-        document.addEventListener("click", function(event) {
-            const btnExcluir = event.target.closest(".btn-excluir-item");
-            if (!btnExcluir) return;
-
-            const row = btnExcluir.closest("tr");
-            if (!row) return;
-
-            const descricao = row.querySelector("td:nth-child(2) strong")?.innerText || "este item";
-            const confirmar = confirm(`Excluir o item da cotação?\n\n${descricao}`);
-
-            if (!confirmar) return;
-
-            row.remove();
-            renumerarItensLances();
-            atualizarResumoDepoisExclusao();
-        });
-
-        document.addEventListener("input", function(event) {
-            const campo = event.target;
-
-            if (!campo.matches("input, textarea")) return;
-
-            const tiposIgnorados = ["number", "date", "file", "hidden"];
-            if (tiposIgnorados.includes((campo.type || "").toLowerCase())) return;
-
-            if (
-                campo.classList.contains("money-input") ||
-                campo.classList.contains("qtd-input") ||
-                campo.classList.contains("markup-atual-input")
-            ) {
-                return;
-            }
-
-            const inicio = campo.selectionStart;
-            const fim = campo.selectionEnd;
-
-            campo.value = campo.value.toUpperCase();
-
-            try {
-                campo.setSelectionRange(inicio, fim);
-            } catch (e) {}
-        });
-
-
-        function lancesParseMoeda(valor) {
-            valor = String(valor || "").trim();
-            valor = valor.replace("R$", "").replace(/\s/g, "");
-
-            if (!valor) return 0;
-
-            if (valor.includes(",")) {
-                valor = valor.replace(/\./g, "").replace(",", ".");
-            }
-
-            const numero = parseFloat(valor);
-            return Number.isFinite(numero) ? numero : 0;
-        }
-
-        function lancesFormatarMoeda(valor) {
-            const numero = Number(valor || 0);
-            return numero.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL"
-            });
-        }
-
-        function recalcularPrecoMedboxPorCustoManual(row) {
-            if (!row) return;
-
-            const custoInput = row.querySelector(".custo-manual-input");
-            const markupInput = row.querySelector(".markup-atual-input");
-            const medboxInput = row.querySelector(".medbox-input");
-
-            if (!custoInput || !markupInput || !medboxInput) return;
-
-            const custo = lancesParseMoeda(custoInput.value);
-
-            let markup = parseFloat(String(markupInput.value || "").replace(",", "."));
-
-            if (!Number.isFinite(markup) || markup <= 0) {
-                markup = 80;
-                markupInput.value = "80.00";
-            }
-
-            row.dataset.custo = custo;
-
-            if (custo > 0) {
-                const precoMedbox = custo * (1 + (markup / 100));
-                medboxInput.value = lancesFormatarMoeda(precoMedbox);
-
-                row.dataset.temPreco = "1";
-
-                const statusBadge = row.querySelector(".status-badge");
-                const skuInput = row.querySelector(".sku-master-input");
-                if (statusBadge && skuInput && skuInput.value.trim()) {
-                    statusBadge.innerText = "COMPETITIVO";
-                    row.dataset.statusAtual = "COMPETITIVO";
-                }
-            } else {
-                medboxInput.value = lancesFormatarMoeda(0);
-                row.dataset.temPreco = "0";
-            }
-
-            if (typeof atualizarLinha === "function") {
-                atualizarLinha(row);
-            }
-
-            if (typeof atualizarResumo === "function") {
-                atualizarResumo();
-            }
-        }
-
-        document.addEventListener("input", function(event) {
-            const campo = event.target;
-
-            if (campo.classList.contains("custo-manual-input")) {
-                const row = campo.closest("tr");
-                recalcularPrecoMedboxPorCustoManual(row);
-                return;
-            }
-
-            if (campo.classList.contains("markup-atual-input")) {
-                const row = campo.closest("tr");
-                const custoInput = row?.querySelector(".custo-manual-input");
-                if (custoInput && !custoInput.readOnly && lancesParseMoeda(custoInput.value) > 0) {
-                    recalcularPrecoMedboxPorCustoManual(row);
-                }
-            }
-        });
-
-        document.addEventListener("blur", function(event) {
-            const campo = event.target;
-
-            if (!campo.classList.contains("custo-manual-input")) return;
-
-            const valor = lancesParseMoeda(campo.value);
-            if (valor > 0) {
-                campo.value = lancesFormatarMoeda(valor);
-            }
-        }, true);
-
-
-        document.addEventListener("change", function(event) {
-            const select = event.target.closest(".sku-sugestao-select");
-            if (!select) return;
-
-            const option = select.options[select.selectedIndex];
-            if (!option || !option.value) return;
-
-            const row = select.closest("tr");
-            if (!row) return;
-
-            const skuInput = row.querySelector(".sku-master-input");
-            const categoriaInput = row.querySelector(".categoria-input");
-            const fornecedorInput = row.querySelector(".fornecedor-input");
-            const fabricanteInput = row.querySelector(".fabricante-input");
-            const custoInput = row.querySelector(".custo-manual-input");
-            const markupInput = row.querySelector(".markup-atual-input");
-            const statusBadge = row.querySelector(".status-badge");
-
-            if (skuInput) skuInput.value = option.value.toUpperCase();
-            if (categoriaInput) categoriaInput.value = (option.dataset.categoria || "").toUpperCase();
-            if (fornecedorInput) fornecedorInput.value = (option.dataset.fornecedor || "").toUpperCase();
-            if (fabricanteInput) fabricanteInput.value = (option.dataset.fabricante || "").toUpperCase();
-
-            if (markupInput && (!markupInput.value || Number(markupInput.value) <= 0)) {
-                markupInput.value = "80.00";
-            }
-
-            if (custoInput) {
-                custoInput.value = option.dataset.custoFormatado || "";
-                if (Number(option.dataset.custo || 0) > 0) {
-                    custoInput.readOnly = true;
-                }
-            }
-
-            row.dataset.skuEncontrado = "1";
-            row.dataset.temPreco = Number(option.dataset.custo || 0) > 0 ? "1" : "0";
-
-            if (statusBadge) {
-                statusBadge.innerText = Number(option.dataset.custo || 0) > 0 ? "COMPETITIVO" : "SEM PREÇO";
-                statusBadge.className = "status-badge status-" + (Number(option.dataset.custo || 0) > 0 ? "competitivo" : "sem-preco");
-            }
-
-            if (typeof recalcularPrecoMedboxPorCustoManual === "function") {
-                recalcularPrecoMedboxPorCustoManual(row);
-            } else if (typeof atualizarLinha === "function") {
-                atualizarLinha(row);
-            }
-
-            if (typeof atualizarResumo === "function") {
-                atualizarResumo();
-            }
-        });
-
-
-        let skuAutocompleteTimer = null;
-        let skuAutocompleteBox = null;
-
-        function removerAutocompleteSku() {
-            if (skuAutocompleteBox) {
-                skuAutocompleteBox.remove();
-                skuAutocompleteBox = null;
-            }
-        }
-
-        function obterTermoSugestaoSku(input) {
-            const digitado = String(input.value || "").trim();
-
-            if (digitado) {
-                return digitado;
-            }
-
-            const row = input.closest("tr");
-            const descricao = row?.querySelector("td:nth-child(2) strong")?.innerText || "";
-            return descricao.trim();
-        }
-
-        function aplicarSugestaoSkuNaLinha(row, sugestao) {
-            if (!row || !sugestao) return;
-
-            const skuInput = row.querySelector(".sku-master-input");
-            const categoriaInput = row.querySelector(".categoria-input");
-            const fornecedorInput = row.querySelector(".fornecedor-input");
-            const fabricanteInput = row.querySelector(".fabricante-input");
-            const custoInput = row.querySelector(".custo-manual-input");
-            const markupInput = row.querySelector(".markup-atual-input");
-            const statusBadge = row.querySelector(".status-badge");
-
-            if (skuInput) skuInput.value = String(sugestao.sku_master || "").toUpperCase();
-            if (categoriaInput) categoriaInput.value = String(sugestao.categoria || "").toUpperCase();
-            if (fornecedorInput) fornecedorInput.value = String(sugestao.fornecedor_menor_custo || "").toUpperCase();
-            if (fabricanteInput) fabricanteInput.value = String(sugestao.marca_fabricante || "").toUpperCase();
-
-            if (markupInput) {
-                markupInput.value = "80.00";
-            }
-
-            if (custoInput) {
-                custoInput.value = sugestao.menor_custo_unitario_formatado || "";
-                if (Number(sugestao.menor_custo_unitario || 0) > 0) {
-                    custoInput.readOnly = true;
+            if (!btnSalvar) {
+                btnSalvar = document.createElement("button");
+                btnSalvar.type = "button";
+                btnSalvar.textContent = "Salvar Alterações da Cotação";
+                btnSalvar.style.background = "#ff9f1c";
+                btnSalvar.style.color = "#fff";
+                btnSalvar.style.border = "none";
+                btnSalvar.style.borderRadius = "8px";
+                btnSalvar.style.padding = "12px 18px";
+                btnSalvar.style.fontWeight = "900";
+                btnSalvar.style.cursor = "pointer";
+                btnSalvar.style.margin = "10px 8px";
+
+                const tabela = acharTabelaLances();
+                if (tabela && tabela.parentElement) {
+                    tabela.parentElement.insertBefore(btnSalvar, tabela);
                 } else {
-                    custoInput.readOnly = false;
+                    document.body.prepend(btnSalvar);
                 }
             }
 
-            row.dataset.skuEncontrado = "1";
-            row.dataset.temPreco = Number(sugestao.menor_custo_unitario || 0) > 0 ? "1" : "0";
-
-            if (statusBadge) {
-                const novoStatus = Number(sugestao.menor_custo_unitario || 0) > 0 ? "COMPETITIVO" : "SEM PREÇO";
-                statusBadge.innerText = novoStatus;
-                statusBadge.className = "status-badge status-" + (novoStatus === "COMPETITIVO" ? "competitivo" : "sem-preco");
-            }
-
-            if (typeof recalcularPrecoMedboxPorCustoManual === "function") {
-                recalcularPrecoMedboxPorCustoManual(row);
-            } else if (typeof atualizarLinha === "function") {
-                atualizarLinha(row);
-            }
-
-            if (typeof atualizarResumo === "function") {
-                atualizarResumo();
-            }
-
-            removerAutocompleteSku();
-        }
-
-        function renderizarAutocompleteSku(input, sugestoes) {
-            removerAutocompleteSku();
-
-            if (!sugestoes || !sugestoes.length) return;
-
-            const rect = input.getBoundingClientRect();
-            const row = input.closest("tr");
-
-            skuAutocompleteBox = document.createElement("div");
-            skuAutocompleteBox.className = "sku-autocomplete-box";
-            skuAutocompleteBox.style.left = `${rect.left + window.scrollX}px`;
-            skuAutocompleteBox.style.top = `${rect.bottom + window.scrollY + 4}px`;
-            skuAutocompleteBox.style.width = `${Math.max(rect.width, 360)}px`;
-
-            sugestoes.forEach(s => {
-                const item = document.createElement("div");
-                item.className = "sku-autocomplete-item";
-                item.innerHTML = `
-                    <strong>${escapeHtml(s.sku_master || "")}</strong>
-                    <small>
-                        Marca: ${escapeHtml(s.marca_fabricante || "-")}
-                        | Fornecedor: ${escapeHtml(s.fornecedor_menor_custo || "-")}
-                        | Custo: ${escapeHtml(s.menor_custo_unitario_formatado || "-")}
-                        | Score: ${Number(s.score || 0).toFixed(1)}
-                    </small>
-                `;
-                item.addEventListener("mousedown", function(event) {
-                    event.preventDefault();
-                    aplicarSugestaoSkuNaLinha(row, s);
-                });
-                skuAutocompleteBox.appendChild(item);
-            });
-
-            document.body.appendChild(skuAutocompleteBox);
-        }
-
-        async function buscarSugestoesSku(input) {
-            const termo = obterTermoSugestaoSku(input);
-
-            if (!termo || termo.length < 2) {
-                removerAutocompleteSku();
-                return;
-            }
-
-            try {
-                const resp = await fetch(`/cotacoes/lances/sugerir-skus?q=${encodeURIComponent(termo)}`);
-                const data = await resp.json();
-
-                if (!data.ok) {
-                    removerAutocompleteSku();
-                    return;
-                }
-
-                renderizarAutocompleteSku(input, data.sugestoes || []);
-
-            } catch (e) {
-                removerAutocompleteSku();
+            if (btnSalvar.dataset.medboxFinalSalvarOk !== "1") {
+                const cloneSalvar = btnSalvar.cloneNode(true);
+                cloneSalvar.dataset.medboxFinalSalvarOk = "1";
+                cloneSalvar.type = "button";
+                cloneSalvar.addEventListener("click", salvarAlteracoes, true);
+                btnSalvar.parentNode.replaceChild(cloneSalvar, btnSalvar);
             }
         }
-
-        document.addEventListener("focusin", function(event) {
-            const input = event.target.closest(".sku-master-input");
-            if (!input) return;
-
-            clearTimeout(skuAutocompleteTimer);
-            skuAutocompleteTimer = setTimeout(() => buscarSugestoesSku(input), 120);
-        });
-
-        document.addEventListener("input", function(event) {
-            const input = event.target.closest(".sku-master-input");
-            if (!input) return;
-
-            const row = input.closest("tr");
-
-            if (!input.value.trim()) {
-                if (row) {
-                    row.dataset.skuEncontrado = "0";
-                    const statusBadge = row.querySelector(".status-badge");
-                    if (statusBadge) {
-                        statusBadge.innerText = "REVISAR SKU";
-                        statusBadge.className = "status-badge status-revisar-sku";
-                    }
-                }
-            }
-
-            clearTimeout(skuAutocompleteTimer);
-            skuAutocompleteTimer = setTimeout(() => buscarSugestoesSku(input), 180);
-        });
-
-        document.addEventListener("click", function(event) {
-            if (
-                skuAutocompleteBox &&
-                !event.target.closest(".sku-autocomplete-box") &&
-                !event.target.closest(".sku-master-input")
-            ) {
-                removerAutocompleteSku();
-            }
-        });
-
-        window.addEventListener("scroll", removerAutocompleteSku, true);
-        window.addEventListener("resize", removerAutocompleteSku);
-
-
-        function coletarItensParaCotacaoGerada() {
-            const linhas = Array.from(document.querySelectorAll("#tabelaLances tbody tr"));
-
-            return linhas.map(row => {
-                const descricao = row.querySelector("td:nth-child(2) strong")?.innerText || "";
-                const sku = row.querySelector(".sku-master-input")?.value || "";
-                const marca = row.querySelector(".fabricante-input")?.value || "";
-                const quantidade = row.querySelector(".qtd-input")?.value || "0";
-                const precoMedbox = row.querySelector(".medbox-input")?.value || "R$ 0,00";
-                const vencedor = row.querySelector("td:nth-child(12) small")?.innerText || "";
-                const status = row.querySelector(".status-badge")?.innerText || "";
-
-                return {
-                    descricao_produto: descricao,
-                    sku_master: sku,
-                    marca: marca,
-                    quantidade: quantidade,
-                    preco_medbox: precoMedbox,
-                    vencedor: vencedor,
-                    status: status
-                };
-            }).filter(item => item.descricao_produto.trim());
-        }
-
-        async function gerarCotacaoMedbox() {
-            const itens = coletarItensParaCotacaoGerada();
-
-            if (!itens.length) {
-                alert("Não há itens na grade para gerar cotação.");
-                return;
-            }
-
-            const cliente = document.getElementById("clienteCotacaoGerada")?.value || "";
-
-            const confirmar = confirm("Gerar cotação comercial numerada com os itens atuais?");
-            if (!confirmar) return;
-
-            const btn = document.getElementById("btnGerarCotacaoMedbox");
-            if (btn) {
-                btn.disabled = true;
-                btn.innerText = "Gerando...";
-            }
-
-            try {
-                const resp = await fetch("/cotacoes/lances/gerar-cotacao", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({
-                        cliente: cliente,
-                        itens: itens
-                    })
-                });
-
-                const data = await resp.json();
-
-                if (!data.ok) {
-                    alert(data.erro || "Erro ao gerar cotação.");
-                    return;
-                }
-
-                alert(`Cotação gerada: ${data.numero_cotacao}`);
-                window.location.href = data.url;
-
-            } catch (e) {
-                alert("Falha ao gerar cotação.");
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerText = "Gerar Cotação";
-                }
-            }
-        }
-
-        const btnGerarCotacaoMedbox = document.getElementById("btnGerarCotacaoMedbox");
-        if (btnGerarCotacaoMedbox) {
-            btnGerarCotacaoMedbox.addEventListener("click", gerarCotacaoMedbox);
-        }
-
-        document.addEventListener("DOMContentLoaded", preparar);
-    } else {
-        preparar();
     }
+
+    document.addEventListener("DOMContentLoaded", instalarBotoes);
+    window.addEventListener("load", instalarBotoes);
+    setTimeout(instalarBotoes, 300);
+    setTimeout(instalarBotoes, 1000);
+
+    window.coletarItensParaCotacaoGerada = coletarItensLances;
+    window.coletarItensEdicaoOAS = coletarItensLances;
+    window.gerarCotacaoMedbox = gerarCotacao;
+
+    console.log("MEDBOX FINAL - SCRIPT ÚNICO DE LANCES CARREGADO");
 })();
 </script>
+
 {% endblock %}
+
+
+<script>
+/* ============================================================
+   CORREÇÃO VISUAL DE QUANTIDADE
+   - remove .0
+   - corrige cotação reaberta salva x10
+   ============================================================ */
+(function () {
+    function norm(txt) {
+        return String(txt || "")
+            .replace(/þ/g, "c")
+            .replace(/Þ/g, "C")
+            .replace(/ç/g, "c")
+            .replace(/Ç/g, "C")
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function parseNumero(valor) {
+        let txt = String(valor || "").trim();
+        txt = txt.replace("R$", "").replace("%", "").trim();
+        txt = txt.replace(/[^\d,.\-]/g, "");
+
+        if (!txt) return 0;
+
+        if (txt.includes(",")) {
+            txt = txt.replace(/\./g, "").replace(",", ".");
+        }
+
+        const n = parseFloat(txt);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function formatarQtd(qtd) {
+        qtd = Number(qtd || 0);
+
+        if (Number.isInteger(qtd)) {
+            return String(qtd);
+        }
+
+        return String(qtd).replace(".", ",");
+    }
+
+    function acharTabelaLances() {
+        return Array.from(document.querySelectorAll("table")).find(function (table) {
+            const headers = norm(
+                Array.from(table.querySelectorAll("thead th"))
+                    .map(th => th.textContent)
+                    .join(" | ")
+            );
+
+            return headers.includes("DESCRICAO DO PRODUTO") &&
+                   headers.includes("QUANTIDADE") &&
+                   headers.includes("PRECO OSINFO");
+        });
+    }
+
+    function indiceQuantidade(table) {
+        const ths = Array.from(table.querySelectorAll("thead th"));
+
+        for (let i = 0; i < ths.length; i++) {
+            if (norm(ths[i].textContent).includes("QUANTIDADE")) {
+                return i;
+            }
+        }
+
+        return null;
+    }
+
+    function corrigirQuantidadeVisual() {
+        const table = acharTabelaLances();
+        if (!table) return;
+
+        const idx = indiceQuantidade(table);
+        if (idx === null) return;
+
+        Array.from(table.querySelectorAll("tbody tr")).forEach(function (row) {
+            const td = Array.from(row.children || [])[idx];
+            if (!td) return;
+
+            const input = td.querySelector("input, textarea");
+            if (!input) return;
+
+            let qtd = parseNumero(input.value);
+
+            // Corrige bug da cotação reaberta:
+            // 900 -> 90, 10000 -> 1000, 20000 -> 2000.
+            if (qtd >= 100 && qtd % 10 === 0) {
+                qtd = qtd / 10;
+            }
+
+            input.value = formatarQtd(qtd);
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", corrigirQuantidadeVisual);
+    window.addEventListener("load", corrigirQuantidadeVisual);
+    setTimeout(corrigirQuantidadeVisual, 300);
+    setTimeout(corrigirQuantidadeVisual, 1000);
+})();
+</script>
