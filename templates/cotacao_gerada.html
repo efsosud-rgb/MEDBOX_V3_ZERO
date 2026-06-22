@@ -572,244 +572,190 @@
     <button class="cotacao-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
 </div>
 
+
 <div class="cotacao-print">
-    <div class="cotacao-header">
-        <div>
-            <img src="{{ url_for('static', filename='img/logo_medbox.png') }}" class="cotacao-logo" onerror="this.style.display='none'">
-        </div>
 
-        <div class="cotacao-empresa">
-            <strong>{{ cotacao.empresa_nome }}</strong><br>
-            CNPJ: {{ cotacao.empresa_cnpj }}<br>
-            {{ cotacao.empresa_endereco }}<br>
-            E-mail: {{ cotacao.empresa_email }}<br>
-            Telefone: {{ cotacao.empresa_telefone }}
-        </div>
-    </div>
+    {% set modo_oas = namespace(ativo=false) %}
+    {% for item in itens %}
+        {% if item.preco_osinfo and item.preco_osinfo > 0 %}
+            {% set modo_oas.ativo = true %}
+        {% endif %}
+    {% endfor %}
 
-    <div class="cotacao-titulo">
-        <div>
-            <h2>COTAÇÃO COMERCIAL</h2>
-            <p><strong>Cliente:</strong> {{ cotacao.cliente or '-' }}</p>
-        </div>
+    {% if modo_oas.ativo %}
+    <table class="cotacao-print-table cotacao-print-table-oas">
+        <colgroup>
+            <col style="width:4%;">
+            <col style="width:25%;">
+            <col style="width:18%;">
+            <col style="width:12%;">
+            <col style="width:7%;">
+            <col style="width:9%;">
+            <col style="width:9%;">
+            <col style="width:10%;">
+            <col style="width:14%;">
+        </colgroup>
 
-        <div class="cotacao-info-box">
-            <strong>Nº da Cotação:</strong> {{ cotacao.numero_cotacao }}<br>
-            <strong>Data:</strong> {{ cotacao.data_emissao }}<br>
-            <strong>Validade:</strong> {{ cotacao.validade_dias }} dias
-        </div>
-    </div>
+        <thead>
+            <tr class="print-repeat-header">
+                <th colspan="9">
+                    <div class="cotacao-header">
+                        <div>
+                            <img src="{{ url_for('static', filename='img/logo_medbox.png') }}" class="cotacao-logo" onerror="this.style.display='none'">
+                        </div>
 
-    
-{% set ns = namespace(mostrar_comparativo=false) %}
-{% for item in itens %}
-    {% if item.preco_osinfo and item.preco_osinfo > 0 %}
-        {% set ns.mostrar_comparativo = true %}
-    {% endif %}
-{% endfor %}
+                        <div class="cotacao-empresa">
+                            <strong>{{ cotacao.empresa_nome }}</strong><br>
+                            CNPJ: {{ cotacao.empresa_cnpj }}<br>
+                            {{ cotacao.empresa_endereco }}<br>
+                            E-mail: {{ cotacao.empresa_email }}<br>
+                            Telefone: {{ cotacao.empresa_telefone }}
+                        </div>
+                    </div>
 
-{% if ns.mostrar_comparativo %}
+                    <div class="cotacao-titulo">
+                        <div>
+                            <h2>COTAÇÃO COMERCIAL</h2>
+                            <p><strong>Cliente:</strong> {{ cotacao.cliente or '-' }}</p>
+                        </div>
 
-{% set ns = namespace(mostrar_osinfo=false) %}
-{% for item in itens %}
-    {% if item.preco_osinfo and item.preco_osinfo > 0 %}
-        {% set ns.mostrar_osinfo = true %}
-    {% endif %}
-{% endfor %}
+                        <div class="cotacao-info-box">
+                            <strong>Nº da Cotação:</strong> {{ cotacao.numero_cotacao }}<br>
+                            <strong>Data:</strong> {{ cotacao.data_emissao }}<br>
+                            <strong>Validade:</strong> {{ cotacao.validade_dias }} dias
+                        </div>
+                    </div>
+                </th>
+            </tr>
 
-{% if ns.mostrar_osinfo %}
+            <tr class="print-column-header">
+                <th>Item</th>
+                <th>Descrição do Produto</th>
+                <th>SKU_MASTER MedBox</th>
+                <th>Marca</th>
+                <th>Qtd.</th>
+                <th>Preço OSINFO</th>
+                <th>Preço MedBox</th>
+                <th>Preço Empresa Melhor Lance</th>
+                <th>Valor Total pelo Menor Lance</th>
+            </tr>
+        </thead>
 
-{% set ns = namespace(mostrar_osinfo=false) %}
-{% for item in itens %}
-    {% if item.preco_osinfo and item.preco_osinfo > 0 %}
-        {% set ns.mostrar_osinfo = true %}
-    {% endif %}
-{% endfor %}
+        <tbody>
+            {% for item in itens %}
+            <tr>
+                <td>{{ item.item_numero or item.item or loop.index }}</td>
+                <td>{{ item.descricao_produto }}</td>
+                <td>{{ item.sku_master }}</td>
+                <td>{{ item.marca or item.marca_fabricante or '-' }}</td>
+                <td>{{ qtd_visual(item.quantidade) }}</td>
 
-{% if ns.mostrar_osinfo %}
-
-{% set ns = namespace(mostrar_osinfo=false) %}
-{% for item in itens %}
-    {% if item.preco_osinfo and item.preco_osinfo > 0 %}
-        {% set ns.mostrar_osinfo = true %}
-    {% endif %}
-{% endfor %}
-
-{% if ns.mostrar_osinfo %}
-<table class="cotacao-print-table">
-    <thead>
-        <tr>
-            <th>Item</th>
-            <th>Descrição do Produto</th>
-            <th>SKU_MASTER MedBox</th>
-            <th>Marca</th>
-            <th>Quantidade</th>
-            <th>Preço OSINFO</th>
-            <th>Preço MedBox</th>
-            <th>Preço Empresa Melhor Lance</th>
-            <th>Valor Total pelo Menor Lance</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in itens %}
-        <tr>
-            <td>{{ item.item_numero or item.item or loop.index }}</td>
-            <td>{{ item.descricao_produto }}</td>
-            <td>{{ item.sku_master }}</td>
-            <td>{{ item.marca or item.marca_fabricante or '-' }}</td>
-            <td>{{ qtd_visual(item.quantidade) }}</td>
-
-            <td>
-                <span class="{% if item.destaque_osinfo %}melhor-preco-oas{% endif %}">
-                    {{ item.preco_osinfo_formatado or 'R$ 0,00' }}
-                </span>
-            </td>
-
-            <td>
-                <span class="{% if item.destaque_medbox %}melhor-preco-oas{% endif %}">
-                    {{ item.preco_medbox_formatado or item.preco_medbox_original_formatado or 'R$ 0,00' }}
-                </span>
-            </td>
-
-            <td>
-                <span class="{% if item.destaque_outra %}melhor-preco-oas{% endif %}">
-                    {{ item.preco_outra_empresa_formatado or item.menor_lance_formatado or 'R$ 0,00' }}
-                </span>
-                {% if item.empresa_melhor_lance %}
-                    <span class="empresa-melhor-lance">{{ item.empresa_melhor_lance }}</span>
-                {% endif %}
-            </td>
-
-            <td>
-                <span class="total-menor-lance">
-                    {{ item.valor_total_vencedor_formatado or 'R$ 0,00' }}
-                </span>
-                {% if item.menor_empresa and item.menor_empresa != '-' %}
-                    <span class="empresa-melhor-lance">
-                        Melhor lance: {{ item.menor_empresa }} - {{ item.menor_valor_comparativo_formatado }}
+                <td>
+                    <span class="{% if item.destaque_osinfo %}melhor-preco-oas{% endif %}">
+                        {{ item.preco_osinfo_formatado or 'R$ 0,00' }}
                     </span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<table class="cotacao-print-table">
-    <thead>
-        <tr>
-            <th>Item</th>
-            <th>Descrição do Produto</th>
-            <th>SKU_MASTER MedBox</th>
-            <th>Marca</th>
-            <th>Quantidade</th>
-            <th>Valor Unitário</th>
-            <th>Valor Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in itens %}
-        <tr>
-            <td>{{ item.item_numero or item.item or loop.index }}</td>
-            <td>{{ item.descricao_produto }}</td>
-            <td>{{ item.sku_master }}</td>
-            <td>{{ item.marca or item.marca_fabricante or '-' }}</td>
-            <td>{{ qtd_visual(item.quantidade) }}</td>
-            <td>{{ item.valor_unitario_formatado }}</td>
-            <td>{{ item.valor_total_formatado }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+                </td>
 
-{% else %}
-<table class="cotacao-print-table">
-    <thead>
-        <tr>
-            <th>Item</th>
-            <th>Descrição do Produto</th>
-            <th>SKU_MASTER MedBox</th>
-            <th>Marca</th>
-            <th>Quantidade</th>
-            <th>Valor Unitário</th>
-            <th>Valor Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in itens %}
-        <tr>
-            <td>{{ item.item_numero or item.item or loop.index }}</td>
-            <td>{{ item.descricao_produto }}</td>
-            <td>{{ item.sku_master }}</td>
-            <td>{{ item.marca }}</td>
-            <td>{{ qtd_visual(item.quantidade) }}</td>
-            <td>{{ item.valor_unitario_formatado }}</td>
-            <td>{{ item.valor_total_formatado }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+                <td>
+                    <span class="{% if item.destaque_medbox %}melhor-preco-oas{% endif %}">
+                        {{ item.preco_medbox_formatado or item.preco_medbox_original_formatado or item.valor_unitario_formatado or 'R$ 0,00' }}
+                    </span>
+                </td>
 
-{% else %}
-<table class="cotacao-print-table">
-    <thead>
-        <tr>
-            <th>Item</th>
-            <th>Descrição do Produto</th>
-            <th>SKU_MASTER MedBox</th>
-            <th>Marca</th>
-            <th>Quantidade</th>
-            <th>Valor Unitário</th>
-            <th>Valor Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in itens %}
-        <tr>
-            <td>{{ item.item_numero or item.item or loop.index }}</td>
-            <td>{{ item.descricao_produto }}</td>
-            <td>{{ item.sku_master }}</td>
-            <td>{{ item.marca }}</td>
-            <td>{{ qtd_visual(item.quantidade) }}</td>
-            <td>{{ item.valor_unitario_formatado }}</td>
-            <td>{{ item.valor_total_formatado }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+                <td>
+                    <span class="{% if item.destaque_outra %}melhor-preco-oas{% endif %}">
+                        {{ item.preco_outra_empresa_formatado or item.menor_lance_formatado or 'R$ 0,00' }}
+                    </span>
+                    {% if item.empresa_melhor_lance %}
+                        <span class="empresa-melhor-lance">{{ item.empresa_melhor_lance }}</span>
+                    {% endif %}
+                </td>
 
-{% else %}
-<table class="cotacao-print-table">
-    <thead>
-        <tr>
-            <th>Item</th>
-            <th>Descrição do Produto</th>
-            <th>SKU_MASTER MedBox</th>
-            <th>Marca</th>
-            <th>Quantidade</th>
-            <th>Valor Unitário</th>
-            <th>Valor Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in itens %}
-        <tr>
-            <td>{{ item.item_numero or item.item or loop.index }}</td>
-            <td>{{ item.descricao_produto }}</td>
-            <td>{{ item.sku_master }}</td>
-            <td>{{ item.marca }}</td>
-            <td>{{ qtd_visual(item.quantidade) }}</td>
-            <td>{{ item.valor_unitario_formatado }}</td>
-            <td>{{ item.valor_total_formatado }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+                <td>
+                    <span class="total-menor-lance">
+                        {{ item.valor_total_vencedor_formatado or 'R$ 0,00' }}
+                    </span>
+                    {% if item.menor_empresa and item.menor_empresa != '-' %}
+                        <span class="empresa-melhor-lance">
+                            Melhor lance: {{ item.menor_empresa }} - {{ item.menor_valor_comparativo_formatado }}
+                        </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
+    {% else %}
+    <table class="cotacao-print-table cotacao-print-table-simples">
+        <colgroup>
+            <col style="width:5%;">
+            <col style="width:32%;">
+            <col style="width:22%;">
+            <col style="width:15%;">
+            <col style="width:8%;">
+            <col style="width:9%;">
+            <col style="width:9%;">
+        </colgroup>
+
+        <thead>
+            <tr class="print-repeat-header">
+                <th colspan="7">
+                    <div class="cotacao-header">
+                        <div>
+                            <img src="{{ url_for('static', filename='img/logo_medbox.png') }}" class="cotacao-logo" onerror="this.style.display='none'">
+                        </div>
+
+                        <div class="cotacao-empresa">
+                            <strong>{{ cotacao.empresa_nome }}</strong><br>
+                            CNPJ: {{ cotacao.empresa_cnpj }}<br>
+                            {{ cotacao.empresa_endereco }}<br>
+                            E-mail: {{ cotacao.empresa_email }}<br>
+                            Telefone: {{ cotacao.empresa_telefone }}
+                        </div>
+                    </div>
+
+                    <div class="cotacao-titulo">
+                        <div>
+                            <h2>COTAÇÃO COMERCIAL</h2>
+                            <p><strong>Cliente:</strong> {{ cotacao.cliente or '-' }}</p>
+                        </div>
+
+                        <div class="cotacao-info-box">
+                            <strong>Nº da Cotação:</strong> {{ cotacao.numero_cotacao }}<br>
+                            <strong>Data:</strong> {{ cotacao.data_emissao }}<br>
+                            <strong>Validade:</strong> {{ cotacao.validade_dias }} dias
+                        </div>
+                    </div>
+                </th>
+            </tr>
+
+            <tr class="print-column-header">
+                <th>Item</th>
+                <th>Descrição do Produto</th>
+                <th>SKU_MASTER MedBox</th>
+                <th>Marca</th>
+                <th>Qtd.</th>
+                <th>Valor Unitário</th>
+                <th>Valor Total</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for item in itens %}
+            <tr>
+                <td>{{ item.item_numero or item.item or loop.index }}</td>
+                <td>{{ item.descricao_produto }}</td>
+                <td>{{ item.sku_master }}</td>
+                <td>{{ item.marca or item.marca_fabricante or '-' }}</td>
+                <td>{{ qtd_visual(item.quantidade) }}</td>
+                <td>{{ item.valor_unitario_formatado }}</td>
+                <td>{{ item.valor_total_formatado }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 
     <div class="cotacao-total">
         Total Geral dos Itens Vencidos pela MedBox: {{ total_formatado }}
@@ -819,7 +765,204 @@
         Validade da proposta: 7 (sete) dias.
     </div>
 </div>
+
 {% endif %}
+
+
+<style>
+/* ============================================================
+   IMPRESSÃO FINAL COTAÇÃO GERADA - MEDBOX
+   ============================================================ */
+
+.cotacao-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.cotacao-print-table th,
+.cotacao-print-table td {
+    vertical-align: middle;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    writing-mode: horizontal-tb !important;
+    transform: none !important;
+}
+
+.print-repeat-header th {
+    padding: 0 0 8px 0 !important;
+    border: none !important;
+    background: #fff !important;
+}
+
+.print-column-header th {
+    background: #f4f7fb !important;
+    color: #001f3f !important;
+    font-weight: 900 !important;
+    text-align: center !important;
+    border-bottom: 1px solid #c7d7e8 !important;
+}
+
+@page {
+    size: A4 landscape;
+    margin: 7mm 6mm 7mm 6mm;
+}
+
+@media print {
+    .sidebar,
+    .topbar,
+    .navbar,
+    .header,
+    .no-print,
+    .page-header,
+    aside,
+    nav {
+        display: none !important;
+    }
+
+    html,
+    body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .main-content,
+    .content,
+    .content-wrapper,
+    main {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    .cotacao-print {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .cotacao-print-table {
+        width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        page-break-inside: auto !important;
+    }
+
+    .cotacao-print-table thead {
+        display: table-header-group !important;
+    }
+
+    .cotacao-print-table tbody {
+        display: table-row-group !important;
+    }
+
+    .cotacao-print-table tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .cotacao-print-table th,
+    .cotacao-print-table td {
+        font-size: 8px !important;
+        line-height: 1.15 !important;
+        padding: 4px 5px !important;
+        border-bottom: 1px solid #d7e2ef !important;
+        white-space: normal !important;
+        word-break: normal !important;
+        overflow-wrap: break-word !important;
+        writing-mode: horizontal-tb !important;
+        transform: none !important;
+    }
+
+    .cotacao-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        border-bottom: 2px solid #00486C !important;
+        padding-bottom: 8px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .cotacao-logo {
+        max-width: 150px !important;
+        height: auto !important;
+    }
+
+    .cotacao-empresa {
+        text-align: right !important;
+        font-size: 8px !important;
+        line-height: 1.25 !important;
+        color: #001f3f !important;
+    }
+
+    .cotacao-titulo {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        margin: 8px 0 10px 0 !important;
+    }
+
+    .cotacao-titulo h2 {
+        margin: 0 0 4px 0 !important;
+        font-size: 17px !important;
+        color: #00486C !important;
+    }
+
+    .cotacao-titulo p {
+        margin: 0 !important;
+        font-size: 10px !important;
+    }
+
+    .cotacao-info-box {
+        border: 1px solid #c7d7e8 !important;
+        border-radius: 6px !important;
+        padding: 6px 8px !important;
+        font-size: 8px !important;
+        line-height: 1.25 !important;
+        min-width: 185px !important;
+        text-align: left !important;
+    }
+
+    .empresa-melhor-lance {
+        display: block !important;
+        font-size: 6.8px !important;
+        line-height: 1.1 !important;
+        margin-top: 2px !important;
+        color: #52647a !important;
+        font-weight: 800 !important;
+    }
+
+    .melhor-preco-oas {
+        background: #eaf3ff !important;
+        border: 1px solid #9ec5ff !important;
+        color: #004aad !important;
+        font-weight: 900 !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        display: inline-block !important;
+    }
+
+    .total-menor-lance {
+        color: #004aad !important;
+        font-weight: 900 !important;
+    }
+
+    .cotacao-total,
+    .cotacao-validade {
+        margin-top: 8px !important;
+        font-size: 9px !important;
+        page-break-inside: avoid !important;
+    }
+}
+</style>
 
 {% endblock %}
 

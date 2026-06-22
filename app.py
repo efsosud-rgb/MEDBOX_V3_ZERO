@@ -3227,6 +3227,366 @@ except Exception as e:
 
 
 
+
+
+# ============================================================
+# MEDBOX - FIX DEFINITIVO PERSISTÊNCIA LANCES / SKU / MARKUP
+# Mantém rota existente e substitui endpoint com cálculo autoritativo.
+# ============================================================
+
+def _fix_lance_float(valor, padrao=0.0):
+    try:
+        if valor is None:
+            return padrao
+
+        if isinstance(valor, (int, float)):
+            return float(valor)
+
+        txt = str(valor).strip()
+        txt = txt.replace("R$", "").replace("%", "").strip()
+        txt = "".join(ch for ch in txt if ch.isdigit() or ch in ",.-")
+
+        if not txt:
+            return padrao
+
+        if "," in txt:
+            txt = txt.replace(".", "").replace(",", ".")
+
+        return float(txt)
+    except Exception:
+        return padrao
+
+
+def _fix_lance_moeda(valor):
+    valor = _fix_lance_float(valor, 0)
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _fix_lance_garantir_colunas():
+    conn = conectar()
+    cur = conn.cursor()
+
+    try:
+        garantir_tabelas_cotacoes_geradas()
+    except Exception:
+        pass
+
+    cur.execute("PRAGMA table_info(cotacoes_geradas_itens)")
+    existentes = {row[1] for row in cur.fetchall()}
+
+    colunas = {
+        "categoria": "TEXT",
+        "fornecedor_menor_custo": "TEXT",
+        "menor_custo_unitario": "REAL DEFAULT 0",
+        "markup_atual": "REAL DEFAULT 80",
+        "ultima_compra": "REAL DEFAULT 0",
+        "preco_osinfo": "REAL DEFAULT 0",
+        "menor_lance": "REAL DEFAULT 0",
+        "preco_medbox_original": "REAL DEFAULT 0",
+        "empresa_melhor_lance": "TEXT",
+        "menor_origem": "TEXT",
+        "menor_empresa": "TEXT",
+        "menor_valor_comparativo": "REAL DEFAULT 0",
+        "valor_total_vencedor": "REAL DEFAULT 0",
+        "medbox_vencedora": "INTEGER DEFAULT 0",
+    }
+
+    for nome, tipo in colunas.items():
+        if nome not in existentes:
+            cur.execute(f"ALTER TABLE cotacoes_geradas_itens ADD COLUMN {nome} {tipo}")
+
+    conn.commit()
+    conn.close()
+
+
+def _fix_lance_disputa(preco_osinfo, preco_medbox, menor_lance, empresa_lance):
+    opcoes = []
+
+    if preco_osinfo > 0:
+        opcoes.append(("OSINFO", "OSINFO", preco_osinfo))
+
+    if preco_medbox > 0:
+        opcoes.append(("MEDBOX", "MEDBOX", preco_medbox))
+
+    if menor_lance > 0:
+        opcoes.append(("OUTRA_EMPRESA", empresa_lance or "OUTRA EMPRESA", menor_lance))
+
+    if not opcoes:
+        return "-", "-", 0.0, False
+
+    opcoes.sort(key=lambda x: x[2])
+    origem, empresa, valor = opcoes[0]
+
+    return origem, empresa, valor, origem == "MEDBOX"
+
+
+def _fix_lance_montar_item_edicao(row, idx):
+    def g(nome, padrao=None):
+        try:
+            return row[nome]
+        except Exception:
+            return padrao
+
+    quantidade = _fix_lance_float(g("quantidade"), 0)
+    preco_osinfo = _fix_lance_float(g("preco_osinfo"), 0)
+    ultima_compra = _fix_lance_float(g("ultima_compra"), 0)
+    menor_lance = _fix_lance_float(g("menor_lance"), 0)
+    preco_medbox = _fix_lance_float(g("preco_medbox_original", g("valor_unitario", 0)), 0)
+    menor_custo = _fix_lance_float(g("menor_custo_unitario"), 0)
+    markup = _fix_lance_float(g("markup_atual"), 80)
+
+    # Se existe custo salvo e preço MedBox não existe, reconstrói.
+    if menor_custo > 0 and preco_medbox <= 0:
+        preco_medbox = menor_custo * (1 + markup / 100)
+
+    menor_origem, menor_empresa, menor_valor, medbox_vencedora = _fix_lance_disputa(
+        preco_osinfo,
+        preco_medbox,
+        menor_lance,
+        g("empresa_melhor_lance", "")
+    )
+
+    return {
+        "item": idx,
+        "item_numero": g("item_numero", idx),
+        "descricao_produto": g("descricao_produto", ""),
+        "sku_master": g("sku_master", ""),
+        "categoria": g("categoria", ""),
+        "quantidade": quantidade,
+        "preco_osinfo": preco_osinfo,
+        "preco_osinfo_formatado": _fix_lance_moeda(preco_osinfo),
+        "ultima_compra": ultima_compra,
+        "ultima_compra_formatada": _fix_lance_moeda(ultima_compra),
+        "preco_medbox": preco_medbox,
+        "preco_medbox_formatado": _fix_lance_moeda(preco_medbox),
+        "markup_atual": markup,
+        "menor_preco_ofertado": menor_lance,
+        "menor_preco_ofertado_formatado": _fix_lance_moeda(menor_lance),
+        "empresa_melhor_lance": g("empresa_melhor_lance", ""),
+        "menor_valor": menor_valor,
+        "menor_valor_formatado": _fix_lance_moeda(menor_valor),
+        "menor_valor_nome": menor_empresa,
+        "menor_custo_unitario": menor_custo,
+        "menor_custo_unitario_formatado": _fix_lance_moeda(menor_custo) if menor_custo > 0 else "",
+        "fornecedor_menor_custo": g("fornecedor_menor_custo", ""),
+        "marca_fabricante": g("marca", ""),
+        "marca": g("marca", ""),
+        "sku_encontrado": bool(g("sku_master", "")),
+        "tem_preco": preco_medbox > 0,
+        "status": "SKU SELECIONADO" if g("sku_master", "") else "REVISAR SKU",
+        "score": 0,
+        "sugestoes_sku": [],
+    }
+
+
+def editar_cotacao_gerada_fix_persistencia(numero_cotacao):
+    _fix_lance_garantir_colunas()
+
+    conn = conectar()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+    cotacao = cur.fetchone()
+
+    if not cotacao:
+        conn.close()
+        flash(f"Cotação {numero_cotacao} não encontrada.")
+        return redirect(url_for("listar_cotacoes_geradas"))
+
+    cur.execute("""
+        SELECT *
+        FROM cotacoes_geradas_itens
+        WHERE cotacao_id = ?
+        ORDER BY item_numero
+    """, (cotacao["id"],))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    itens = [_fix_lance_montar_item_edicao(row, idx) for idx, row in enumerate(rows, start=1)]
+
+    try:
+        resumo_lances = montar_resumo_lances(itens)
+    except Exception:
+        resumo_lances = {
+            "total_itens": len(itens),
+            "itens_com_sku": sum(1 for i in itens if i.get("sku_master")),
+            "itens_revisar_sku": sum(1 for i in itens if not i.get("sku_master")),
+            "itens_com_preco_medbox": sum(1 for i in itens if _fix_lance_float(i.get("preco_medbox")) > 0),
+            "itens_sem_preco": sum(1 for i in itens if _fix_lance_float(i.get("preco_medbox")) <= 0),
+            "itens_competitivos": 0,
+            "itens_negociar": 0,
+            "total_medbox": 0,
+            "total_medbox_formatado": "R$ 0,00",
+        }
+
+    analise = {
+        "arquivo": f"EDITANDO {numero_cotacao}",
+        "itens_extraidos": len(itens),
+        "markup_percentual": 80,
+        "itens": itens,
+        "resumo": resumo_lances,
+    }
+
+    return render_template(
+        "cotacao_lances.html",
+        data_atual=DATA_ATUAL,
+        resumo=resumo_dashboard(),
+        analise=analise,
+        erro=None,
+        arquivo_nome=f"EDITANDO {numero_cotacao}",
+        markup_percentual=80,
+        numero_cotacao_editando=numero_cotacao,
+        modo_edicao_cotacao=True,
+    )
+
+
+def atualizar_cotacao_gerada_fix_persistencia(numero_cotacao):
+    _fix_lance_garantir_colunas()
+
+    dados = request.get_json(silent=True) or {}
+    itens = dados.get("itens", [])
+
+    if not itens:
+        return jsonify({"ok": False, "erro": "Nenhum item recebido para atualizar."}), 400
+
+    cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "").strip().upper()
+    cliente_exibicao = cliente or "-"
+
+    conn = conectar()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+    row = cur.fetchone()
+
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "erro": f"Cotação {numero_cotacao} não encontrada."}), 404
+
+    cotacao_id = row[0]
+    cur.execute("DELETE FROM cotacoes_geradas_itens WHERE cotacao_id = ?", (cotacao_id,))
+
+    total_medbox = 0.0
+
+    for idx, item in enumerate(itens, start=1):
+        descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+        sku_master = str(item.get("sku_master") or "").strip().upper()
+        categoria = str(item.get("categoria") or "").strip().upper()
+        marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+        fornecedor = str(item.get("fornecedor_menor_custo") or "").strip().upper()
+
+        quantidade = _fix_lance_float(item.get("quantidade"), 0)
+        preco_osinfo = _fix_lance_float(item.get("preco_osinfo"), 0)
+        ultima_compra = _fix_lance_float(item.get("ultima_compra"), 0)
+        menor_lance = _fix_lance_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0)), 0)
+        menor_custo = _fix_lance_float(item.get("menor_custo_unitario"), 0)
+        markup = _fix_lance_float(item.get("markup_atual"), 80)
+
+        preco_medbox = _fix_lance_float(item.get("preco_medbox"), 0)
+        if menor_custo > 0:
+            preco_medbox = menor_custo * (1 + markup / 100)
+
+        empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+
+        menor_origem, menor_empresa, menor_valor, medbox_vencedora = _fix_lance_disputa(
+            preco_osinfo,
+            preco_medbox,
+            menor_lance,
+            empresa_lance
+        )
+
+        valor_total_vencedor = quantidade * menor_valor
+        valor_unitario = preco_medbox if medbox_vencedora else 0.0
+        valor_total = quantidade * valor_unitario
+        total_medbox += valor_total
+
+        cur.execute("""
+            INSERT INTO cotacoes_geradas_itens (
+                cotacao_id,
+                item_numero,
+                descricao_produto,
+                sku_master,
+                marca,
+                quantidade,
+                valor_unitario,
+                valor_total,
+                venceu_medbox,
+                status_lance,
+                categoria,
+                fornecedor_menor_custo,
+                menor_custo_unitario,
+                markup_atual,
+                ultima_compra,
+                preco_osinfo,
+                menor_lance,
+                preco_medbox_original,
+                empresa_melhor_lance,
+                menor_origem,
+                menor_empresa,
+                menor_valor_comparativo,
+                valor_total_vencedor,
+                medbox_vencedora
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            cotacao_id,
+            idx,
+            descricao,
+            sku_master,
+            marca,
+            quantidade,
+            valor_unitario,
+            valor_total,
+            1 if medbox_vencedora else 0,
+            "SKU SELECIONADO" if sku_master else "REVISAR SKU",
+            categoria,
+            fornecedor,
+            menor_custo,
+            markup,
+            ultima_compra,
+            preco_osinfo,
+            menor_lance,
+            preco_medbox,
+            empresa_lance,
+            menor_origem,
+            menor_empresa,
+            menor_valor,
+            valor_total_vencedor,
+            1 if medbox_vencedora else 0,
+        ))
+
+    cur.execute("""
+        UPDATE cotacoes_geradas
+        SET cliente = ?, total_geral = ?
+        WHERE id = ?
+    """, (cliente_exibicao, total_medbox, cotacao_id))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "ok": True,
+        "numero_cotacao": numero_cotacao,
+        "url": f"/cotacoes/geradas/{numero_cotacao}"
+    })
+
+
+# Substitui os endpoints já registrados sem recriar rotas.
+try:
+    for _rule in list(app.url_map.iter_rules()):
+        if str(_rule.rule) == "/cotacoes/geradas/<numero_cotacao>/editar":
+            app.view_functions[_rule.endpoint] = editar_cotacao_gerada_fix_persistencia
+
+        if str(_rule.rule) == "/cotacoes/lances/atualizar-cotacao/<numero_cotacao>":
+            app.view_functions[_rule.endpoint] = atualizar_cotacao_gerada_fix_persistencia
+
+    print("OK: endpoints de edição/salvamento de cotação substituídos pelo fix definitivo.")
+except Exception as _exc:
+    print("AVISO: não foi possível substituir endpoints de lances:", _exc)
+
+
+
 if __name__ == "__main__":
     print("MEDBOX V3 rodando em http://127.0.0.1:5000")
     app.run(debug=True)

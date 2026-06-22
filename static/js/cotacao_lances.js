@@ -706,3 +706,547 @@
     console.log("MEDBOX autocomplete SKU_MASTER ativo.");
 })();
 
+
+
+// ============================================================
+// MEDBOX - FIX DEFINITIVO SKU / MARKUP / PREÇO MEDBOX / PERSISTÊNCIA
+// Regras:
+// - Não zera campos ao abrir a tela.
+// - Recalcula somente a linha editada.
+// - Fecha autocomplete após seleção.
+// - Envia custo, markup, fornecedor e preço calculado ao backend.
+// ============================================================
+(function () {
+    if (window.MEDBOX_FIX_SKU_MARKUP_PERSISTENCIA === true) {
+        return;
+    }
+    window.MEDBOX_FIX_SKU_MARKUP_PERSISTENCIA = true;
+
+    function parseBR(valor) {
+        let txt = String(valor || "").trim();
+        txt = txt.replace("R$", "")
+                 .replace("%", "")
+                 .replace(/\s+/g, "")
+                 .replace(/[^\d,.\-]/g, "");
+
+        if (!txt) return 0;
+
+        if (txt.includes(",")) {
+            txt = txt.replace(/\./g, "").replace(",", ".");
+            const n = parseFloat(txt);
+            return isNaN(n) ? 0 : n;
+        }
+
+        const n = parseFloat(txt);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function moedaBR(valor) {
+        const n = Number(valor || 0);
+        return "R$ " + n.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function valorInput(row, seletor) {
+        const el = row ? row.querySelector(seletor) : null;
+        return el ? el.value : "";
+    }
+
+    function setValor(row, seletor, valor) {
+        const el = row ? row.querySelector(seletor) : null;
+        if (!el) return;
+        el.value = valor;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function recalcularLinha(row) {
+        if (!row) return;
+
+        const custo = parseBR(valorInput(row, ".custo-manual-input"));
+        const markup = parseBR(valorInput(row, ".markup-atual-input") || "80");
+
+        const medbox = row.querySelector(".medbox-input");
+        if (!medbox) return;
+
+        // Só calcula se houver custo real. Não zera ao abrir tela.
+        if (custo > 0) {
+            const preco = custo * (1 + (markup / 100));
+            medbox.value = moedaBR(preco);
+            medbox.setAttribute("readonly", "readonly");
+            medbox.dispatchEvent(new Event("input", { bubbles: true }));
+            medbox.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    }
+
+    function fecharAutocomplete() {
+        const box = document.getElementById("medboxSkuAutocompleteBox") ||
+                    document.getElementById("skuAutocompleteBoxFinal");
+
+        if (box) {
+            box.innerHTML = "";
+            box.style.display = "none";
+        }
+    }
+
+    function formatarCampoMoedaAoSair(campo) {
+        if (!campo) return;
+        const n = parseBR(campo.value);
+        campo.value = moedaBR(n);
+    }
+
+    function formatarMarkupAoSair(campo) {
+        if (!campo) return;
+        const n = parseBR(campo.value || "0");
+        campo.value = n.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }) + "%";
+    }
+
+    function prepararCampoParaEdicao(campo) {
+        if (!campo) return;
+
+        if (
+            campo.matches(".money-input") ||
+            campo.matches(".custo-manual-input") ||
+            campo.matches(".concorrente-input") ||
+            campo.matches(".osinfo-input") ||
+            campo.matches(".ultima-input")
+        ) {
+            const n = parseBR(campo.value);
+            campo.value = n > 0 ? String(n).replace(".", ",") : "";
+            setTimeout(function () {
+                try { campo.select(); } catch (e) {}
+            }, 20);
+        }
+
+        if (campo.matches(".markup-atual-input")) {
+            const n = parseBR(campo.value || "80");
+            campo.type = "text";
+            campo.value = String(n).replace(".", ",");
+            setTimeout(function () {
+                try { campo.select(); } catch (e) {}
+            }, 20);
+        }
+    }
+
+    function itemDaLinha(row, idx) {
+        const get = (sel) => {
+            const el = row.querySelector(sel);
+            return el ? el.value : "";
+        };
+
+        const descCell = row.children[1];
+        const descricao = descCell ? (descCell.textContent || "").trim() : "";
+
+        const custo = parseBR(get(".custo-manual-input"));
+        const markup = parseBR(get(".markup-atual-input") || "80");
+        let precoMedbox = parseBR(get(".medbox-input"));
+
+        if (custo > 0) {
+            precoMedbox = custo * (1 + (markup / 100));
+        }
+
+        return {
+            item: idx + 1,
+            descricao_produto: descricao,
+            descricao: descricao,
+            sku_master: get(".sku-master-input").trim(),
+            categoria: get(".categoria-input").trim(),
+            quantidade: parseBR(get(".qtd-input")),
+            preco_osinfo: parseBR(get(".osinfo-input")),
+            ultima_compra: parseBR(get(".ultima-input")),
+            preco_medbox: precoMedbox,
+            markup_atual: markup,
+            menor_preco_ofertado: parseBR(get(".concorrente-input")),
+            menor_lance: parseBR(get(".concorrente-input")),
+            empresa_melhor_lance: get(".empresa-input").trim(),
+            menor_custo_unitario: custo,
+            fornecedor_menor_custo: get(".fornecedor-input").trim(),
+            marca_fabricante: get(".fabricante-input").trim(),
+            marca: get(".fabricante-input").trim()
+        };
+    }
+
+    function coletarItensDefinitivo() {
+        const rows = Array.from(document.querySelectorAll("#tabelaLances tbody tr"));
+        const itens = [];
+
+        rows.forEach(function (row, idx) {
+            recalcularLinha(row);
+
+            const item = itemDaLinha(row, idx);
+            if (item.descricao_produto) {
+                itens.push(item);
+            }
+        });
+
+        console.log("MEDBOX coleta definitiva primeiro item:", itens[0]);
+        return itens;
+    }
+
+    function instalarEventosFix() {
+        document.addEventListener("mousedown", function (event) {
+            const box = document.getElementById("medboxSkuAutocompleteBox") ||
+                        document.getElementById("skuAutocompleteBoxFinal");
+
+            if (box && box.contains(event.target)) {
+                const row = event.target.closest("tr") || document.activeElement?.closest("tr");
+                setTimeout(function () {
+                    fecharAutocomplete();
+
+                    const ativo = document.activeElement;
+                    const linha = row || ativo?.closest("tr");
+
+                    if (linha) {
+                        recalcularLinha(linha);
+                    }
+                }, 150);
+            }
+        }, true);
+
+        document.addEventListener("change", function (event) {
+            const campo = event.target;
+            if (!campo || !campo.closest) return;
+
+            const row = campo.closest("tr");
+
+            if (
+                campo.matches(".sku-master-input") ||
+                campo.matches(".custo-manual-input") ||
+                campo.matches(".markup-atual-input")
+            ) {
+                setTimeout(function () {
+                    fecharAutocomplete();
+                    recalcularLinha(row);
+                }, 150);
+            }
+        }, true);
+
+        document.addEventListener("input", function (event) {
+            const campo = event.target;
+            if (!campo || !campo.closest) return;
+
+            if (
+                campo.matches(".custo-manual-input") ||
+                campo.matches(".markup-atual-input")
+            ) {
+                recalcularLinha(campo.closest("tr"));
+            }
+        }, true);
+
+        document.addEventListener("focusin", function (event) {
+            prepararCampoParaEdicao(event.target);
+        }, true);
+
+        document.addEventListener("focusout", function (event) {
+            const campo = event.target;
+            if (!campo || !campo.closest) return;
+
+            const row = campo.closest("tr");
+
+            if (
+                campo.matches(".money-input") ||
+                campo.matches(".custo-manual-input") ||
+                campo.matches(".concorrente-input") ||
+                campo.matches(".osinfo-input") ||
+                campo.matches(".ultima-input")
+            ) {
+                formatarCampoMoedaAoSair(campo);
+            }
+
+            if (campo.matches(".markup-atual-input")) {
+                formatarMarkupAoSair(campo);
+            }
+
+            if (
+                campo.matches(".custo-manual-input") ||
+                campo.matches(".markup-atual-input")
+            ) {
+                recalcularLinha(row);
+            }
+        }, true);
+    }
+
+    instalarEventosFix();
+
+    window.coletarItensParaCotacaoGerada = coletarItensDefinitivo;
+    window.coletarItensEdicaoOAS = coletarItensDefinitivo;
+    window.MEDBOX_coletarItensDefinitivo = coletarItensDefinitivo;
+    window.MEDBOX_recalcularLinhaLance = recalcularLinha;
+
+    console.log("MEDBOX fix definitivo SKU/markup/persistência ativo.");
+})();
+
+
+
+// ============================================================
+// MEDBOX - SALVAMENTO AUTORITATIVO DA GRADE DE LANCES
+// Corrige envio de Últ. Compra da Cotação e demais campos.
+// Não altera layout, não zera campos ao abrir.
+// ============================================================
+(function () {
+    if (window.MEDBOX_SALVAR_LANCES_AUTORITATIVO === true) {
+        return;
+    }
+    window.MEDBOX_SALVAR_LANCES_AUTORITATIVO = true;
+
+    function parseBR(valor) {
+        let txt = String(valor || "").trim();
+
+        txt = txt.replace("R$", "")
+                 .replace("%", "")
+                 .replace(/\s+/g, "")
+                 .replace(/[^\d,.\-]/g, "");
+
+        if (!txt) return 0;
+
+        if (txt.includes(",")) {
+            txt = txt.replace(/\./g, "").replace(",", ".");
+        }
+
+        const n = parseFloat(txt);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function moedaBR(valor) {
+        const n = Number(valor || 0);
+
+        return "R$ " + n.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function get(row, seletor) {
+        const el = row.querySelector(seletor);
+        return el ? el.value : "";
+    }
+
+    function set(row, seletor, valor) {
+        const el = row.querySelector(seletor);
+        if (!el) return;
+
+        el.value = valor;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function descricaoLinha(row) {
+        const cell = row.children[1];
+        return cell ? String(cell.textContent || "").trim() : "";
+    }
+
+    function recalcularPrecoMedbox(row) {
+        const custo = parseBR(get(row, ".custo-manual-input"));
+        const markup = parseBR(get(row, ".markup-atual-input") || "80");
+
+        if (custo <= 0) return parseBR(get(row, ".medbox-input"));
+
+        const preco = custo * (1 + markup / 100);
+
+        set(row, ".medbox-input", moedaBR(preco));
+
+        return preco;
+    }
+
+    function coletarItensAutoritativo() {
+        const rows = Array.from(document.querySelectorAll("#tabelaLances tbody tr"));
+        const itens = [];
+
+        rows.forEach(function (row, idx) {
+            const descricao = descricaoLinha(row);
+
+            if (!descricao) return;
+
+            const precoMedbox = recalcularPrecoMedbox(row);
+
+            itens.push({
+                item: idx + 1,
+                descricao_produto: descricao,
+                descricao: descricao,
+
+                sku_master: get(row, ".sku-master-input").trim(),
+                categoria: get(row, ".categoria-input").trim(),
+
+                quantidade: parseBR(get(row, ".qtd-input")),
+
+                preco_osinfo: parseBR(get(row, ".osinfo-input")),
+
+                // CAMPO QUE ESTAVA FALTANDO NO SALVAMENTO
+                ultima_compra: parseBR(get(row, ".ultima-input")),
+
+                preco_medbox: precoMedbox,
+                markup_atual: parseBR(get(row, ".markup-atual-input") || "80"),
+
+                menor_preco_ofertado: parseBR(get(row, ".concorrente-input")),
+                menor_lance: parseBR(get(row, ".concorrente-input")),
+                empresa_melhor_lance: get(row, ".empresa-input").trim(),
+
+                menor_custo_unitario: parseBR(get(row, ".custo-manual-input")),
+                fornecedor_menor_custo: get(row, ".fornecedor-input").trim(),
+
+                marca_fabricante: get(row, ".fabricante-input").trim(),
+                marca: get(row, ".fabricante-input").trim()
+            });
+        });
+
+        console.log("MEDBOX SALVAR AUTORITATIVO - primeiro item:", itens[0]);
+        return itens;
+    }
+
+    function numeroCotacaoEditando() {
+        return window.MEDBOX_NUMERO_COTACAO_EDITANDO || "";
+    }
+
+    function dadosCabecalho() {
+        const cliente = document.getElementById("clienteCotacaoGerada")?.value || "";
+        const oas = document.getElementById("oasCotacaoGerada")?.value || "";
+        const projeto = document.getElementById("projetoCotacaoGerada")?.value || "";
+        const controle = document.getElementById("controleClienteCotacaoGerada")?.value || "";
+
+        return {
+            cliente: cliente,
+            cliente_orgao: cliente,
+            oas: oas,
+            projeto: projeto,
+            controle_cliente: controle
+        };
+    }
+
+    function confirmarEnvio(itens, acao) {
+        const p = itens[0] || {};
+
+        return confirm(
+            "CONFIRA ANTES DE " + acao + ":\n\n" +
+            "Descrição: " + (p.descricao_produto || "") + "\n" +
+            "Quantidade: " + p.quantidade + "\n" +
+            "Preço OSINFO: " + p.preco_osinfo + "\n" +
+            "Últ. Compra da Cotação: " + p.ultima_compra + "\n" +
+            "Menor Custo Encontrado: " + p.menor_custo_unitario + "\n" +
+            "Markup: " + p.markup_atual + "\n" +
+            "Preço MedBox: " + p.preco_medbox + "\n" +
+            "Menor Preço Ofertado: " + p.menor_lance + "\n" +
+            "Empresa Melhor Lance: " + p.empresa_melhor_lance + "\n\n" +
+            "Clique OK se estiver correto."
+        );
+    }
+
+    async function salvarCotacaoEditada(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const numero = numeroCotacaoEditando();
+
+        if (!numero) {
+            alert("Nenhuma cotação em edição foi identificada.");
+            return false;
+        }
+
+        const itens = coletarItensAutoritativo();
+
+        if (!itens.length) {
+            alert("Nenhum item encontrado para salvar.");
+            return false;
+        }
+
+        if (!confirmarEnvio(itens, "SALVAR")) {
+            return false;
+        }
+
+        const payload = {
+            ...dadosCabecalho(),
+            itens: itens
+        };
+
+        const resp = await fetch("/cotacoes/lances/atualizar-cotacao/" + numero, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+            alert(data.erro || "Erro ao salvar alterações.");
+            return false;
+        }
+
+        alert("Cotação " + numero + " salva com sucesso.");
+        window.location.href = data.url;
+        return false;
+    }
+
+    async function gerarCotacaoNova(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const itens = coletarItensAutoritativo();
+
+        if (!itens.length) {
+            alert("Nenhum item encontrado para gerar cotação.");
+            return false;
+        }
+
+        if (!confirmarEnvio(itens, "GERAR")) {
+            return false;
+        }
+
+        const payload = {
+            ...dadosCabecalho(),
+            itens: itens
+        };
+
+        const resp = await fetch("/cotacoes/lances/gerar-cotacao", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+            alert(data.erro || "Erro ao gerar cotação.");
+            return false;
+        }
+
+        window.location.href = data.url;
+        return false;
+    }
+
+    function textoNormalizado(txt) {
+        return String(txt || "")
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function instalarInterceptadores() {
+        document.addEventListener("click", function (event) {
+            const alvo = event.target.closest("button, a");
+            if (!alvo) return;
+
+            const texto = textoNormalizado(alvo.textContent || "");
+
+            if (texto.includes("SALVAR ALTERACOES DA COTACAO")) {
+                return salvarCotacaoEditada(event);
+            }
+
+            if (alvo.id === "btnGerarCotacaoMedbox" || texto.includes("GERAR COTACAO")) {
+                return gerarCotacaoNova(event);
+            }
+        }, true);
+    }
+
+    instalarInterceptadores();
+
+    window.MEDBOX_coletarItensAutoritativo = coletarItensAutoritativo;
+
+    console.log("MEDBOX salvamento autoritativo de lances ativo.");
+})();
+
