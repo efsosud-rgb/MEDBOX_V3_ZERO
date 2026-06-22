@@ -479,4 +479,148 @@
 })();
 </script>
 
+
+<script>
+/* ============================================================
+   MEDBOX - Ordenação visual Auditoria SKU Master
+   Escopo: somente templates/sku_master_auditoria.html
+   Não altera banco, backend, filtros, paginação, modal ou salvamento.
+   ============================================================ */
+(function () {
+    if (window.MEDBOX_SORT_AUDITORIA_SKU_ATIVO === true) {
+        return;
+    }
+
+    window.MEDBOX_SORT_AUDITORIA_SKU_ATIVO = true;
+
+    function normalizarTexto(txt) {
+        return String(txt || "")
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function encontrarTabelaAuditoria() {
+        const tabelas = Array.from(document.querySelectorAll("table.comparison-table"));
+
+        return tabelas.find(function (table) {
+            const headers = Array.from(table.querySelectorAll("thead th"))
+                .map(th => normalizarTexto(th.textContent))
+                .join(" | ");
+
+            return headers.includes("PRODUTO PADRAO") &&
+                   headers.includes("SKU MASTER") &&
+                   headers.includes("FABRICANTE") &&
+                   headers.includes("CATEGORIA") &&
+                   headers.includes("CLASSIFICACAO") &&
+                   headers.includes("MOTIVO");
+        });
+    }
+
+    function valorCelula(row, idx) {
+        const cell = row.children[idx];
+        if (!cell) return "";
+
+        const input = cell.querySelector("input, select, textarea");
+        if (input) return input.value || "";
+
+        return cell.textContent || "";
+    }
+
+    function ordenarTabela(table, colunaIdx, direcao) {
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        const linhas = Array.from(tbody.querySelectorAll("tr"));
+
+        linhas.sort(function (a, b) {
+            const av = normalizarTexto(valorCelula(a, colunaIdx));
+            const bv = normalizarTexto(valorCelula(b, colunaIdx));
+
+            if (av < bv) return direcao === "asc" ? -1 : 1;
+            if (av > bv) return direcao === "asc" ? 1 : -1;
+            return 0;
+        });
+
+        linhas.forEach(linha => tbody.appendChild(linha));
+    }
+
+    function criarBotao(label, titulo, onClick) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = label;
+        btn.title = titulo;
+
+        btn.style.marginLeft = "4px";
+        btn.style.padding = "2px 5px";
+        btn.style.border = "1px solid #c7d7e8";
+        btn.style.borderRadius = "5px";
+        btn.style.background = "#ffffff";
+        btn.style.color = "#00486C";
+        btn.style.fontSize = "10px";
+        btn.style.fontWeight = "900";
+        btn.style.cursor = "pointer";
+        btn.style.lineHeight = "1.2";
+
+        btn.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            onClick();
+        });
+
+        return btn;
+    }
+
+    function instalarOrdenacao() {
+        const table = encontrarTabelaAuditoria();
+        if (!table) return;
+
+        if (table.dataset.medboxSortAuditoriaSku === "1") return;
+        table.dataset.medboxSortAuditoriaSku = "1";
+
+        const headers = Array.from(table.querySelectorAll("thead th"));
+
+        const colunasOrdenaveis = [
+            { idx: 1, nome: "Produto Padrão" },
+            { idx: 2, nome: "SKU Master" },
+            { idx: 3, nome: "Fabricante" },
+            { idx: 4, nome: "Categoria" }
+        ];
+
+        colunasOrdenaveis.forEach(function (cfg) {
+            const th = headers[cfg.idx];
+            if (!th) return;
+
+            if (th.querySelector(".medbox-sort-btn")) return;
+
+            const wrapper = document.createElement("span");
+            wrapper.className = "medbox-sort-btn";
+            wrapper.style.whiteSpace = "nowrap";
+            wrapper.style.display = "inline-block";
+            wrapper.style.marginLeft = "6px";
+
+            const btnAsc = criarBotao("A-Z", cfg.nome + " A-Z", function () {
+                ordenarTabela(table, cfg.idx, "asc");
+            });
+
+            const btnDesc = criarBotao("Z-A", cfg.nome + " Z-A", function () {
+                ordenarTabela(table, cfg.idx, "desc");
+            });
+
+            wrapper.appendChild(btnAsc);
+            wrapper.appendChild(btnDesc);
+            th.appendChild(wrapper);
+        });
+
+        console.log("MEDBOX ordenação Auditoria SKU ativa no template correto.");
+    }
+
+    document.addEventListener("DOMContentLoaded", instalarOrdenacao);
+    window.addEventListener("load", instalarOrdenacao);
+    setTimeout(instalarOrdenacao, 300);
+})();
+</script>
+
 {% endblock %}
