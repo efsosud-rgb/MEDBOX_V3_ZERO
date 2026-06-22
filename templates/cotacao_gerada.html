@@ -176,6 +176,16 @@
 
 {% extends "base.html" %}
 
+{% macro qtd_visual(valor) -%}
+    {%- set txt = valor|string -%}
+    {%- if txt.endswith('.0') -%}
+        {{ txt[:-2] }}
+    {%- else -%}
+        {{ txt }}
+    {%- endif -%}
+{%- endmacro %}
+
+
 {% block title %}Cotações Geradas{% endblock %}
 
 {% block content %}
@@ -647,7 +657,7 @@
             <td>{{ item.descricao_produto }}</td>
             <td>{{ item.sku_master }}</td>
             <td>{{ item.marca or item.marca_fabricante or '-' }}</td>
-            <td>{{ item.quantidade }}</td>
+            <td>{{ qtd_visual(item.quantidade) }}</td>
 
             <td>
                 <span class="{% if item.destaque_osinfo %}melhor-preco-oas{% endif %}">
@@ -704,7 +714,7 @@
             <td>{{ item.descricao_produto }}</td>
             <td>{{ item.sku_master }}</td>
             <td>{{ item.marca or item.marca_fabricante or '-' }}</td>
-            <td>{{ item.quantidade }}</td>
+            <td>{{ qtd_visual(item.quantidade) }}</td>
             <td>{{ item.valor_unitario_formatado }}</td>
             <td>{{ item.valor_total_formatado }}</td>
         </tr>
@@ -733,7 +743,7 @@
             <td>{{ item.descricao_produto }}</td>
             <td>{{ item.sku_master }}</td>
             <td>{{ item.marca }}</td>
-            <td>{{ item.quantidade }}</td>
+            <td>{{ qtd_visual(item.quantidade) }}</td>
             <td>{{ item.valor_unitario_formatado }}</td>
             <td>{{ item.valor_total_formatado }}</td>
         </tr>
@@ -762,7 +772,7 @@
             <td>{{ item.descricao_produto }}</td>
             <td>{{ item.sku_master }}</td>
             <td>{{ item.marca }}</td>
-            <td>{{ item.quantidade }}</td>
+            <td>{{ qtd_visual(item.quantidade) }}</td>
             <td>{{ item.valor_unitario_formatado }}</td>
             <td>{{ item.valor_total_formatado }}</td>
         </tr>
@@ -791,7 +801,7 @@
             <td>{{ item.descricao_produto }}</td>
             <td>{{ item.sku_master }}</td>
             <td>{{ item.marca }}</td>
-            <td>{{ item.quantidade }}</td>
+            <td>{{ qtd_visual(item.quantidade) }}</td>
             <td>{{ item.valor_unitario_formatado }}</td>
             <td>{{ item.valor_total_formatado }}</td>
         </tr>
