@@ -212,6 +212,8 @@ def ler_imagem(caminho):
 
 
 def executar_ocr_imagem(imagem):
+    import os
+    import subprocess
     import pytesseract
 
     try:
@@ -221,14 +223,41 @@ def executar_ocr_imagem(imagem):
 
     pytesseract.pytesseract.tesseract_cmd = str(tesseract)
 
+    tessdata = tesseract.parent / "tessdata"
+    if tessdata.exists():
+        os.environ["TESSDATA_PREFIX"] = str(tessdata)
+
+    idiomas = []
+    try:
+        saida = subprocess.check_output(
+            [str(tesseract), "--list-langs"],
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+        )
+        disponiveis = {
+            linha.strip().lower()
+            for linha in saida.splitlines()
+            if linha.strip() and not linha.lower().startswith("list of")
+        }
+        for idioma in ("por", "eng", "osd"):
+            if idioma in disponiveis:
+                idiomas.append(idioma)
+    except Exception:
+        idiomas = []
+
+    if not idiomas:
+        idiomas = ["eng"]
+
     erros = []
-    for idioma in ("por", "eng"):
+    for idioma in idiomas:
         try:
             return pytesseract.image_to_string(imagem, lang=idioma)
         except Exception as erro:
             erros.append(str(erro))
 
-    raise Exception(MENSAGEM_OCR_INDISPONIVEL)
+    raise Exception(MENSAGEM_OCR_INDISPONIVEL + " | " + " | ".join(erros[-2:]))
 
 
 def validar_tesseract(caminho=TESSERACT_PADRAO):
@@ -890,6 +919,336 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
     return diagnostico
 
 
+
+# ================================================
+# PARSER ESPECÍFICO - IMAGEM S3MED
+# ================================================
+
+def _normalizar_preco_ocr_s3med(token):
+    """
+    Normaliza preços vindos de OCR da S3MED.
+    Exemplos comuns:
+    140,  -> 1,40
+    139.  -> 1,39
+    i480  -> 14,80
+    657,  -> 6,57
+    12603 -> 126,03
+    """
+    if token is None:
+        return 0.0
+
+    texto = str(token).strip().upper()
+    texto = texto.replace("R$", "").replace("RS", "")
+    texto = texto.replace("O", "0").replace("I", "1").replace("L", "1").replace("|", "1")
+    texto = texto.replace("B", "8").replace("S", "5")
+
+    # Caso já venha com vírgula/ponto e duas casas.
+    m = re.search(r"(\d{1,4})[,.](\d{2})", texto)
+    if m:
+        return limpar_preco(m.group(1) + "," + m.group(2))
+
+    digitos = re.sub(r"\D", "", texto)
+
+    if len(digitos) < 3:
+        return 0.0
+
+    # OCR da S3MED frequentemente remove a vírgula.
+    # Últimos 2 dígitos = centavos.
+    valor_txt = digitos[:-2] + "," + digitos[-2:]
+    return limpar_preco(valor_txt)
+
+
+def _extrair_produtos_s3med_linhas(linhas, nome_fornecedor, tipo_fornecedor):
+    produtos = []
+
+    for linha in linhas:
+        original = str(linha or "").strip()
+        if not original:
+            continue
+
+        m = re.match(r'^[\'"]?\s*(?P<ean>\d{12,14})[,\s]+(?P<resto>.+)$', original)
+        if not m:
+            continue
+
+        ean = m.group("ean").strip()
+        resto = re.sub(r"\s+", " ", m.group("resto").strip().upper())
+
+        # Remove informações de filial/empresa que aparecem no OCR.
+        resto = re.sub(r"\bINTEGRALMED\b.*$", "", resto).strip()
+        resto = re.sub(r"\bS3\s*MED\b.*$", "", resto).strip()
+        resto = re.sub(r"\bSE\s*MED\b.*$", "", resto).strip()
+        resto = re.sub(r"\bS3MED\b.*$", "", resto).strip()
+        resto = re.sub(r"\bCOM\s*E\s*PROD\b.*$", "", resto).strip()
+        resto = re.sub(r"\bCOME\s*PROD\b.*$", "", resto).strip()
+        resto = re.sub(r"\bCOMEPROD\b.*$", "", resto).strip()
+
+        if len(resto) < 4:
+            continue
+
+        produtos.append({
+            "ean": ean,
+            "descricao": resto,
+            "fornecedor_nome": nome_fornecedor.upper(),
+            "tipo_fornecedor": tipo_fornecedor.upper(),
+        })
+
+    return produtos
+
+
+def _extrair_precos_s3med_linhas(linhas):
+    """
+    Extrai preços quando o OCR separa a tabela em blocos:
+    produtos primeiro, depois R$/RS, depois a coluna de preços.
+    """
+    precos = []
+    zona_precos = False
+
+    for linha in linhas:
+        texto = str(linha or "").strip().upper()
+        if not texto:
+            continue
+
+        norm = re.sub(r"[^A-Z0-9,.\s]", "", texto).strip()
+
+        # Começa a zona de preços após marcadores de moeda ou separadores.
+        if norm in {"=", "R", "RS", "R S", "R$", "AS"} or re.fullmatch(r"(RS|R\$|R|S|=|,|\s)+", norm):
+            zona_precos = True
+            continue
+
+        # Evita capturar números das descrições de produto antes da coluna de preços.
+        if not zona_precos:
+            continue
+
+        partes = re.findall(r"[A-Z]?\d{2,6}[,.]?", texto)
+        for parte in partes:
+            preco = _normalizar_preco_ocr_s3med(parte)
+            if preco > 0:
+                precos.append(preco)
+
+    return precos
+
+
+def _extrair_marca_s3med_descricao(descricao):
+    texto = str(descricao or "").upper()
+
+    marcas_conhecidas = [
+        "CRISTALIA",
+        "BLAU",
+        "EMS",
+        "SANOFI MEDLEY",
+        "SANOFI",
+        "BLANVER",
+        "NEO QUIMICA",
+        "COSMED",
+        "MANDALA",
+        "AMOVERT",
+        "ABBOTT",
+        "ACHE",
+        "LEGRAND",
+        "UNIÃO QUÍMICA",
+        "UNIAO QUIMICA",
+        "BIOLAB",
+        "PRATI",
+        "DONADUZZI",
+        "PRATI DONADUZZI",
+        "FARMA VISION",
+        "ASTRAZENECA",
+        "PFIZER",
+        "FM",
+        "CELLERA",
+        "DELTA",
+        "RECKITT",
+        "BENCKISER",
+        "EUROFARMA",
+        "FQM",
+        "GERMED",
+        "CIFARMA",
+        "CIMED",
+    ]
+
+    for marca in marcas_conhecidas:
+        if marca in texto:
+            return marca.replace("UNIÃO", "UNIAO")
+
+    return ""
+
+
+def _limpar_descricao_s3med_coordenada(texto):
+    texto = re.sub(r"\s+", " ", str(texto or "").strip().upper())
+
+    # Remove ruídos de filial/entrega lidos no fim da linha.
+    cortes = [
+        "INTEGRALMED",
+        "INTEGRAL MED",
+        "INTEGRAIMED",
+        "INTAGRALMED",
+        "S3 MED",
+        "SE MED",
+        "FILIALES",
+        "DELIVERY",
+        "COME PROD",
+        "COM E PROD",
+        "COMEPROD",
+        "COMEFROD",
+        "PROD",
+    ]
+
+    for corte in cortes:
+        pos = texto.find(corte)
+        if pos > 8:
+            texto = texto[:pos].strip()
+
+    texto = texto.replace("_", " ")
+    texto = texto.replace("‘", "")
+    texto = texto.replace("°", "")
+    texto = texto.replace("|", " ")
+    texto = re.sub(r"\s+", " ", texto).strip()
+
+    return texto
+
+
+def extrair_itens_s3med_imagem(caminho, nome_fornecedor, tipo_fornecedor):
+    """
+    Importador específico para imagem/print da tabela S3MED.
+
+    Versão segura por coordenada:
+    - localiza o EAN na esquerda;
+    - localiza o preço na coluna direita;
+    - pareia somente quando preço e EAN estão na mesma linha visual.
+    Isso evita deslocamento de preços quando o OCR perde alguma linha.
+    """
+    import os
+    import pytesseract
+    from PIL import Image
+
+    tesseract = validar_tesseract()
+    pytesseract.pytesseract.tesseract_cmd = str(tesseract)
+
+    tessdata = tesseract.parent / "tessdata"
+    if tessdata.exists():
+        os.environ["TESSDATA_PREFIX"] = str(tessdata)
+
+    img = Image.open(caminho)
+    w, h = img.size
+
+    zoom = 3
+    img_zoom = img.resize((w * zoom, h * zoom))
+
+    dados = pytesseract.image_to_data(
+        img_zoom,
+        lang="eng",
+        config="--psm 6",
+        output_type=pytesseract.Output.DICT
+    )
+
+    tokens = []
+    for i, texto in enumerate(dados.get("text", [])):
+        texto = str(texto or "").strip()
+        if not texto:
+            continue
+
+        try:
+            conf = float(dados["conf"][i])
+        except Exception:
+            conf = -1
+
+        x = dados["left"][i] / zoom
+        y = dados["top"][i] / zoom
+        largura = dados["width"][i] / zoom
+        altura = dados["height"][i] / zoom
+
+        tokens.append({
+            "text": texto,
+            "conf": conf,
+            "x": x,
+            "y": y,
+            "w": largura,
+            "h": altura,
+            "cx": x + largura / 2,
+            "cy": y + altura / 2,
+        })
+
+    ean_tokens = []
+    preco_tokens = []
+
+    for token in tokens:
+        texto = str(token["text"] or "").strip()
+
+        ean_limpo = re.sub(r"\D", "", texto)
+        if 12 <= len(ean_limpo) <= 14 and token["x"] < w * 0.25:
+            ean_tokens.append({
+                **token,
+                "ean": ean_limpo,
+            })
+
+        # Preço fica na última coluna, à direita.
+        if token["x"] > w * 0.84:
+            preco_txt = texto.replace("O", "0").replace("o", "0")
+            if re.search(r"\d{1,4}[,.]\d{2}", preco_txt):
+                preco = _normalizar_preco_ocr_s3med(preco_txt)
+                if preco > 0:
+                    preco_tokens.append({
+                        **token,
+                        "preco": preco,
+                    })
+
+    itens = []
+    eans_usados = set()
+
+    for ean_token in ean_tokens:
+        ean = ean_token["ean"]
+
+        if ean in eans_usados:
+            continue
+
+        # Busca preço na mesma linha visual.
+        candidatos_preco = []
+        for preco_token in preco_tokens:
+            dist_y = abs(preco_token["cy"] - ean_token["cy"])
+            if dist_y <= 8:
+                candidatos_preco.append((dist_y, preco_token))
+
+        if not candidatos_preco:
+            continue
+
+        candidatos_preco.sort(key=lambda par: par[0])
+        preco_token = candidatos_preco[0][1]
+        preco = preco_token["preco"]
+
+        # Monta descrição usando tokens da mesma linha, entre o EAN e a coluna de preço.
+        tokens_linha = []
+        for token in tokens:
+            if abs(token["cy"] - ean_token["cy"]) <= 8 and token["x"] > ean_token["x"] + ean_token["w"] and token["x"] < w * 0.84:
+                tokens_linha.append(token)
+
+        tokens_linha.sort(key=lambda t: t["x"])
+        descricao_bruta = " ".join(t["text"] for t in tokens_linha)
+        descricao = _limpar_descricao_s3med_coordenada(descricao_bruta)
+
+        if len(descricao) < 4:
+            continue
+
+        marca = _extrair_marca_s3med_descricao(descricao)
+
+        itens.append({
+            "nome_produto": descricao,
+            "descricao_orig": descricao,
+            "sku_existente": "",
+            "codigo": ean,
+            "marca": marca,
+            "categoria": "MEDICAMENTOS",
+            "preco": preco,
+            "preco_formatado": moeda_br(preco),
+            "fornecedor_nome": nome_fornecedor.upper(),
+            "tipo_fornecedor": tipo_fornecedor.upper(),
+            "unidade": "UN",
+        })
+
+        eans_usados.add(ean)
+
+    return itens
+
+
 # ================================================
 # PARSER TEXTO/PDF
 # ================================================
@@ -1316,11 +1675,21 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
         )
 
     elif ext in [".jpg", ".jpeg", ".png"]:
-        itens = extrair_itens_texto(
-            ler_imagem(caminho),
-            nome_fornecedor,
-            tipo_fornecedor
-        )
+        nome_arquivo_norm = normalizar_cabecalho(caminho.name)
+        fornecedor_norm = normalizar_cabecalho(nome_fornecedor)
+
+        if "S3MED" in nome_arquivo_norm or "S3 MED" in nome_arquivo_norm or "S3MED" in fornecedor_norm or "S3 MED" in fornecedor_norm:
+            itens = extrair_itens_s3med_imagem(
+                caminho,
+                nome_fornecedor,
+                tipo_fornecedor
+            )
+        else:
+            itens = extrair_itens_texto(
+                ler_imagem(caminho),
+                nome_fornecedor,
+                tipo_fornecedor
+            )
 
     else:
         raise Exception(f"Formato não suportado: {ext}")
