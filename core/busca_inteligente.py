@@ -955,7 +955,8 @@ def _extrair_medidas_obrigatorias_consulta(termo):
 
 def _extrair_palavras_obrigatorias_consulta(termo):
     """
-    Extrai palavras relevantes da busca, ignorando medidas e termos genéricos.
+    Extrai termos relevantes da busca, ignorando medidas e termos genéricos.
+    Tokens técnicos com números, como 25X7, permanecem obrigatórios.
     Ex.: soro 500ml -> ["SORO"]
     """
     texto = normalizar_texto(termo or "").upper()
@@ -963,15 +964,20 @@ def _extrair_palavras_obrigatorias_consulta(termo):
     # Remove medidas explícitas para não virar palavra solta.
     texto = re.sub(r"\b\d+(?:[,.]\d+)?\s*(ML|L|MG|G|MCG|UI|%)\b", " ", texto, flags=re.I)
 
-    palavras = re.findall(r"\b[A-Z]{3,}\b", texto)
+    palavras = re.findall(r"\b[A-Z0-9]+(?:[,.][0-9]+)?\b", texto)
 
     stopwords = {
-        "COM", "SEM", "PARA", "POR", "UND", "UNID", "UNIDADE", "UNIDADES",
+        "DE", "DA", "DO", "DAS", "DOS", "E", "A", "O", "AS", "OS",
+        "COM", "SEM", "PARA", "POR", "EM", "NA", "NO", "NAS", "NOS",
+        "UND", "UNID", "UNIDADE", "UNIDADES",
         "CAIXA", "PACOTE", "PCT", "KIT", "FR", "FRASCO", "AMP", "AMPOLA",
         "ITEM", "GENERICO", "SIMILAR"
     }
 
-    palavras = [p for p in palavras if p not in stopwords]
+    palavras = [
+        p for p in palavras
+        if p not in stopwords and (len(p) >= 3 or any(ch.isdigit() for ch in p))
+    ]
 
     return list(dict.fromkeys(palavras))
 
@@ -1004,6 +1010,14 @@ def _texto_completo_resultado_para_medidas(item):
             partes.append(eq.get("descricao", ""))
         else:
             partes.append(str(eq))
+
+    # Inclui os textos que efetivamente tornaram o item candidato, inclusive
+    # equivalencias e descricoes originais/de fornecedor.
+    for textos in (item.get("evidencias_busca") or {}).values():
+        if isinstance(textos, (list, tuple, set)):
+            partes.extend(textos)
+        elif textos:
+            partes.append(str(textos))
 
     texto = " ".join(str(p or "") for p in partes)
     return normalizar_texto(texto).upper()
@@ -1043,9 +1057,8 @@ def _resultado_atende_medidas_obrigatorias(item, medidas, palavras):
 
 def _filtrar_resultados_por_medidas_da_consulta(resultados, termo):
     """
-    Se a busca tiver medida explícita, filtra por:
-    - palavras obrigatórias relevantes;
-    - medida exata.
+    Exige todos os termos relevantes quando a consulta tiver dois ou mais.
+    Consultas com um único termo continuam amplas.
 
     Ex.: "soro 500ml" não deve listar:
     - soro 10ml;
@@ -1057,12 +1070,7 @@ def _filtrar_resultados_por_medidas_da_consulta(resultados, termo):
     medidas = _extrair_medidas_obrigatorias_consulta(termo)
     palavras = _extrair_palavras_obrigatorias_consulta(termo)
 
-    if not medidas and not palavras:
-        return resultados
-
-    # Só aplica esse filtro rígido quando houver medida explícita.
-    # Para busca genérica "soro", mantém comportamento amplo.
-    if not medidas:
+    if len(medidas) + len(palavras) < 2:
         return resultados
 
     filtrados = [
@@ -1070,7 +1078,7 @@ def _filtrar_resultados_por_medidas_da_consulta(resultados, termo):
         if _resultado_atende_medidas_obrigatorias(item, medidas, palavras)
     ]
 
-    return filtrados if filtrados else resultados
+    return filtrados
 
 
 
