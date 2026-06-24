@@ -153,6 +153,14 @@ def _assinatura_sku(texto):
     return " ".join(palavras[:8])
 
 
+def _descricao_auditoria(produto):
+    """Usa o SKU Master corrigido sem sobrescrever a descricao de referencia."""
+    sku_master = produto.get("sku_master")
+    if str(sku_master or "").strip():
+        return sku_master
+    return produto.get("produto_padrao") or ""
+
+
 def _motivos_sku(produto_padrao, descricoes_originais):
     texto = _normalizar(produto_padrao)
     palavras = texto.split()
@@ -210,7 +218,7 @@ def _classificar(produto, motivos, duplicado):
 
 
 def _sugerir_sku_limpo(produto, indice_limpos):
-    assinatura = _assinatura_sku(produto.get("produto_padrao"))
+    assinatura = _assinatura_sku(_descricao_auditoria(produto))
     if not assinatura:
         return ""
 
@@ -252,15 +260,14 @@ def gerar_auditoria_sku_master(filtro="todos", q="", pagina=1, limite=50):
         params = []
 
         if q:
-            # Busca em produto_padrao, sku_master, fabricante ou descricao_original
+            # Pesquisa somente pelos campos de descricao, sem filtrar classificacao.
             where_clauses.append("""(
                 produto_padrao LIKE ? OR
                 sku_master LIKE ? OR
-                fabricante LIKE ? OR
                 id IN (SELECT produto_id FROM precos_fornecedores WHERE descricao_original LIKE ?)
             )""")
             p = f"%{q}%"
-            params.extend([p, p, p, p])
+            params.extend([p, p, p])
 
         where_sql = " WHERE " + " AND ".join(where_clauses)
 
@@ -293,7 +300,7 @@ def gerar_auditoria_sku_master(filtro="todos", q="", pagina=1, limite=50):
 
     grupos_normalizados = defaultdict(list)
     for produto in produtos:
-        chave = _normalizar(produto.get("produto_padrao"))
+        chave = _normalizar(_descricao_auditoria(produto))
         if chave:
             grupos_normalizados[chave].append(produto["id"])
 
@@ -308,7 +315,7 @@ def gerar_auditoria_sku_master(filtro="todos", q="", pagina=1, limite=50):
     pre_classificados = []
     for produto in produtos:
         motivos = _motivos_sku(
-            produto.get("produto_padrao"),
+            _descricao_auditoria(produto),
             descricoes_por_produto.get(produto["id"], []),
         )
         duplicado = produto["id"] in ids_duplicados
@@ -324,7 +331,7 @@ def gerar_auditoria_sku_master(filtro="todos", q="", pagina=1, limite=50):
         })
 
     produtos_limpos = [
-        {**item, "assinatura": _assinatura_sku(item["produto_padrao"])}
+        {**item, "assinatura": _assinatura_sku(_descricao_auditoria(item))}
         for item in pre_classificados
         if item["classificacao"] == "LIMPO"
     ]
@@ -697,7 +704,7 @@ def _conectar_escrita(caminho_banco=None):
 def _buscar_produto(cursor, produto_id):
     cursor.execute(
         """
-        SELECT id, sku, produto_padrao, fabricante, categoria, ativo, observacoes
+        SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo, observacoes
         FROM produtos
         WHERE id = ?
         """,
@@ -716,16 +723,16 @@ def _classificar_produto_no_banco(cursor, produto):
 
     cursor.execute(
         """
-        SELECT produto_padrao, COUNT(*) AS total
+        SELECT COUNT(*) AS total
         FROM produtos
-        WHERE UPPER(TRIM(produto_padrao)) = UPPER(TRIM(?))
-        GROUP BY UPPER(TRIM(produto_padrao))
+        WHERE ativo = 1
+          AND UPPER(TRIM(COALESCE(NULLIF(TRIM(sku_master), ''), produto_padrao))) = UPPER(TRIM(?))
         """,
-        (produto["produto_padrao"],),
+        (_descricao_auditoria(produto),),
     )
     row = cursor.fetchone()
     duplicado = bool(row and row["total"] > 1)
-    motivos = _motivos_sku(produto.get("produto_padrao"), descricoes)
+    motivos = _motivos_sku(_descricao_auditoria(produto), descricoes)
     return _classificar(produto, motivos, duplicado), motivos
 
 
