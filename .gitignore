@@ -42,3 +42,6 @@ Thumbs.db
 *.bak
 *.bak_*
 app.py.bak_*
+
+# Banco local do MEDBOX
+banco/
