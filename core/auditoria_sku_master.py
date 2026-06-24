@@ -1604,3 +1604,272 @@ def aplicar_lote_correcoes_sku_master(
         raise
     finally:
         conn.close()
+
+
+
+# ============================================================
+# PATCH CASCATA RÍGIDA POR ESPECIFICAÇÃO - AUDITORIA SKU MASTER
+# Evita que produtos parecidos, mas com tamanho/dosagem/material/tipo
+# diferentes, sejam atualizados no mesmo SKU_MASTER.
+# Ex.: TUBO OROTRAQUEAL C/BALAO 8,5MM não pode puxar 7,0MM,
+# 7,5MM, 8,0MM ou SEM BALAO.
+# ============================================================
+
+import re as _re_cascata_specs
+
+def _medbox_norm_cascata_specs(valor):
+    texto = str(valor or "").upper().strip()
+    mapa = {
+        "Á": "A", "À": "A", "Ã": "A", "Â": "A",
+        "É": "E", "Ê": "E",
+        "Í": "I",
+        "Ó": "O", "Ô": "O", "Õ": "O",
+        "Ú": "U",
+        "Ç": "C",
+    }
+    for a, b in mapa.items():
+        texto = texto.replace(a, b)
+
+    texto = texto.replace("\\", "/")
+    texto = texto.replace("N°", "N ").replace("Nº", "N ").replace("NUMERO", "N ")
+    texto = texto.replace("C/", "COM ").replace("S/", "SEM ")
+    texto = texto.replace("POLIVINIL", "PVC").replace("POLI VINIL", "PVC")
+    texto = texto.replace("CLORETO DE POLIVINILA", "PVC")
+    texto = texto.replace("ENDOTRAQUEAL", "OROTRAQUEAL")
+    texto = texto.replace("ORO TRAQUEAL", "OROTRAQUEAL")
+    texto = texto.replace("ORO-TRAQUEAL", "OROTRAQUEAL")
+
+    texto = _re_cascata_specs.sub(r"[^A-Z0-9%/,.\-+ X]+", " ", texto)
+    texto = _re_cascata_specs.sub(r"\s+", " ", texto).strip()
+    return texto
+
+
+def _medbox_specs_criticas(valor):
+    texto = _medbox_norm_cascata_specs(valor)
+    specs = set()
+
+    def add(v):
+        v = str(v or "").upper().strip()
+        v = v.replace(".", ",")
+        v = _re_cascata_specs.sub(r"\s+", "", v)
+        if v:
+            specs.add(v)
+
+    # COM BALAO / SEM BALAO precisa ser obrigatório.
+    if "COM BALAO" in texto or "C BALAO" in texto:
+        specs.add("COM_BALAO")
+    if "SEM BALAO" in texto or "S BALAO" in texto:
+        specs.add("SEM_BALAO")
+
+    # Materiais.
+    for termo in ["PVC", "LATEX", "SILICONE", "POLIURETANO"]:
+        if termo in texto:
+            specs.add(termo)
+
+    # Vias.
+    if "2 VIAS" in texto or "DUAS VIAS" in texto:
+        specs.add("2VIAS")
+    if "3 VIAS" in texto or "TRES VIAS" in texto:
+        specs.add("3VIAS")
+
+    # Cores e características que mudam o produto.
+    for termo in ["AZUL", "PRETO", "VERDE", "ROSA", "BRANCO", "OPACO", "TRANSPARENTE", "DRENAVEL", "FECHADO", "ESTERIL", "NAO ESTERIL"]:
+        if termo in texto:
+            specs.add(termo)
+
+    # Dosagem/volume/medida.
+    for m in _re_cascata_specs.findall(r"\b\d+(?:[,.]\d+)?\s*(?:MG/ML|MG|MCG|G|ML|L|UI|U|CM|MM|M|FR|G)\b", texto):
+        add(m)
+
+    # Medidas compostas: 13X4,5 / 20CMX30CM.
+    for m in _re_cascata_specs.findall(r"\b\d+(?:[,.]\d+)?\s*X\s*\d+(?:[,.]\d+)?(?:\s*(?:MM|CM|M))?\b", texto):
+        add(m)
+
+    # Número/tamanho: N 8,5 => 8,5MM para tubo/cânula.
+    for m in _re_cascata_specs.findall(r"\bN\s*\d+(?:[,.]\d+)?\b", texto):
+        numero = m.replace("N", "").strip()
+        add(numero + "MM")
+
+    # Se tiver valor solto tipo 8,5MM, mantém.
+    for m in _re_cascata_specs.findall(r"\b\d+(?:[,.]\d+)?MM\b", texto):
+        add(m)
+
+    return specs
+
+
+def _medbox_base_sem_specs(valor):
+    texto = _medbox_norm_cascata_specs(valor)
+
+    # Remove especificações para comparar a família do produto.
+    texto = _re_cascata_specs.sub(r"\b\d+(?:[,.]\d+)?\s*(?:MG/ML|MG|MCG|G|ML|L|UI|U|CM|MM|M|FR|G)\b", " ", texto)
+    texto = _re_cascata_specs.sub(r"\b\d+(?:[,.]\d+)?\s*X\s*\d+(?:[,.]\d+)?(?:\s*(?:MM|CM|M))?\b", " ", texto)
+    texto = _re_cascata_specs.sub(r"\bN\s*\d+(?:[,.]\d+)?\b", " ", texto)
+
+    remover = [
+        "COM BALAO", "SEM BALAO", "C BALAO", "S BALAO",
+        "PVC", "LATEX", "SILICONE", "POLIURETANO",
+        "2 VIAS", "3 VIAS", "DUAS VIAS", "TRES VIAS",
+        "AZUL", "PRETO", "VERDE", "ROSA", "BRANCO",
+        "OPACO", "TRANSPARENTE", "DRENAVEL", "FECHADO",
+        "ESTERIL", "NAO ESTERIL", "ADULTO", "INFANTIL",
+        "MARCA", "GENERICO", "IMPORTADO", "MANIPULADO"
+    ]
+    for termo in remover:
+        texto = texto.replace(termo, " ")
+
+    texto = _re_cascata_specs.sub(r"\s+", " ", texto).strip()
+    return texto
+
+
+def _medbox_score_base_cascata(a, b):
+    ta = set([x for x in _medbox_base_sem_specs(a).split() if len(x) > 2])
+    tb = set([x for x in _medbox_base_sem_specs(b).split() if len(x) > 2])
+    if not ta or not tb:
+        return 0
+    return int(round((len(ta & tb) / max(1, len(ta | tb))) * 100))
+
+
+def _medbox_specs_compativeis_cascata(origem_desc, candidato_desc):
+    specs_origem = _medbox_specs_criticas(origem_desc)
+    specs_cand = _medbox_specs_criticas(candidato_desc)
+
+    # Se a origem tem especificações, o candidato precisa conter TODAS.
+    faltando = specs_origem - specs_cand
+
+    # Se houver conflito explícito, bloqueia.
+    conflitos = []
+    pares_conflito = [
+        ("COM_BALAO", "SEM_BALAO"),
+        ("2VIAS", "3VIAS"),
+        ("LATEX", "SILICONE"),
+        ("PVC", "SILICONE"),
+        ("PVC", "LATEX"),
+    ]
+    for a, b in pares_conflito:
+        if a in specs_origem and b in specs_cand:
+            conflitos.append(f"{a} x {b}")
+        if b in specs_origem and a in specs_cand:
+            conflitos.append(f"{b} x {a}")
+
+    # Bloqueia medidas diferentes quando ambos têm medida/tamanho.
+    medidas_origem = {s for s in specs_origem if any(ch in s for ch in ["MM", "CM", "ML", "MG", "FR", "UI", "X"])}
+    medidas_cand = {s for s in specs_cand if any(ch in s for ch in ["MM", "CM", "ML", "MG", "FR", "UI", "X"])}
+
+    if medidas_origem and medidas_cand and not medidas_origem.issubset(medidas_cand):
+        conflitos.append("MEDIDA_DIFERENTE")
+
+    ok = not faltando and not conflitos
+
+    return ok, {
+        "specs_origem": sorted(specs_origem),
+        "specs_candidato": sorted(specs_cand),
+        "faltando": sorted(faltando),
+        "conflitos": conflitos,
+    }
+
+
+def buscar_produtos_afetados_cascata(produto_id, tipo_cascata, sku_master_novo=None, caminho_banco=None):
+    """
+    Versão rígida: só retorna candidatos realmente compatíveis por especificação.
+    Mantém a mesma assinatura usada pelo app.py.
+    """
+    conn = _conectar_leitura()
+    conn.row_factory = sqlite3.Row
+
+    try:
+        cursor = conn.cursor()
+
+        origem = cursor.execute("""
+            SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
+            FROM produtos
+            WHERE id = ?
+            LIMIT 1
+        """, (produto_id,)).fetchone()
+
+        if not origem:
+            return []
+
+        origem_desc = origem["produto_padrao"] or origem["sku_master"] or origem["sku"] or ""
+
+        candidatos = []
+
+        # Mesmo SKU atual: só é seguro quando já é exatamente o mesmo SKU_MASTER.
+        if tipo_cascata == "mesmo_sku":
+            sku_atual = str(origem["sku_master"] or "").strip()
+            if sku_atual:
+                rows = cursor.execute("""
+                    SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
+                    FROM produtos
+                    WHERE ativo = 1
+                      AND id != ?
+                      AND UPPER(TRIM(COALESCE(sku_master, ''))) = UPPER(TRIM(?))
+                    ORDER BY id
+                    LIMIT 200
+                """, (produto_id, sku_atual)).fetchall()
+                candidatos = rows
+
+        elif tipo_cascata == "mesmo_fornecedor":
+            fabricante = str(origem["fabricante"] or "").strip()
+            if fabricante:
+                rows = cursor.execute("""
+                    SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
+                    FROM produtos
+                    WHERE ativo = 1
+                      AND id != ?
+                      AND UPPER(TRIM(COALESCE(fabricante, ''))) = UPPER(TRIM(?))
+                    ORDER BY id
+                    LIMIT 300
+                """, (produto_id, fabricante)).fetchall()
+                candidatos = rows
+
+        else:
+            # semelhante: busca ampla por palavras principais, mas filtra por especificações rígidas.
+            base_tokens = [t for t in _medbox_base_sem_specs(origem_desc).split() if len(t) > 2][:5]
+
+            where = []
+            params = []
+            for t in base_tokens:
+                where.append("UPPER(COALESCE(produto_padrao, '')) LIKE ?")
+                params.append(f"%{t}%")
+
+            if not where:
+                return []
+
+            rows = cursor.execute(f"""
+                SELECT id, sku, produto_padrao, sku_master, fabricante, categoria, ativo
+                FROM produtos
+                WHERE ativo = 1
+                  AND id != ?
+                  AND ({" OR ".join(where)})
+                ORDER BY id DESC
+                LIMIT 500
+            """, [produto_id] + params).fetchall()
+
+            candidatos = rows
+
+        saida = []
+
+        for r in candidatos:
+            cand_desc = r["produto_padrao"] or r["sku_master"] or r["sku"] or ""
+
+            ok_specs, info_specs = _medbox_specs_compativeis_cascata(origem_desc, cand_desc)
+            if not ok_specs:
+                continue
+
+            score = _medbox_score_base_cascata(origem_desc, cand_desc)
+            if tipo_cascata == "semelhante" and score < 70:
+                continue
+
+            item = dict(r)
+            item["score"] = score
+            item["specs_origem"] = info_specs.get("specs_origem", [])
+            item["specs_candidato"] = info_specs.get("specs_candidato", [])
+            saida.append(item)
+
+        saida.sort(key=lambda x: (-int(x.get("score") or 0), str(x.get("produto_padrao") or "")))
+
+        return saida[:100]
+
+    finally:
+        conn.close()
+

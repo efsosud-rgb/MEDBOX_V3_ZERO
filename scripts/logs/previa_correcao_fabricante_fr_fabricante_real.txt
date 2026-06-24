@@ -1,0 +1,56 @@
+===== PRÉVIA CORREÇÃO - FR COMO FABRICANTE REAL =====
+
+Data/hora: 2026-06-24 09:45:23
+
+Banco alterado: NÃO
+Fabricantes alterados: NÃO
+
+Total produtos com fabricante = FR: 4
+
+REGRA USADA:
+FR no campo fabricante significa FABRICANTE_REAL.
+FR não será tratado como nome de fabricante.
+FR não será normalizado como Fresenius.
+
+===== SUGESTÕES =====
+
+ID: 1609
+Produto padrão: SAMTEC
+SKU_MASTER: SAMTEC
+Fabricante atual: FR
+Flag interpretada: FABRICANTE_REAL
+Fabricante sugerido: SAMTEC
+Categoria: MATERIAL HOSPITALAR
+Motivo: FR=FABRICANTE_REAL; PRODUTO_PADRAO_IGUAL_SKU_MASTER_PARECE_MARCA/FABRICANTE
+
+ID: 1610
+Produto padrão: FIRSTLAB
+SKU_MASTER: FIRSTLAB
+Fabricante atual: FR
+Flag interpretada: FABRICANTE_REAL
+Fabricante sugerido: FIRSTLAB
+Categoria: MATERIAL HOSPITALAR
+Motivo: FR=FABRICANTE_REAL; PRODUTO_PADRAO_IGUAL_SKU_MASTER_PARECE_MARCA/FABRICANTE
+
+ID: 1644
+Produto padrão: NUTRIMED
+SKU_MASTER: NUTRIMED
+Fabricante atual: FR
+Flag interpretada: FABRICANTE_REAL
+Fabricante sugerido: NUTRIMED
+Categoria: MATERIAL HOSPITALAR
+Motivo: FR=FABRICANTE_REAL; PRODUTO_PADRAO_IGUAL_SKU_MASTER_PARECE_MARCA/FABRICANTE
+
+ID: 1645
+Produto padrão: MULTIGEL
+SKU_MASTER: MULTIGEL
+Fabricante atual: FR
+Flag interpretada: FABRICANTE_REAL
+Fabricante sugerido: MULTIGEL
+Categoria: MATERIAL HOSPITALAR
+Motivo: FR=FABRICANTE_REAL; PRODUTO_PADRAO_IGUAL_SKU_MASTER_PARECE_MARCA/FABRICANTE
+
+CSV gerado: C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\previa_correcao_fabricante_fr_fabricante_real.csv
+
+VEREDITO:
+PREVIA_GERADA_SEM_ALTERAR_BANCO

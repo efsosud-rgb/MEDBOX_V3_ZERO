@@ -1,0 +1,267 @@
+﻿    1: {% extends "base.html" %}
+    2: 
+    3: {% block title %}Lances de CotaÃ§Ã£o{% endblock %}
+    4: 
+    5: {% block content %}
+    6: <div class="page-header">
+    7:     <div>
+    8:         <h1>LANCES DE COTAÃ‡ÃƒO</h1>
+    9:         <p>Importe a cotaÃ§Ã£o do cliente, cruze com a base MedBox e calcule preÃ§os para disputa.</p>
+   10:     </div>
+   11: </div>
+   12: 
+   13: <div class="card" style="margin-bottom:18px;">
+   14:     <h3>Importar cotaÃ§Ã£o</h3>
+   15: 
+   16:     <form method="post" action="{{ url_for('lances_cotacao_importar') }}" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+   17:         <div style="flex:1; min-width:280px;">
+   18:             <label style="font-weight:700; font-size:0.8rem;">Arquivo da cotaÃ§Ã£o</label>
+   19:             <input type="file" name="arquivo" accept=".xlsx,.xlsm,.csv,.txt" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+   20:             <small style="color:var(--muted);">Primeira versÃ£o: Excel ou CSV. PDF/foto entra na prÃ³xima etapa.</small>
+   21:         </div>
+   22: 
+   23:         <div style="width:180px;">
+   24:             <label style="font-weight:700; font-size:0.8rem;">Markup desejado</label>
+   25:             <input type="number" name="markup" step="0.01" value="1.50" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+   26:             <small style="color:var(--muted);">1.50 = 50%</small>
+   27:         </div>
+   28: 
+   29:         <button type="submit" class="btn-primary" style="height:40px;">Importar e analisar</button>
+   30:     </form>
+   31: </div>
+   32: 
+   33: {% if erro %}
+   34: <div class="alert alert-danger">{{ erro }}</div>
+   35: {% endif %}
+   36: 
+   37: {% if resultado %}
+   38: <div class="card" style="margin-bottom:18px;">
+   39:     <h3>Resumo da cotaÃ§Ã£o</h3>
+   40:     <div class="kpi-grid" style="display:grid; grid-template-columns:repeat(4, minmax(120px,1fr)); gap:12px;">
+   41:         <div class="kpi-card">
+   42:             <span>Arquivo</span>
+   43:             <strong>{{ resultado.arquivo }}</strong>
+   44:         </div>
+   45:         <div class="kpi-card">
+   46:             <span>Total de itens</span>
+   47:             <strong>{{ resultado.total_itens }}</strong>
+   48:         </div>
+   49:         <div class="kpi-card">
+   50:             <span>Com base MedBox</span>
+   51:             <strong>{{ resultado.itens | selectattr("status", "ne", "Sem base") | list | length }}</strong>
+   52:         </div>
+   53:         <div class="kpi-card">
+   54:             <span>Sem base</span>
+   55:             <strong>{{ resultado.itens | selectattr("status", "equalto", "Sem base") | list | length }}</strong>
+   56:         </div>
+   57:     </div>
+   58: </div>
+   59: 
+   60: <div class="card">
+   61:     <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+   62:         <h3>Itens da cotaÃ§Ã£o</h3>
+   63:         <small style="color:var(--muted);">Campos comerciais editÃ¡veis na tela.</small>
+   64:     </div>
+   65: 
+   66:     <div style="overflow-x:auto;">
+   67:         <table class="erp-table lances-table" style="min-width:1900px;">
+   68:             <thead>
+   69:                 <tr>
+   70:                     <th>Item</th>
+   71:                     <th>DescriÃ§Ã£o do Cliente</th>
+   72:                     <th>Qtd.</th>
+   73:                     <th>SKU_MASTER</th>
+   74:                     <th>DescriÃ§Ã£o do Fornecedor</th>
+   75:                     <th>Fornecedor</th>
+   76:                     <th>Fabricante</th>
+   77:                     <th>PreÃ§o Unidade MedBox</th>
+   78:                     <th>PreÃ§o Pacote</th>
+   79:                     <th>PreÃ§o OSINFO</th>
+   80:                     <th>Menor ConcorrÃªncia</th>
+   81:                     <th>Menor Lance</th>
+   82:                     <th>Vencedor</th>
+   83:                     <th>Markup</th>
+   84:                     <th>PreÃ§o MÃ­nimo</th>
+   85:                     <th>PreÃ§o p/ Vencer</th>
+   86:                     <th>Status</th>
+   87:                 </tr>
+   88:             </thead>
+   89:             <tbody>
+   90:                 {% for item in resultado.itens %}
+   91:                 <tr data-custo="{{ item.preco_unidade_medbox }}">
+   92:                     <td>{{ item.item }}</td>
+   93: 
+   94:                     <td style="min-width:260px;">
+   95:                         <strong>{{ item.descricao_cliente }}</strong>
+   96:                     </td>
+   97: 
+   98:                     <td>
+   99:                         <input type="number" class="campo-editavel qtd" value="{{ item.quantidade }}" step="1">
+  100:                     </td>
+  101: 
+  102:                     <td style="min-width:220px;">
+  103:                         <strong>{{ item.sku_master if item.sku_master else 'â€”' }}</strong>
+  104:                         {% if item.confianca %}
+  105:                         <small style="display:block; color:var(--muted);">confianÃ§a: {{ item.confianca }}</small>
+  106:                         {% endif %}
+  107:                     </td>
+  108: 
+  109:                     <td style="min-width:260px;">{{ item.descricao_fornecedor if item.descricao_fornecedor else 'â€”' }}</td>
+  110: 
+  111:                     <td><input class="campo-editavel" value="{{ item.fornecedor }}"></td>
+  112:                     <td><input class="campo-editavel" value="{{ item.fabricante }}"></td>
+  113: 
+  114:                     <td>
+  115:                         <input type="number" class="campo-editavel custo" value="{{ item.preco_unidade_medbox }}" step="0.0001">
+  116:                     </td>
+  117: 
+  118:                     <td>
+  119:                         <input type="number" class="campo-editavel" value="{{ item.preco_pacote if item.preco_pacote else '' }}" step="0.0001">
+  120:                     </td>
+  121: 
+  122:                     <td>
+  123:                         <input type="number" class="campo-editavel preco-osinfo" value="{{ item.preco_osinfo if item.preco_osinfo else '' }}" step="0.0001">
+  124:                     </td>
+  125: 
+  126:                     <td>
+  127:                         <input type="number" class="campo-editavel menor-concorrencia" value="{{ item.menor_preco_concorrencia if item.menor_preco_concorrencia else '' }}" step="0.0001">
+  128:                     </td>
+  129: 
+  130:                     <td>
+  131:                         <input type="number" class="campo-editavel menor-lance" value="{{ item.menor_lance if item.menor_lance else '' }}" step="0.0001">
+  132:                     </td>
+  133: 
+  134:                     <td>
+  135:                         <input class="campo-editavel" value="{{ item.vencedor }}">
+  136:                     </td>
+  137: 
+  138:                     <td>
+  139:                         <input type="number" class="campo-editavel markup" value="{{ item.markup }}" step="0.01">
+  140:                     </td>
+  141: 
+  142:                     <td>
+  143:                         <strong class="preco-minimo">{{ item.preco_minimo_recomendado_fmt }}</strong>
+  144:                     </td>
+  145: 
+  146:                     <td>
+  147:                         <strong class="preco-vencer">{{ item.preco_para_vencer_fmt }}</strong>
+  148:                     </td>
+  149: 
+  150:                     <td>
+  151:                         <span class="status-badge status-{{ item.status|lower|replace('Ã§','c')|replace('Ã£','a')|replace(' ', '-') }}">
+  152:                             {{ item.status }}
+  153:                         </span>
+  154:                     </td>
+  155:                 </tr>
+  156:                 {% endfor %}
+  157:             </tbody>
+  158:         </table>
+  159:     </div>
+  160: </div>
+  161: {% endif %}
+  162: 
+  163: <style>
+  164: .lances-table th,
+  165: .lances-table td {
+  166:     font-size:0.74rem;
+  167:     vertical-align:middle;
+  168: }
+  169: 
+  170: .lances-table input.campo-editavel {
+  171:     width:100%;
+  172:     min-width:90px;
+  173:     border:1px solid #dbe3ef;
+  174:     border-radius:6px;
+  175:     padding:6px;
+  176:     font-size:0.74rem;
+  177: }
+  178: 
+  179: .status-badge {
+  180:     display:inline-block;
+  181:     padding:5px 8px;
+  182:     border-radius:999px;
+  183:     font-weight:800;
+  184:     font-size:0.68rem;
+  185:     white-space:nowrap;
+  186: }
+  187: 
+  188: .status-competitivo {
+  189:     background:#dcfce7;
+  190:     color:#166534;
+  191: }
+  192: 
+  193: .status-atencao {
+  194:     background:#fef3c7;
+  195:     color:#92400e;
+  196: }
+  197: 
+  198: .status-inviavel {
+  199:     background:#fee2e2;
+  200:     color:#991b1b;
+  201: }
+  202: 
+  203: .status-sem-base {
+  204:     background:#e5e7eb;
+  205:     color:#374151;
+  206: }
+  207: 
+  208: .status-aguardando-lance {
+  209:     background:#dbeafe;
+  210:     color:#1e40af;
+  211: }
+  212: </style>
+  213: 
+  214: <script>
+  215: (function () {
+  216:     function moeda(valor) {
+  217:         if (!Number.isFinite(valor)) valor = 0;
+  218:         return valor.toLocaleString("pt-BR", {
+  219:             style: "currency",
+  220:             currency: "BRL",
+  221:             minimumFractionDigits: 2,
+  222:             maximumFractionDigits: 2
+  223:         });
+  224:     }
+  225: 
+  226:     function statusTexto(custo, minimo, vencer) {
+  227:         if (!custo || custo <= 0) return "Sem base";
+  228:         if (!vencer || vencer <= 0) return "Aguardando lance";
+  229:         if (vencer >= minimo) return "Competitivo";
+  230:         if (vencer > custo) return "AtenÃ§Ã£o";
+  231:         return "InviÃ¡vel";
+  232:     }
+  233: 
+  234:     function classeStatus(status) {
+  235:         return "status-badge status-" + status
+  236:             .toLowerCase()
+  237:             .replace("Ã§", "c")
+  238:             .replace("Ã£", "a")
+  239:             .replace(" ", "-");
+  240:     }
+  241: 
+  242:     function recalcularLinha(row) {
+  243:         const custo = Number(row.querySelector(".custo")?.value || 0);
+  244:         const markup = Number(row.querySelector(".markup")?.value || 1.5);
+  245:         const menorLance = Number(row.querySelector(".menor-lance")?.value || 0);
+  246: 
+  247:         const minimo = custo * markup;
+  248:         const vencer = menorLance > 0 ? menorLance - 0.01 : 0;
+  249: 
+  250:         row.querySelector(".preco-minimo").textContent = minimo > 0 ? moeda(minimo) : "";
+  251:         row.querySelector(".preco-vencer").textContent = vencer > 0 ? moeda(vencer) : "";
+  252: 
+  253:         const status = statusTexto(custo, minimo, vencer);
+  254:         const badge = row.querySelector(".status-badge");
+  255:         badge.textContent = status;
+  256:         badge.className = classeStatus(status);
+  257:     }
+  258: 
+  259:     document.querySelectorAll(".lances-table input").forEach(function (input) {
+  260:         input.addEventListener("input", function () {
+  261:             const row = input.closest("tr");
+  262:             if (row) recalcularLinha(row);
+  263:         });
+  264:     });
+  265: })();
+  266: </script>
+  267: {% endblock %}

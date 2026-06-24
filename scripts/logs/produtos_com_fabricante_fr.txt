@@ -1,0 +1,36 @@
+===== PRODUTOS COM FABRICANTE = FR =====
+
+Total encontrado: 4
+
+ID: 1609
+Descrição completa / produto_padrao: SAMTEC
+SKU_MASTER: SAMTEC
+Fabricante atual: FR
+Categoria: MATERIAL HOSPITALAR
+Ativo: 1
+Observações: 
+----------------------------------------------------------------------------------------------------
+ID: 1610
+Descrição completa / produto_padrao: FIRSTLAB
+SKU_MASTER: FIRSTLAB
+Fabricante atual: FR
+Categoria: MATERIAL HOSPITALAR
+Ativo: 1
+Observações: 
+----------------------------------------------------------------------------------------------------
+ID: 1644
+Descrição completa / produto_padrao: NUTRIMED
+SKU_MASTER: NUTRIMED
+Fabricante atual: FR
+Categoria: MATERIAL HOSPITALAR
+Ativo: 1
+Observações: 
+----------------------------------------------------------------------------------------------------
+ID: 1645
+Descrição completa / produto_padrao: MULTIGEL
+SKU_MASTER: MULTIGEL
+Fabricante atual: FR
+Categoria: MATERIAL HOSPITALAR
+Ativo: 1
+Observações: 
+----------------------------------------------------------------------------------------------------

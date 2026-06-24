@@ -47,6 +47,9 @@
             <a href="/equivalencias" class="{% if request.path == '/equivalencias' %}active{% endif %}">
                 <span class="nav-icon">⇄</span> Equivalências
             </a>
+            <a href="/mapa-precos-clientes" class="{% if request.path.startswith('/mapa-precos-clientes') %}active{% endif %}">
+                <span class="nav-icon">▦</span> Mapa de Preços Clientes
+            </a>
             <a href="/importacoes" class="{% if request.path == '/importacoes' %}active{% endif %}">
                 <span class="nav-icon">⇩</span> Importar Tabelas Fornecedores
             </a>

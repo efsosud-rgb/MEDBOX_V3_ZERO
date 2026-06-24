@@ -1,0 +1,18 @@
+===== AJUSTE CONTEXTUAL - FR = FABRICANTE REAL =====
+
+Data/hora: 2026-06-24 09:43:15
+
+Aliases FR desativados como empresa nesta execução: 0
+Aliases FR ainda ativos como empresa: 0
+Flag FR=FABRICANTE_REAL cadastrada: 1
+
+Banco de produtos alterado: NÃO
+Fabricantes alterados: NÃO
+
+REGRA FINAL:
+FR no campo fabricante = FABRICANTE_REAL.
+FR não é FRESENIUS.
+FR não é nome final de fabricante.
+
+VEREDITO:
+FR_CONFIGURADO_CORRETAMENTE_COMO_FLAG_FABRICANTE_REAL

@@ -1,9 +1,837 @@
 {% extends "base.html" %}
 
-{% block title %}Auditoria SKU Master{% endblock %}
-{% block subtitle %}Analise e correção manual da qualidade dos produtos padronizados.{% endblock %}
+{% block title %}Auditoria SKU Master
+<script id="sku-cadastro-rapido-js">
+(function () {
+    function textoOriginalProduto() {
+        const el = document.getElementById('display-produto-padrao');
+        return (el && el.textContent ? el.textContent : '').trim().toUpperCase();
+    }
+
+    function setValor(id, valor) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = String(valor || '').trim().toUpperCase();
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    window.copiarDescricaoOriginalSku = async function () {
+        const texto = textoOriginalProduto();
+        if (!texto) return;
+
+        try {
+            await navigator.clipboard.writeText(texto);
+            alert('Descrição original copiada.');
+        } catch (e) {
+            const campo = document.getElementById('edit-descricao-exata-fornecedor');
+            if (campo) {
+                campo.value = texto;
+                campo.select();
+            }
+            alert('Não consegui copiar automaticamente. A descrição foi colocada no campo para você copiar.');
+        }
+    };
+
+    window.usarDescricaoOriginalComoSku = function () {
+        const texto = textoOriginalProduto();
+        if (!texto) return;
+
+        setValor('edit-sku-master', texto);
+
+        const campoExata = document.getElementById('edit-descricao-exata-fornecedor');
+        if (campoExata && !campoExata.value) {
+            campoExata.value = texto;
+        }
+    };
+
+    window.aplicarDescricaoExataNoSkuMaster = function () {
+        const campo = document.getElementById('edit-descricao-exata-fornecedor');
+        const texto = campo ? campo.value.trim().toUpperCase() : '';
+
+        if (!texto) {
+            alert('Cole primeiro a descrição exata do fornecedor/fabricante.');
+            return;
+        }
+
+        setValor('edit-sku-master', texto);
+    };
+
+    window.definirCategoriaRapidaSku = function (categoria) {
+        setValor('edit-categoria', categoria);
+    };
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function') {
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+
+            const campoExata = document.getElementById('edit-descricao-exata-fornecedor');
+            if (campoExata) {
+                campoExata.value = '';
+                setTimeout(() => campoExata.focus(), 150);
+            }
+        };
+    }
+
+    document.addEventListener('keydown', function (ev) {
+        if (ev.ctrlKey && ev.key === 'Enter') {
+            const modal = document.getElementById('modal-edicao');
+            if (modal && modal.style.display !== 'none') {
+                const form = document.getElementById('form-edicao');
+                if (form) {
+                    ev.preventDefault();
+                    form.requestSubmit();
+                }
+            }
+        }
+    });
+})();
+</script>
+
+
+<script id="sku-busca-fornecedor-js">
+(function () {
+    function el(id) {
+        return document.getElementById(id);
+    }
+
+    function upper(v) {
+        return String(v || '').trim().toUpperCase();
+    }
+
+    function setValor(id, valor) {
+        const campo = el(id);
+        if (!campo) return;
+        campo.value = upper(valor);
+        campo.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function descricaoOriginalModal() {
+        const box = el('display-produto-padrao');
+        return upper(box ? box.textContent : '');
+    }
+
+    function classeScore(score) {
+        score = Number(score || 0);
+        if (score >= 80) return 'sku-score-alto';
+        if (score >= 60) return 'sku-score-medio';
+        return 'sku-score-baixo';
+    }
+
+    function limparSugestoesFornecedor() {
+        const box = el('sku-sugestoes-fornecedor-box');
+        if (!box) return;
+        box.innerHTML = '';
+        box.style.display = 'none';
+    }
+
+    window.usarSugestaoFornecedorSku = function (idx, modo) {
+        const lista = window.MEDBOX_SUGESTOES_FORNECEDOR_SKU || [];
+        const item = lista[idx];
+        if (!item) return;
+
+        if (modo === 'descricao') {
+            setValor('edit-descricao-exata-fornecedor', item.descricao || '');
+        }
+
+        if (modo === 'sku_descricao') {
+            setValor('edit-descricao-exata-fornecedor', item.descricao || '');
+            setValor('edit-sku-master', item.descricao || '');
+        }
+
+        if (modo === 'sku_existente') {
+            setValor('edit-sku-master', item.sku_master || item.descricao || '');
+        }
+
+        if (modo === 'marca') {
+            setValor('edit-fabricante', item.marca || '');
+        }
+
+        if (modo === 'categoria' && item.categoria) {
+            const cat = upper(item.categoria);
+            if (cat.includes('MEDIC')) {
+                setValor('edit-categoria', 'MEDICAMENTOS');
+            } else {
+                setValor('edit-categoria', 'CORRELATOS');
+            }
+        }
+    };
+
+    window.buscarDescricoesFornecedorSku = async function () {
+        const produtoId = el('edit-id') ? el('edit-id').value : '';
+        const desc = descricaoOriginalModal();
+        const box = el('sku-sugestoes-fornecedor-box');
+
+        if (!box) return;
+
+        box.style.display = 'block';
+        box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Buscando descrições reais da base...</div>';
+
+        try {
+            const url = '/sku-master/auditoria/descricoes-fornecedor-json?produto_id='
+                + encodeURIComponent(produtoId)
+                + '&descricao='
+                + encodeURIComponent(desc);
+
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            if (!data.ok) {
+                throw new Error(data.erro || 'Falha na busca');
+            }
+
+            const itens = data.itens || [];
+            window.MEDBOX_SUGESTOES_FORNECEDOR_SKU = itens;
+
+            if (!itens.length) {
+                box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Nenhuma descrição compatível encontrada na base.</div>';
+                return;
+            }
+
+            box.innerHTML = '';
+
+            itens.forEach(function (item, idx) {
+                const div = document.createElement('div');
+                div.className = 'sku-sugestao-fornecedor-item';
+
+                const descDiv = document.createElement('div');
+                descDiv.className = 'sku-sugestao-fornecedor-desc';
+                descDiv.textContent = item.descricao || '-';
+
+                const meta = document.createElement('div');
+                meta.className = 'sku-sugestao-fornecedor-meta';
+
+                const score = Number(item.score || 0);
+                const scoreHtml = '<span class="' + classeScore(score) + '">' + score + '%</span>';
+
+                meta.innerHTML =
+                    'Score: ' + scoreHtml +
+                    ' | Origem: ' + (item.origem || '-') +
+                    (item.fornecedor ? ' | Fornecedor: ' + item.fornecedor : '') +
+                    (item.marca ? ' | Marca: ' + item.marca : '') +
+                    (item.sku_master ? ' | SKU existente: ' + item.sku_master : '') +
+                    (item.categoria ? ' | Categoria: ' + item.categoria : '');
+
+                div.appendChild(descDiv);
+                div.appendChild(meta);
+
+                if (item.alertas && item.alertas.length) {
+                    const alerta = document.createElement('div');
+                    alerta.className = 'sku-sugestao-fornecedor-alerta';
+                    alerta.textContent = 'Atenção: ' + item.alertas.join(' | ');
+                    div.appendChild(alerta);
+                }
+
+                const actions = document.createElement('div');
+                actions.className = 'sku-sugestao-fornecedor-actions';
+
+                const b1 = document.createElement('button');
+                b1.type = 'button';
+                b1.className = 'sku-sugestao-mini-btn';
+                b1.textContent = 'Usar no campo descrição';
+                b1.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'descricao'); };
+
+                const b2 = document.createElement('button');
+                b2.type = 'button';
+                b2.className = 'sku-sugestao-mini-btn red';
+                b2.textContent = 'Usar descrição como SKU_MASTER';
+                b2.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'sku_descricao'); };
+
+                actions.appendChild(b1);
+                actions.appendChild(b2);
+
+                if (item.sku_master) {
+                    const b3 = document.createElement('button');
+                    b3.type = 'button';
+                    b3.className = 'sku-sugestao-mini-btn green';
+                    b3.textContent = 'Usar SKU existente';
+                    b3.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'sku_existente'); };
+                    actions.appendChild(b3);
+                }
+
+                if (item.marca) {
+                    const b4 = document.createElement('button');
+                    b4.type = 'button';
+                    b4.className = 'sku-sugestao-mini-btn green';
+                    b4.textContent = 'Usar marca';
+                    b4.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'marca'); };
+                    actions.appendChild(b4);
+                }
+
+                if (item.categoria) {
+                    const b5 = document.createElement('button');
+                    b5.type = 'button';
+                    b5.className = 'sku-sugestao-mini-btn green';
+                    b5.textContent = 'Usar categoria';
+                    b5.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'categoria'); };
+                    actions.appendChild(b5);
+                }
+
+                div.appendChild(actions);
+                box.appendChild(div);
+            });
+
+        } catch (e) {
+            box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Erro na busca: ' + e.message + '</div>';
+        }
+    };
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function' && !window.MEDBOX_ABRIR_MODAL_COM_BUSCA_FORNECEDOR) {
+        window.MEDBOX_ABRIR_MODAL_COM_BUSCA_FORNECEDOR = true;
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+            limparSugestoesFornecedor();
+            window.MEDBOX_SUGESTOES_FORNECEDOR_SKU = [];
+        };
+    }
+})();
+</script>
+
+
+<script id="sku-cascata-segura-js">
+(function () {
+    // Segurança: não marcar cascata automaticamente ao alterar SKU_MASTER.
+    // O usuário deve marcar manualmente depois de conferir a lista.
+    window.MEDBOX_CASCATA_AUTOMATICA_DESATIVADA = true;
+
+    function desmarcarCascata() {
+        document.querySelectorAll('input[name="cascata"]').forEach(function (c) {
+            c.checked = false;
+        });
+
+        const box = document.getElementById('cascata-preview-box');
+        if (box) {
+            box.style.display = 'none';
+        }
+    }
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function' && !window.MEDBOX_CASCATA_SEGURA_WRAP) {
+        window.MEDBOX_CASCATA_SEGURA_WRAP = true;
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+            setTimeout(desmarcarCascata, 80);
+        };
+    }
+
+    // Neutraliza a função antiga que marcava "semelhante" automaticamente.
+    window.marcarCascataSemelhanteSeSkuMudou = function () {
+        return false;
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const p = Array.from(document.querySelectorAll('p')).find(function (el) {
+            return String(el.textContent || '').includes('marcada automaticamente');
+        });
+
+        if (p) {
+            p.textContent = 'Use com cuidado. A cascata NÃO é mais marcada automaticamente. Marque somente após conferir que tamanho, dosagem, material, balão, vias e demais especificações são iguais.';
+        }
+
+        document.querySelectorAll('input[name="cascata"][value="semelhante"]').forEach(function (cb) {
+            const label = cb.closest('label');
+            if (label) {
+                label.childNodes.forEach(function (node) {
+                    if (node.nodeType === Node.TEXT_NODE && node.textContent.includes('Aplicar a produtos semelhantes')) {
+                        node.textContent = ' Aplicar somente a produtos com mesmas especificações críticas';
+                    }
+                });
+            }
+        });
+    });
+})();
+</script>
+
+{% endblock %}
+{% block subtitle %}Analise e correção manual da qualidade dos produtos padronizados.
+<script id="sku-cadastro-rapido-js">
+(function () {
+    function textoOriginalProduto() {
+        const el = document.getElementById('display-produto-padrao');
+        return (el && el.textContent ? el.textContent : '').trim().toUpperCase();
+    }
+
+    function setValor(id, valor) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = String(valor || '').trim().toUpperCase();
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    window.copiarDescricaoOriginalSku = async function () {
+        const texto = textoOriginalProduto();
+        if (!texto) return;
+
+        try {
+            await navigator.clipboard.writeText(texto);
+            alert('Descrição original copiada.');
+        } catch (e) {
+            const campo = document.getElementById('edit-descricao-exata-fornecedor');
+            if (campo) {
+                campo.value = texto;
+                campo.select();
+            }
+            alert('Não consegui copiar automaticamente. A descrição foi colocada no campo para você copiar.');
+        }
+    };
+
+    window.usarDescricaoOriginalComoSku = function () {
+        const texto = textoOriginalProduto();
+        if (!texto) return;
+
+        setValor('edit-sku-master', texto);
+
+        const campoExata = document.getElementById('edit-descricao-exata-fornecedor');
+        if (campoExata && !campoExata.value) {
+            campoExata.value = texto;
+        }
+    };
+
+    window.aplicarDescricaoExataNoSkuMaster = function () {
+        const campo = document.getElementById('edit-descricao-exata-fornecedor');
+        const texto = campo ? campo.value.trim().toUpperCase() : '';
+
+        if (!texto) {
+            alert('Cole primeiro a descrição exata do fornecedor/fabricante.');
+            return;
+        }
+
+        setValor('edit-sku-master', texto);
+    };
+
+    window.definirCategoriaRapidaSku = function (categoria) {
+        setValor('edit-categoria', categoria);
+    };
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function') {
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+
+            const campoExata = document.getElementById('edit-descricao-exata-fornecedor');
+            if (campoExata) {
+                campoExata.value = '';
+                setTimeout(() => campoExata.focus(), 150);
+            }
+        };
+    }
+
+    document.addEventListener('keydown', function (ev) {
+        if (ev.ctrlKey && ev.key === 'Enter') {
+            const modal = document.getElementById('modal-edicao');
+            if (modal && modal.style.display !== 'none') {
+                const form = document.getElementById('form-edicao');
+                if (form) {
+                    ev.preventDefault();
+                    form.requestSubmit();
+                }
+            }
+        }
+    });
+})();
+</script>
+
+
+<script id="sku-busca-fornecedor-js">
+(function () {
+    function el(id) {
+        return document.getElementById(id);
+    }
+
+    function upper(v) {
+        return String(v || '').trim().toUpperCase();
+    }
+
+    function setValor(id, valor) {
+        const campo = el(id);
+        if (!campo) return;
+        campo.value = upper(valor);
+        campo.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function descricaoOriginalModal() {
+        const box = el('display-produto-padrao');
+        return upper(box ? box.textContent : '');
+    }
+
+    function classeScore(score) {
+        score = Number(score || 0);
+        if (score >= 80) return 'sku-score-alto';
+        if (score >= 60) return 'sku-score-medio';
+        return 'sku-score-baixo';
+    }
+
+    function limparSugestoesFornecedor() {
+        const box = el('sku-sugestoes-fornecedor-box');
+        if (!box) return;
+        box.innerHTML = '';
+        box.style.display = 'none';
+    }
+
+    window.usarSugestaoFornecedorSku = function (idx, modo) {
+        const lista = window.MEDBOX_SUGESTOES_FORNECEDOR_SKU || [];
+        const item = lista[idx];
+        if (!item) return;
+
+        if (modo === 'descricao') {
+            setValor('edit-descricao-exata-fornecedor', item.descricao || '');
+        }
+
+        if (modo === 'sku_descricao') {
+            setValor('edit-descricao-exata-fornecedor', item.descricao || '');
+            setValor('edit-sku-master', item.descricao || '');
+        }
+
+        if (modo === 'sku_existente') {
+            setValor('edit-sku-master', item.sku_master || item.descricao || '');
+        }
+
+        if (modo === 'marca') {
+            setValor('edit-fabricante', item.marca || '');
+        }
+
+        if (modo === 'categoria' && item.categoria) {
+            const cat = upper(item.categoria);
+            if (cat.includes('MEDIC')) {
+                setValor('edit-categoria', 'MEDICAMENTOS');
+            } else {
+                setValor('edit-categoria', 'CORRELATOS');
+            }
+        }
+    };
+
+    window.buscarDescricoesFornecedorSku = async function () {
+        const produtoId = el('edit-id') ? el('edit-id').value : '';
+        const desc = descricaoOriginalModal();
+        const box = el('sku-sugestoes-fornecedor-box');
+
+        if (!box) return;
+
+        box.style.display = 'block';
+        box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Buscando descrições reais da base...</div>';
+
+        try {
+            const url = '/sku-master/auditoria/descricoes-fornecedor-json?produto_id='
+                + encodeURIComponent(produtoId)
+                + '&descricao='
+                + encodeURIComponent(desc);
+
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            if (!data.ok) {
+                throw new Error(data.erro || 'Falha na busca');
+            }
+
+            const itens = data.itens || [];
+            window.MEDBOX_SUGESTOES_FORNECEDOR_SKU = itens;
+
+            if (!itens.length) {
+                box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Nenhuma descrição compatível encontrada na base.</div>';
+                return;
+            }
+
+            box.innerHTML = '';
+
+            itens.forEach(function (item, idx) {
+                const div = document.createElement('div');
+                div.className = 'sku-sugestao-fornecedor-item';
+
+                const descDiv = document.createElement('div');
+                descDiv.className = 'sku-sugestao-fornecedor-desc';
+                descDiv.textContent = item.descricao || '-';
+
+                const meta = document.createElement('div');
+                meta.className = 'sku-sugestao-fornecedor-meta';
+
+                const score = Number(item.score || 0);
+                const scoreHtml = '<span class="' + classeScore(score) + '">' + score + '%</span>';
+
+                meta.innerHTML =
+                    'Score: ' + scoreHtml +
+                    ' | Origem: ' + (item.origem || '-') +
+                    (item.fornecedor ? ' | Fornecedor: ' + item.fornecedor : '') +
+                    (item.marca ? ' | Marca: ' + item.marca : '') +
+                    (item.sku_master ? ' | SKU existente: ' + item.sku_master : '') +
+                    (item.categoria ? ' | Categoria: ' + item.categoria : '');
+
+                div.appendChild(descDiv);
+                div.appendChild(meta);
+
+                if (item.alertas && item.alertas.length) {
+                    const alerta = document.createElement('div');
+                    alerta.className = 'sku-sugestao-fornecedor-alerta';
+                    alerta.textContent = 'Atenção: ' + item.alertas.join(' | ');
+                    div.appendChild(alerta);
+                }
+
+                const actions = document.createElement('div');
+                actions.className = 'sku-sugestao-fornecedor-actions';
+
+                const b1 = document.createElement('button');
+                b1.type = 'button';
+                b1.className = 'sku-sugestao-mini-btn';
+                b1.textContent = 'Usar no campo descrição';
+                b1.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'descricao'); };
+
+                const b2 = document.createElement('button');
+                b2.type = 'button';
+                b2.className = 'sku-sugestao-mini-btn red';
+                b2.textContent = 'Usar descrição como SKU_MASTER';
+                b2.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'sku_descricao'); };
+
+                actions.appendChild(b1);
+                actions.appendChild(b2);
+
+                if (item.sku_master) {
+                    const b3 = document.createElement('button');
+                    b3.type = 'button';
+                    b3.className = 'sku-sugestao-mini-btn green';
+                    b3.textContent = 'Usar SKU existente';
+                    b3.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'sku_existente'); };
+                    actions.appendChild(b3);
+                }
+
+                if (item.marca) {
+                    const b4 = document.createElement('button');
+                    b4.type = 'button';
+                    b4.className = 'sku-sugestao-mini-btn green';
+                    b4.textContent = 'Usar marca';
+                    b4.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'marca'); };
+                    actions.appendChild(b4);
+                }
+
+                if (item.categoria) {
+                    const b5 = document.createElement('button');
+                    b5.type = 'button';
+                    b5.className = 'sku-sugestao-mini-btn green';
+                    b5.textContent = 'Usar categoria';
+                    b5.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'categoria'); };
+                    actions.appendChild(b5);
+                }
+
+                div.appendChild(actions);
+                box.appendChild(div);
+            });
+
+        } catch (e) {
+            box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Erro na busca: ' + e.message + '</div>';
+        }
+    };
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function' && !window.MEDBOX_ABRIR_MODAL_COM_BUSCA_FORNECEDOR) {
+        window.MEDBOX_ABRIR_MODAL_COM_BUSCA_FORNECEDOR = true;
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+            limparSugestoesFornecedor();
+            window.MEDBOX_SUGESTOES_FORNECEDOR_SKU = [];
+        };
+    }
+})();
+</script>
+
+
+<script id="sku-cascata-segura-js">
+(function () {
+    // Segurança: não marcar cascata automaticamente ao alterar SKU_MASTER.
+    // O usuário deve marcar manualmente depois de conferir a lista.
+    window.MEDBOX_CASCATA_AUTOMATICA_DESATIVADA = true;
+
+    function desmarcarCascata() {
+        document.querySelectorAll('input[name="cascata"]').forEach(function (c) {
+            c.checked = false;
+        });
+
+        const box = document.getElementById('cascata-preview-box');
+        if (box) {
+            box.style.display = 'none';
+        }
+    }
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function' && !window.MEDBOX_CASCATA_SEGURA_WRAP) {
+        window.MEDBOX_CASCATA_SEGURA_WRAP = true;
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+            setTimeout(desmarcarCascata, 80);
+        };
+    }
+
+    // Neutraliza a função antiga que marcava "semelhante" automaticamente.
+    window.marcarCascataSemelhanteSeSkuMudou = function () {
+        return false;
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const p = Array.from(document.querySelectorAll('p')).find(function (el) {
+            return String(el.textContent || '').includes('marcada automaticamente');
+        });
+
+        if (p) {
+            p.textContent = 'Use com cuidado. A cascata NÃO é mais marcada automaticamente. Marque somente após conferir que tamanho, dosagem, material, balão, vias e demais especificações são iguais.';
+        }
+
+        document.querySelectorAll('input[name="cascata"][value="semelhante"]').forEach(function (cb) {
+            const label = cb.closest('label');
+            if (label) {
+                label.childNodes.forEach(function (node) {
+                    if (node.nodeType === Node.TEXT_NODE && node.textContent.includes('Aplicar a produtos semelhantes')) {
+                        node.textContent = ' Aplicar somente a produtos com mesmas especificações críticas';
+                    }
+                });
+            }
+        });
+    });
+})();
+</script>
+
+{% endblock %}
 
 {% block content %}
+
+<style id="sku-busca-fornecedor-css">
+.sku-sugestoes-fornecedor-box {
+    margin-top: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    display: none;
+    max-height: 260px;
+    overflow: auto;
+}
+
+.sku-sugestao-fornecedor-item {
+    padding: 9px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.76rem;
+}
+
+.sku-sugestao-fornecedor-item:last-child {
+    border-bottom: none;
+}
+
+.sku-sugestao-fornecedor-desc {
+    font-weight: 900;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.sku-sugestao-fornecedor-meta {
+    color: #64748b;
+    margin-bottom: 6px;
+    line-height: 1.35;
+}
+
+.sku-sugestao-fornecedor-alerta {
+    color: #b45309;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.sku-sugestao-fornecedor-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.sku-sugestao-mini-btn {
+    border: none;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    cursor: pointer;
+    background: #00486C;
+    color: white;
+}
+
+.sku-sugestao-mini-btn.red {
+    background: #D80024;
+}
+
+.sku-sugestao-mini-btn.green {
+    background: #15803d;
+}
+
+.sku-score-alto { color: #15803d; font-weight: 900; }
+.sku-score-medio { color: #b45309; font-weight: 900; }
+.sku-score-baixo { color: #dc2626; font-weight: 900; }
+</style>
+
+
+<style id="sku-cadastro-rapido-css">
+.sku-quick-box {
+    margin: 0 0 15px 0;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #dbe7f3;
+    border-radius: 8px;
+}
+
+.sku-quick-title {
+    font-size: 0.78rem;
+    font-weight: 900;
+    color: #00486C;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.sku-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.sku-quick-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    background: #00486C;
+    color: #fff;
+}
+
+.sku-quick-btn.red {
+    background: #D80024;
+}
+
+.sku-quick-btn.green {
+    background: #15803d;
+}
+
+.sku-quick-btn.gray {
+    background: #475569;
+}
+
+.sku-quick-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: end;
+}
+
+.sku-quick-grid input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.sku-quick-hint {
+    font-size: 0.74rem;
+    color: #64748b;
+    margin-top: 6px;
+    line-height: 1.35;
+}
+</style>
+
 
 {% with mensagens = get_flashed_messages() %}
     {% if mensagens %}
@@ -44,7 +872,7 @@
 <section class="panel large">
     <h3>Produtos</h3>
     <p style="margin:0 0 12px;color:var(--muted);font-size:.85rem;">
-        Categorias permitidas nesta auditoria: <strong>CORRELATOS</strong> e <strong>MEDICAMENTOS</strong>. Ao salvar um SKU Master, a tela aplica cascata conservadora em itens semelhantes.
+        Categorias permitidas nesta auditoria: <strong>CORRELATOS</strong> e <strong>MEDICAMENTOS</strong>. Ao salvar um SKU Master, a cascata deve ser usada somente após conferir especificações críticas como tamanho, dosagem, material, balão e vias.
     </p>
     <div id="auditoria-alerta" style="display:none;margin-bottom:12px;padding:10px;border-radius:6px;font-weight:700;"></div>
     <div class="comparison-table-wrap">
@@ -125,10 +953,34 @@
                 <div id="display-produto-padrao" style="font-weight:500; color:#334155;"></div>
             </div>
 
+            <div class="sku-quick-box" id="sku-cadastro-rapido-box">
+                <div class="sku-quick-title">Cadastro rápido SKU_MASTER</div>
+
+                <div class="sku-quick-actions">
+                    <button type="button" class="sku-quick-btn gray" onclick="copiarDescricaoOriginalSku()">Copiar descrição original</button>
+                    <button type="button" class="sku-quick-btn" onclick="usarDescricaoOriginalComoSku()">Usar descrição original como SKU_MASTER</button>
+                    <button type="button" class="sku-quick-btn green" onclick="definirCategoriaRapidaSku('MEDICAMENTOS')">MEDICAMENTO</button>
+                    <button type="button" class="sku-quick-btn green" onclick="definirCategoriaRapidaSku('CORRELATOS')">CORRELATO</button>
+                </div>
+
+                <label style="display:block; font-weight:700; margin-bottom:5px;">Descrição exata do fornecedor/fabricante</label>
+                <div class="sku-quick-grid">
+                    <input type="text" id="edit-descricao-exata-fornecedor" placeholder="Cole aqui a descrição exata do fabricante/fornecedor">
+                    <button type="button" class="sku-quick-btn red" onclick="aplicarDescricaoExataNoSkuMaster()">Aplicar no SKU_MASTER</button>
+                    <button type="button" class="sku-quick-btn green" onclick="buscarDescricoesFornecedorSku()">Buscar descrições da base</button>
+                </div>
+
+                <div class="sku-quick-hint">
+                    Fluxo recomendado: copie a descrição original, pesquise fabricante/marca, cole a descrição exata validada, preencha fabricante e categoria, depois salve.
+                </div>
+                <div id="sku-sugestoes-fornecedor-box" class="sku-sugestoes-fornecedor-box"></div>
+            </div>
+
+
             <div style="margin-bottom:15px;">
                 <label style="display:block; font-weight:700; margin-bottom:5px;">SKU Master (Editavel)</label>
                 <input type="text" id="edit-sku-master" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-weight:bold;" list="sku-datalist">
-                <small style="color:#666;">Ao alterar este campo, a cascata conservadora para produtos semelhantes será marcada automaticamente.</small>
+                <small style="color:#666;">A cascata não será marcada automaticamente. Confira os produtos sugeridos antes de aplicar.</small>
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
                 <div>
@@ -620,6 +1472,349 @@
     document.addEventListener("DOMContentLoaded", instalarOrdenacao);
     window.addEventListener("load", instalarOrdenacao);
     setTimeout(instalarOrdenacao, 300);
+})();
+</script>
+
+
+<script id="sku-cadastro-rapido-js">
+(function () {
+    function textoOriginalProduto() {
+        const el = document.getElementById('display-produto-padrao');
+        return (el && el.textContent ? el.textContent : '').trim().toUpperCase();
+    }
+
+    function setValor(id, valor) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = String(valor || '').trim().toUpperCase();
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    window.copiarDescricaoOriginalSku = async function () {
+        const texto = textoOriginalProduto();
+        if (!texto) return;
+
+        try {
+            await navigator.clipboard.writeText(texto);
+            alert('Descrição original copiada.');
+        } catch (e) {
+            const campo = document.getElementById('edit-descricao-exata-fornecedor');
+            if (campo) {
+                campo.value = texto;
+                campo.select();
+            }
+            alert('Não consegui copiar automaticamente. A descrição foi colocada no campo para você copiar.');
+        }
+    };
+
+    window.usarDescricaoOriginalComoSku = function () {
+        const texto = textoOriginalProduto();
+        if (!texto) return;
+
+        setValor('edit-sku-master', texto);
+
+        const campoExata = document.getElementById('edit-descricao-exata-fornecedor');
+        if (campoExata && !campoExata.value) {
+            campoExata.value = texto;
+        }
+    };
+
+    window.aplicarDescricaoExataNoSkuMaster = function () {
+        const campo = document.getElementById('edit-descricao-exata-fornecedor');
+        const texto = campo ? campo.value.trim().toUpperCase() : '';
+
+        if (!texto) {
+            alert('Cole primeiro a descrição exata do fornecedor/fabricante.');
+            return;
+        }
+
+        setValor('edit-sku-master', texto);
+    };
+
+    window.definirCategoriaRapidaSku = function (categoria) {
+        setValor('edit-categoria', categoria);
+    };
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function') {
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+
+            const campoExata = document.getElementById('edit-descricao-exata-fornecedor');
+            if (campoExata) {
+                campoExata.value = '';
+                setTimeout(() => campoExata.focus(), 150);
+            }
+        };
+    }
+
+    document.addEventListener('keydown', function (ev) {
+        if (ev.ctrlKey && ev.key === 'Enter') {
+            const modal = document.getElementById('modal-edicao');
+            if (modal && modal.style.display !== 'none') {
+                const form = document.getElementById('form-edicao');
+                if (form) {
+                    ev.preventDefault();
+                    form.requestSubmit();
+                }
+            }
+        }
+    });
+})();
+</script>
+
+
+<script id="sku-busca-fornecedor-js">
+(function () {
+    function el(id) {
+        return document.getElementById(id);
+    }
+
+    function upper(v) {
+        return String(v || '').trim().toUpperCase();
+    }
+
+    function setValor(id, valor) {
+        const campo = el(id);
+        if (!campo) return;
+        campo.value = upper(valor);
+        campo.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function descricaoOriginalModal() {
+        const box = el('display-produto-padrao');
+        return upper(box ? box.textContent : '');
+    }
+
+    function classeScore(score) {
+        score = Number(score || 0);
+        if (score >= 80) return 'sku-score-alto';
+        if (score >= 60) return 'sku-score-medio';
+        return 'sku-score-baixo';
+    }
+
+    function limparSugestoesFornecedor() {
+        const box = el('sku-sugestoes-fornecedor-box');
+        if (!box) return;
+        box.innerHTML = '';
+        box.style.display = 'none';
+    }
+
+    window.usarSugestaoFornecedorSku = function (idx, modo) {
+        const lista = window.MEDBOX_SUGESTOES_FORNECEDOR_SKU || [];
+        const item = lista[idx];
+        if (!item) return;
+
+        if (modo === 'descricao') {
+            setValor('edit-descricao-exata-fornecedor', item.descricao || '');
+        }
+
+        if (modo === 'sku_descricao') {
+            setValor('edit-descricao-exata-fornecedor', item.descricao || '');
+            setValor('edit-sku-master', item.descricao || '');
+        }
+
+        if (modo === 'sku_existente') {
+            setValor('edit-sku-master', item.sku_master || item.descricao || '');
+        }
+
+        if (modo === 'marca') {
+            setValor('edit-fabricante', item.marca || '');
+        }
+
+        if (modo === 'categoria' && item.categoria) {
+            const cat = upper(item.categoria);
+            if (cat.includes('MEDIC')) {
+                setValor('edit-categoria', 'MEDICAMENTOS');
+            } else {
+                setValor('edit-categoria', 'CORRELATOS');
+            }
+        }
+    };
+
+    window.buscarDescricoesFornecedorSku = async function () {
+        const produtoId = el('edit-id') ? el('edit-id').value : '';
+        const desc = descricaoOriginalModal();
+        const box = el('sku-sugestoes-fornecedor-box');
+
+        if (!box) return;
+
+        box.style.display = 'block';
+        box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Buscando descrições reais da base...</div>';
+
+        try {
+            const url = '/sku-master/auditoria/descricoes-fornecedor-json?produto_id='
+                + encodeURIComponent(produtoId)
+                + '&descricao='
+                + encodeURIComponent(desc);
+
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            if (!data.ok) {
+                throw new Error(data.erro || 'Falha na busca');
+            }
+
+            const itens = data.itens || [];
+            window.MEDBOX_SUGESTOES_FORNECEDOR_SKU = itens;
+
+            if (!itens.length) {
+                box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Nenhuma descrição compatível encontrada na base.</div>';
+                return;
+            }
+
+            box.innerHTML = '';
+
+            itens.forEach(function (item, idx) {
+                const div = document.createElement('div');
+                div.className = 'sku-sugestao-fornecedor-item';
+
+                const descDiv = document.createElement('div');
+                descDiv.className = 'sku-sugestao-fornecedor-desc';
+                descDiv.textContent = item.descricao || '-';
+
+                const meta = document.createElement('div');
+                meta.className = 'sku-sugestao-fornecedor-meta';
+
+                const score = Number(item.score || 0);
+                const scoreHtml = '<span class="' + classeScore(score) + '">' + score + '%</span>';
+
+                meta.innerHTML =
+                    'Score: ' + scoreHtml +
+                    ' | Origem: ' + (item.origem || '-') +
+                    (item.fornecedor ? ' | Fornecedor: ' + item.fornecedor : '') +
+                    (item.marca ? ' | Marca: ' + item.marca : '') +
+                    (item.sku_master ? ' | SKU existente: ' + item.sku_master : '') +
+                    (item.categoria ? ' | Categoria: ' + item.categoria : '');
+
+                div.appendChild(descDiv);
+                div.appendChild(meta);
+
+                if (item.alertas && item.alertas.length) {
+                    const alerta = document.createElement('div');
+                    alerta.className = 'sku-sugestao-fornecedor-alerta';
+                    alerta.textContent = 'Atenção: ' + item.alertas.join(' | ');
+                    div.appendChild(alerta);
+                }
+
+                const actions = document.createElement('div');
+                actions.className = 'sku-sugestao-fornecedor-actions';
+
+                const b1 = document.createElement('button');
+                b1.type = 'button';
+                b1.className = 'sku-sugestao-mini-btn';
+                b1.textContent = 'Usar no campo descrição';
+                b1.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'descricao'); };
+
+                const b2 = document.createElement('button');
+                b2.type = 'button';
+                b2.className = 'sku-sugestao-mini-btn red';
+                b2.textContent = 'Usar descrição como SKU_MASTER';
+                b2.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'sku_descricao'); };
+
+                actions.appendChild(b1);
+                actions.appendChild(b2);
+
+                if (item.sku_master) {
+                    const b3 = document.createElement('button');
+                    b3.type = 'button';
+                    b3.className = 'sku-sugestao-mini-btn green';
+                    b3.textContent = 'Usar SKU existente';
+                    b3.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'sku_existente'); };
+                    actions.appendChild(b3);
+                }
+
+                if (item.marca) {
+                    const b4 = document.createElement('button');
+                    b4.type = 'button';
+                    b4.className = 'sku-sugestao-mini-btn green';
+                    b4.textContent = 'Usar marca';
+                    b4.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'marca'); };
+                    actions.appendChild(b4);
+                }
+
+                if (item.categoria) {
+                    const b5 = document.createElement('button');
+                    b5.type = 'button';
+                    b5.className = 'sku-sugestao-mini-btn green';
+                    b5.textContent = 'Usar categoria';
+                    b5.onclick = function () { window.usarSugestaoFornecedorSku(idx, 'categoria'); };
+                    actions.appendChild(b5);
+                }
+
+                div.appendChild(actions);
+                box.appendChild(div);
+            });
+
+        } catch (e) {
+            box.innerHTML = '<div class="sku-sugestao-fornecedor-item">Erro na busca: ' + e.message + '</div>';
+        }
+    };
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function' && !window.MEDBOX_ABRIR_MODAL_COM_BUSCA_FORNECEDOR) {
+        window.MEDBOX_ABRIR_MODAL_COM_BUSCA_FORNECEDOR = true;
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+            limparSugestoesFornecedor();
+            window.MEDBOX_SUGESTOES_FORNECEDOR_SKU = [];
+        };
+    }
+})();
+</script>
+
+
+<script id="sku-cascata-segura-js">
+(function () {
+    // Segurança: não marcar cascata automaticamente ao alterar SKU_MASTER.
+    // O usuário deve marcar manualmente depois de conferir a lista.
+    window.MEDBOX_CASCATA_AUTOMATICA_DESATIVADA = true;
+
+    function desmarcarCascata() {
+        document.querySelectorAll('input[name="cascata"]').forEach(function (c) {
+            c.checked = false;
+        });
+
+        const box = document.getElementById('cascata-preview-box');
+        if (box) {
+            box.style.display = 'none';
+        }
+    }
+
+    const antigoAbrir = window.abrirModalEdicao;
+    if (typeof antigoAbrir === 'function' && !window.MEDBOX_CASCATA_SEGURA_WRAP) {
+        window.MEDBOX_CASCATA_SEGURA_WRAP = true;
+        window.abrirModalEdicao = function (btn) {
+            antigoAbrir(btn);
+            setTimeout(desmarcarCascata, 80);
+        };
+    }
+
+    // Neutraliza a função antiga que marcava "semelhante" automaticamente.
+    window.marcarCascataSemelhanteSeSkuMudou = function () {
+        return false;
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const p = Array.from(document.querySelectorAll('p')).find(function (el) {
+            return String(el.textContent || '').includes('marcada automaticamente');
+        });
+
+        if (p) {
+            p.textContent = 'Use com cuidado. A cascata NÃO é mais marcada automaticamente. Marque somente após conferir que tamanho, dosagem, material, balão, vias e demais especificações são iguais.';
+        }
+
+        document.querySelectorAll('input[name="cascata"][value="semelhante"]').forEach(function (cb) {
+            const label = cb.closest('label');
+            if (label) {
+                label.childNodes.forEach(function (node) {
+                    if (node.nodeType === Node.TEXT_NODE && node.textContent.includes('Aplicar a produtos semelhantes')) {
+                        node.textContent = ' Aplicar somente a produtos com mesmas especificações críticas';
+                    }
+                });
+            }
+        });
+    });
 })();
 </script>
 

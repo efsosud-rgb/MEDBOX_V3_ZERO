@@ -1,0 +1,262 @@
+﻿    1: {% extends "base.html" %}
+    2: 
+    3: {% block title %}Mapa de PreÃ§os Clientes{% endblock %}
+    4: {% block subtitle %}PrevisÃ£o de demanda mensal, preÃ§os por cliente e oportunidade de compra MedBox{% endblock %}
+    5: 
+    6: {% block content %}
+    7: 
+    8: <style>
+    9:     .mpc-grid {
+   10:         display: grid;
+   11:         grid-template-columns: repeat(4, minmax(160px, 1fr));
+   12:         gap: 14px;
+   13:         margin-bottom: 18px;
+   14:     }
+   15: 
+   16:     .mpc-card {
+   17:         background: white;
+   18:         border: 1px solid #d9e2ef;
+   19:         border-radius: 14px;
+   20:         padding: 16px;
+   21:         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+   22:     }
+   23: 
+   24:     .mpc-card small {
+   25:         display: block;
+   26:         color: #64748b;
+   27:         font-size: 11px;
+   28:         text-transform: uppercase;
+   29:         font-weight: 700;
+   30:         margin-bottom: 8px;
+   31:     }
+   32: 
+   33:     .mpc-card strong {
+   34:         font-size: 24px;
+   35:         color: #0f172a;
+   36:     }
+   37: 
+   38:     .mpc-actions {
+   39:         display: flex;
+   40:         gap: 10px;
+   41:         margin-bottom: 18px;
+   42:         flex-wrap: wrap;
+   43:     }
+   44: 
+   45:     .mpc-btn {
+   46:         background: #00486C;
+   47:         color: white;
+   48:         border: none;
+   49:         padding: 10px 14px;
+   50:         border-radius: 10px;
+   51:         font-weight: 700;
+   52:         text-decoration: none;
+   53:         display: inline-block;
+   54:     }
+   55: 
+   56:     .mpc-btn.secondary {
+   57:         background: #D80024;
+   58:     }
+   59: 
+   60:     .mpc-panel {
+   61:         background: white;
+   62:         border: 1px solid #d9e2ef;
+   63:         border-radius: 14px;
+   64:         overflow: hidden;
+   65:         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+   66:     }
+   67: 
+   68:     .mpc-panel-header {
+   69:         padding: 14px 16px;
+   70:         border-bottom: 1px solid #e5edf7;
+   71:         display: flex;
+   72:         justify-content: space-between;
+   73:         gap: 12px;
+   74:         align-items: center;
+   75:     }
+   76: 
+   77:     .mpc-panel-header h3 {
+   78:         margin: 0;
+   79:         color: #0f172a;
+   80:         font-size: 16px;
+   81:     }
+   82: 
+   83:     .mpc-table-wrap {
+   84:         overflow: auto;
+   85:         max-height: calc(100vh - 290px);
+   86:     }
+   87: 
+   88:     .mpc-table {
+   89:         width: max-content;
+   90:         min-width: 100%;
+   91:         border-collapse: collapse;
+   92:         font-size: 11px;
+   93:     }
+   94: 
+   95:     .mpc-table th {
+   96:         position: sticky;
+   97:         top: 0;
+   98:         background: #0f1b2d;
+   99:         color: white;
+  100:         z-index: 2;
+  101:         padding: 8px;
+  102:         border: 1px solid #253858;
+  103:         white-space: nowrap;
+  104:         text-align: center;
+  105:     }
+  106: 
+  107:     .mpc-table td {
+  108:         padding: 8px;
+  109:         border: 1px solid #d7dfeb;
+  110:         background: white;
+  111:         white-space: nowrap;
+  112:     }
+  113: 
+  114:     .mpc-table .produto {
+  115:         min-width: 320px;
+  116:         white-space: normal;
+  117:         font-weight: 700;
+  118:     }
+  119: 
+  120:     .mpc-client-head {
+  121:         background: #00486C !important;
+  122:     }
+  123: 
+  124:     .mpc-subhead {
+  125:         background: #075985 !important;
+  126:     }
+  127: 
+  128:     .mpc-empty {
+  129:         padding: 28px;
+  130:         text-align: center;
+  131:         color: #64748b;
+  132:     }
+  133: 
+  134:     .mpc-client-list {
+  135:         display: flex;
+  136:         flex-wrap: wrap;
+  137:         gap: 8px;
+  138:         padding: 14px 16px;
+  139:         background: #f8fafc;
+  140:         border-top: 1px solid #e5edf7;
+  141:     }
+  142: 
+  143:     .mpc-chip {
+  144:         padding: 7px 10px;
+  145:         border-radius: 999px;
+  146:         background: #e0f2fe;
+  147:         color: #075985;
+  148:         font-weight: 700;
+  149:         font-size: 11px;
+  150:     }
+  151: 
+  152:     .mpc-chip.var {
+  153:         background: #fef3c7;
+  154:         color: #92400e;
+  155:     }
+  156: </style>
+  157: 
+  158: <div class="mpc-grid">
+  159:     <div class="mpc-card">
+  160:         <small>Clientes ativos</small>
+  161:         <strong>{{ dados.resumo_mapa.total_clientes }}</strong>
+  162:     </div>
+  163: 
+  164:     <div class="mpc-card">
+  165:         <small>CotaÃ§Ãµes lanÃ§adas</small>
+  166:         <strong>{{ dados.resumo_mapa.total_cotacoes }}</strong>
+  167:     </div>
+  168: 
+  169:     <div class="mpc-card">
+  170:         <small>Itens mapeados</small>
+  171:         <strong>{{ dados.resumo_mapa.total_itens }}</strong>
+  172:     </div>
+  173: 
+  174:     <div class="mpc-card">
+  175:         <small>Faturamento estimado mensal</small>
+  176:         <strong>{{ dados.resumo_mapa.faturamento_estimado_formatado }}</strong>
+  177:     </div>
+  178: </div>
+  179: 
+  180: <div class="mpc-actions">
+  181:     <a class="mpc-btn" href="/mapa-precos-clientes">Mapa Consolidado</a>
+  182:     <a class="mpc-btn secondary" href="/mapa-precos-clientes/importar">Importar CotaÃ§Ã£o Cliente</a>
+  183: </div>
+  184: 
+  185: <div class="mpc-panel">
+  186:     <div class="mpc-panel-header">
+  187:         <h3>MEDBOX | Mapa de ComparaÃ§Ã£o de PreÃ§os por Cliente</h3>
+  188:         <span>Markup padrÃ£o: {{ dados.markup_percentual }}%</span>
+  189:     </div>
+  190: 
+  191:     <div class="mpc-table-wrap">
+  192:         <table class="mpc-table">
+  193:             <thead>
+  194:                 <tr>
+  195:                     <th rowspan="2">Categoria</th>
+  196:                     <th rowspan="2">Produto / SKU Master</th>
+  197:                     <th rowspan="2">Demanda<br>mensal total</th>
+  198:                     <th colspan="4">Compra 2026 com Markup {{ dados.markup_percentual }}%</th>
+  199:                     <th rowspan="2">PreÃ§o<br>mÃ©dio clientes</th>
+  200:                     <th rowspan="2">Faturamento<br>estimado</th>
+  201: 
+  202:                     {% for cliente in dados.clientes_colunas %}
+  203:                         <th class="mpc-client-head" colspan="2">{{ cliente.nome }}</th>
+  204:                     {% endfor %}
+  205:                 </tr>
+  206:                 <tr>
+  207:                     <th>PreÃ§o compra</th>
+  208:                     <th>Fornecedor</th>
+  209:                     <th>Fabricante</th>
+  210:                     <th>PreÃ§o MedBox</th>
+  211: 
+  212:                     {% for cliente in dados.clientes_colunas %}
+  213:                         <th class="mpc-subhead">Quant. mÃªs</th>
+  214:                         <th class="mpc-subhead">Valor unit.</th>
+  215:                     {% endfor %}
+  216:                 </tr>
+  217:             </thead>
+  218: 
+  219:             <tbody>
+  220:                 {% if dados.itens %}
+  221:                     {% for item in dados.itens %}
+  222:                         <tr>
+  223:                             <td>{{ item.categoria }}</td>
+  224:                             <td class="produto">{{ item.sku_master or item.descricao }}</td>
+  225:                             <td>{{ item.demanda_mensal_total_formatada }}</td>
+  226:                             <td>{{ item.preco_compra_formatado }}</td>
+  227:                             <td>{{ item.fornecedor }}</td>
+  228:                             <td>{{ item.fabricante }}</td>
+  229:                             <td>{{ item.preco_medbox_formatado }}</td>
+  230:                             <td>{{ item.preco_medio_formatado }}</td>
+  231:                             <td>{{ item.faturamento_formatado }}</td>
+  232: 
+  233:                             {% for cliente in dados.clientes_colunas %}
+  234:                                 {% set celula = item.clientes.get(cliente.nome, {}) if item.clientes is defined else {} %}
+  235:                                 <td>{{ celula.quantidade_mensal_formatada or "" }}</td>
+  236:                                 <td>{{ celula.valor_unitario_formatado or "" }}</td>
+  237:                             {% endfor %}
+  238:                         </tr>
+  239:                     {% endfor %}
+  240:                 {% else %}
+  241:                     <tr>
+  242:                         <td colspan="{{ 9 + (dados.clientes_colunas|length * 2) }}">
+  243:                             <div class="mpc-empty">
+  244:                                 Estrutura criada. Na prÃ³xima etapa vamos ativar a importaÃ§Ã£o das cotaÃ§Ãµes dos clientes e preencher o mapa automaticamente.
+  245:                             </div>
+  246:                         </td>
+  247:                     </tr>
+  248:                 {% endif %}
+  249:             </tbody>
+  250:         </table>
+  251:     </div>
+  252: 
+  253:     <div class="mpc-client-list">
+  254:         {% for cliente in dados.clientes_colunas %}
+  255:             <span class="mpc-chip {% if not cliente.fixo %}var{% endif %}">
+  256:                 {{ cliente.nome }}
+  257:             </span>
+  258:         {% endfor %}
+  259:     </div>
+  260: </div>
+  261: 
+  262: {% endblock %}

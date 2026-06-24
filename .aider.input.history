@@ -1,0 +1,84 @@
+
+# 2026-06-11 11:04:32.389229
++y
+
+# 2026-06-11 11:06:13.016135
++/exit
+
+# 2026-06-11 13:48:27.589325
++y
+
+# 2026-06-11 13:49:12.810281
++/exit
+
+# 2026-06-11 13:49:41.452177
++y
+
+# 2026-06-11 13:50:24.672130
++/add app.py templates/cotacao_lances.html core/importador_cotacao.py
+
+# 2026-06-11 13:51:03.544830
++O formulário de importação em /cotacoes/lances fica carregando infinitamente ao clicar em "Importar Cotação". Adicione logs detalhados (prints com timestamps) em cada etapa da rota POST do app.py e dentro das funções do core/importador_cotacao.py para descobrirmos exatamente em qual linha ou loop o processamento do Excel está travando.
+
+# 2026-06-11 13:56:15.974826
++yyyyyyy
+
+# 2026-06-11 13:56:22.245022
++y
+
+# 2026-06-11 13:57:26.345558
++/exit
+
+# 2026-06-11 13:58:21.898183
++n
+
+# 2026-06-11 13:58:39.033452
++/add app.py templates/cotacao_lances.html core/importador_cotacao.py
+
+# 2026-06-11 13:59:19.571632
++O formulário de importação em /cotacoes/lances fica carregando infinitamente ao clicar em "Importar Cotação". Adicione logs detalhados (prints com timestamps) em cada etapa da rota POST do app.py e dentro das funções do core/importador_cotacao.py para descobrirmos exatamente em qual linha ou loop o processamento do Excel está travando.
+
+# 2026-06-11 13:59:51.932840
++/exit
+
+# 2026-06-11 14:00:49.039375
++n
+
+# 2026-06-11 14:01:00.947396
++/add app.py templates/cotacao_lances.html core/importador_cotacao.py
+
+# 2026-06-11 14:01:10.515986
++O formulário de importação em /cotacoes/lances fica carregando infinitamente ao clicar em "Importar Cotação". Adicione logs detalhados (prints com timestamps) em cada etapa da rota POST do app.py e dentro das funções do core/importador_cotacao.py para descobrirmos exatamente em qual linha ou loop o processamento do Excel está travando.
+
+# 2026-06-11 14:02:20.370238
++/exit
+
+# 2026-06-11 14:03:05.446057
++n
+
+# 2026-06-11 14:03:12.817832
++/add app.py templates/cotacao_lances.html core/importador_cotacao.py
+
+# 2026-06-11 14:03:22.261705
++O formulário de importação em /cotacoes/lances fica carregando infinitamente ao clicar em "Importar Cotação". Adicione logs detalhados (prints com timestamps) em cada etapa da rota POST do app.py e dentro das funções do core/importador_cotacao.py para descobrirmos exatamente em qual linha ou loop o processamento do Excel está travando.
+
+# 2026-06-11 14:04:00.965578
++/exit
+
+# 2026-06-11 14:04:27.431347
++/add app.py templates/cotacao_lances.html core/importador_cotacao.py
+
+# 2026-06-11 14:04:35.967840
++O formulário de importação em /cotacoes/lances fica carregando infinitamente ao clicar em "Importar Cotação". Adicione logs detalhados (prints com timestamps) em cada etapa da rota POST do app.py e dentro das funções do core/importador_cotacao.py para descobrirmos exatamente em qual linha ou loop o processamento do Excel está travando.
+
+# 2026-06-11 14:07:04.281384
++n
+
+# 2026-06-11 14:07:12.821215
++y
+
+# 2026-06-11 14:22:06.281849
++O servidor Flask congela e não imprime os prints no terminal antes de travar. Altere a rota POST em app.py e as funções envolvidas em core/cotacao_lances.py para que, em vez de usar print(), elas usem o módulo 'logging' do Python configurado para salvar tudo em um arquivo físico chamado 'debug_importacao.txt' na raiz do projeto, limpando o arquivo no início de cada requisição.
+
+# 2026-06-11 14:40:18.392361
++/exit

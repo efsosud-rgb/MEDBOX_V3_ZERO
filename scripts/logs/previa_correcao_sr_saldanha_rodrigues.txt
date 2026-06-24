@@ -1,0 +1,157 @@
+===== PRÉVIA CORREÇÃO SR =====
+
+Data/hora: 2026-06-24 10:59:57
+
+Banco alterado: NÃO
+Fabricantes alterados: NÃO
+
+REGRA:
+SR é ambíguo.
+Se estiver no campo fabricante e o produto for AGULHA, sugerir SALDANHA RODRIGUES.
+Se o contexto for SERINGA ou inconclusivo, não aplicar.
+
+Total SR encontrados: 15
+Sugeridos para SALDANHA RODRIGUES: 15
+Revisão manual: 0
+
+===== SUGESTÕES =====
+
+ID: 15
+Produto: AGULHA 20X5,5
+SKU_MASTER: AGULHA 20X5,5MM 24G
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 1
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 768
+Produto: AGULHA 20X5,5
+SKU_MASTER: AGULHA 20X5,5MM 24G
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 1
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 773
+Produto: AGULHA HIPO 20X5,5
+SKU_MASTER: AGULHA 20X5,5MM 24G
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 1
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1497
+Produto: AGULHA HIP 13X4,5MM 26G
+SKU_MASTER: AGULHA 13X0,45MM
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 1
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1498
+Produto: AGULHA HIP 13X4,5 26G 1/2 SEG DESC
+SKU_MASTER: AGULHA HIP 13X4,5 26G 1/2 SEG DESC
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 0
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1499
+Produto: AGULHA HIP 20X5,5MM 24G
+SKU_MASTER: AGULHA 20X0,55MM
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 1
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1500
+Produto: AGULHA HIP 20X5,5 24G 3/4 SEG DESC
+SKU_MASTER: AGULHA HIP 20X5,5 24G 3/4 SEG DESC
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 0
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1501
+Produto: AGULHA HIP 25X1,2MM 18G
+SKU_MASTER: AGULHA 25X1,2MM
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 1
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1503
+Produto: AGULHA HIP 25X6 23G 1 SEG DESC
+SKU_MASTER: AGULHA HIP 25X6 23G 1 SEG DESC
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 0
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1505
+Produto: AGULHA HIP 25X7 22G 1 SEG DESC
+SKU_MASTER: AGULHA HIP 25X7 22G 1 SEG DESC
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 0
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1507
+Produto: AGULHA HIP 25X8 21G 1 SEG DESC
+SKU_MASTER: AGULHA HIP 25X8 21G 1 SEG DESC
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 0
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1509
+Produto: AGULHA HIP 30X7 22G1 1/4 SEG DESC
+SKU_MASTER: AGULHA HIP 30X7 22G1 1/4 SEG DESC
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 0
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1511
+Produto: AGULHA HIP 30X8 21G 1 1/4 SEG DESC
+SKU_MASTER: AGULHA HIP 30X8 21G 1 1/4 SEG DESC
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 0
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1514
+Produto: AGULHA HIP 40X12 SEG DESC
+SKU_MASTER: AGULHA HIP 40X12 SEG DESC
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 0
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+ID: 1515
+Produto: AGULHA HIPODERMICA 40X16 16G
+SKU_MASTER: AGULHA HIPODERMICA 40X16 16G
+Fabricante atual: SR
+Fabricante sugerido: SALDANHA RODRIGUES
+Ativo: 1
+Decisão: SUGERIR_CORRECAO
+Motivo: SR no campo fabricante; contexto é AGULHA, não SERINGA; provável SALDANHA RODRIGUES.
+
+CSV gerado: C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\previa_correcao_sr_saldanha_rodrigues.csv
+
+VEREDITO:
+PREVIA_GERADA_SEM_ALTERAR_BANCO

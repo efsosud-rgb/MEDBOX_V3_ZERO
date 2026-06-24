@@ -909,6 +909,182 @@ def excluir_equivalencia_rota(equivalencia_id):
     return redirect(url_for("equivalencias"))
 
 
+
+
+# ============================================================
+# MAPA DE PREÇOS CLIENTES
+# ============================================================
+
+@app.route("/mapa-precos-clientes")
+def mapa_precos_clientes():
+    from core.mapa_precos_clientes import dados_tela_mapa_precos_clientes
+
+    q = request.args.get("q", "").strip()
+    limite = request.args.get("limite", "300").strip()
+    pagina = request.args.get("pagina", "1").strip()
+
+    dados = dados_tela_mapa_precos_clientes(q=q, limite=limite, pagina=pagina)
+
+    return render_template(
+        "mapa_precos_clientes.html",
+        data_atual=DATA_ATUAL,
+        resumo=resumo_dashboard(),
+        dados=dados,
+    )
+
+
+@app.route("/mapa-precos-clientes/importar")
+def mapa_precos_clientes_importar():
+    from core.mapa_precos_clientes import listar_clientes_mapa_precos, listar_cotacoes_mapa_precos
+
+    sucesso = request.args.get("sucesso", "").strip()
+    erro = request.args.get("erro", "").strip()
+
+    return render_template(
+        "mapa_precos_clientes_importar.html",
+        data_atual=DATA_ATUAL,
+        resumo=resumo_dashboard(),
+        clientes=listar_clientes_mapa_precos(),
+        cotacoes=listar_cotacoes_mapa_precos(),
+        sucesso=sucesso,
+        erro=erro,
+    )
+
+
+
+
+@app.route("/mapa-precos-clientes/importar", methods=["POST"])
+def mapa_precos_clientes_importar_post():
+    arquivo = request.files.get("arquivo")
+    cliente_id = request.form.get("cliente_id", "").strip()
+    nome_cliente_novo = request.form.get("nome_cliente_novo", "").strip()
+    meses_referencia = request.form.get("meses_referencia", "1").strip()
+    data_referencia = request.form.get("data_referencia", "").strip()
+    observacao = request.form.get("observacao", "").strip()
+
+    if not arquivo or arquivo.filename == "":
+        return redirect(url_for("mapa_precos_clientes_importar") + "?erro=Nenhum arquivo selecionado.")
+
+    if not cliente_id and not nome_cliente_novo:
+        return redirect(url_for("mapa_precos_clientes_importar") + "?erro=Selecione um cliente ou informe novo cliente.")
+
+    caminho = PASTA_UPLOADS / secure_filename(arquivo.filename)
+    arquivo.save(caminho)
+
+    try:
+        from core.mapa_precos_clientes import importar_cotacao_cliente_mapa
+
+        resultado = importar_cotacao_cliente_mapa(
+            caminho=caminho,
+            cliente_id=cliente_id or None,
+            nome_cliente_novo=nome_cliente_novo,
+            meses_referencia=meses_referencia,
+            data_referencia=data_referencia,
+            observacao=observacao,
+        )
+
+        msg = (
+            f"Cotação importada com sucesso. "
+            f"Itens: {resultado['total_importado']} | "
+            f"Sem SKU: {resultado['total_sem_sku']} | "
+            f"Meses: {resultado['meses_referencia']}"
+        )
+
+        return redirect(url_for("mapa_precos_clientes_importar") + "?" + urlencode({"sucesso": msg}))
+
+    except Exception as erro:
+        return redirect(url_for("mapa_precos_clientes_importar") + "?" + urlencode({"erro": str(erro)}))
+
+
+
+
+@app.route("/mapa-precos-clientes/atualizar-item", methods=["POST"])
+def mapa_precos_clientes_atualizar_item():
+    try:
+        data = request.get_json(force=True) or {}
+
+        from core.mapa_precos_clientes import atualizar_item_mapa_precos
+
+        resultado = atualizar_item_mapa_precos(
+            grupo_key=data.get("grupo_key", ""),
+            sku_master=data.get("sku_master", ""),
+            categoria=data.get("categoria", ""),
+        )
+
+        return jsonify(resultado)
+
+    except Exception as erro:
+        return jsonify({
+            "ok": False,
+            "erro": str(erro),
+        }), 400
+
+
+
+
+@app.route("/mapa-precos-clientes/skus-json")
+def mapa_precos_clientes_skus_json():
+    termo = request.args.get("q", "").strip().upper()
+
+    conn = conectar()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    if termo:
+        cur.execute("""
+            SELECT DISTINCT TRIM(sku_master) AS sku
+            FROM produtos
+            WHERE ativo = 1
+              AND sku_master IS NOT NULL
+              AND TRIM(sku_master) != ''
+              AND UPPER(sku_master) LIKE ?
+            ORDER BY sku_master
+            LIMIT 50
+        """, (f"%{termo}%",))
+    else:
+        cur.execute("""
+            SELECT DISTINCT TRIM(sku_master) AS sku
+            FROM produtos
+            WHERE ativo = 1
+              AND sku_master IS NOT NULL
+              AND TRIM(sku_master) != ''
+            ORDER BY sku_master
+            LIMIT 50
+        """)
+
+    skus = [row["sku"] for row in cur.fetchall() if row["sku"]]
+    conn.close()
+
+    return jsonify({
+        "ok": True,
+        "skus": skus,
+    })
+
+
+
+
+@app.route("/mapa-precos-clientes/atualizar-valor-cliente", methods=["POST"])
+def mapa_precos_clientes_atualizar_valor_cliente():
+    try:
+        data = request.get_json(force=True) or {}
+
+        from core.mapa_precos_clientes import atualizar_valor_cliente_mapa
+
+        resultado = atualizar_valor_cliente_mapa(
+            grupo_key=data.get("grupo_key", ""),
+            cliente_id=data.get("cliente_id"),
+            valor_unitario=data.get("valor_unitario", 0),
+        )
+
+        return jsonify(resultado)
+
+    except Exception as erro:
+        return jsonify({
+            "ok": False,
+            "erro": str(erro),
+        }), 400
+
+
 @app.route("/importacoes")
 def importacoes():
     return render_template(
@@ -982,6 +1158,178 @@ def importar_xml_nfe_rota():
         return redirect(url_for("importacoes") + f"?sucesso={total}&nome={fornecedor}")
     except Exception as erro:
         return f"Erro ao importar XML NF-e: {erro}"
+
+
+
+
+@app.route("/importacoes/manual", methods=["POST"])
+def importar_itens_manuais_fornecedor():
+    """
+    Lançamento manual de itens cotados por fornecedor.
+
+    Objetivo:
+    - cadastrar/localizar fornecedor;
+    - cadastrar/localizar produto;
+    - salvar SKU Master, fabricante e categoria;
+    - registrar preço na base de fornecedores;
+    - registrar o lançamento no histórico de importações.
+    """
+    data = request.get_json(force=True) or {}
+
+    fornecedor_id = str(data.get("fornecedor_id") or "").strip()
+    nome_fornecedor = str(data.get("nome_fornecedor") or "").strip()
+    tipo_fornecedor = str(data.get("tipo_fornecedor") or "Distribuidor").strip() or "Distribuidor"
+    itens = data.get("itens") or []
+
+    if not fornecedor_id and not nome_fornecedor:
+        return jsonify({"ok": False, "erro": "Informe ou selecione um fornecedor."}), 400
+
+    if not itens:
+        return jsonify({"ok": False, "erro": "Informe ao menos um item."}), 400
+
+    from core.banco import cadastrar_fornecedor, registrar_preco_fornecedor, registrar_cotacao, normalizar_texto, converter_float
+
+    conn = conectar()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    try:
+        if fornecedor_id:
+            fid = int(fornecedor_id)
+            cur.execute("SELECT id, nome, tipo FROM fornecedores WHERE id = ? AND ativo = 1", (fid,))
+            fornecedor = cur.fetchone()
+
+            if not fornecedor:
+                conn.close()
+                return jsonify({"ok": False, "erro": "Fornecedor selecionado não encontrado."}), 404
+
+            nome_fornecedor_final = fornecedor["nome"]
+            tipo_fornecedor_final = fornecedor["tipo"] or tipo_fornecedor
+        else:
+            conn.close()
+            fid = cadastrar_fornecedor(nome_fornecedor, tipo_fornecedor)
+            conn = conectar()
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            nome_fornecedor_final = normalizar_texto(nome_fornecedor)
+            tipo_fornecedor_final = tipo_fornecedor
+
+        total_salvo = 0
+        erros = []
+
+        for idx, item in enumerate(itens, start=1):
+            descricao = normalizar_texto(item.get("descricao"))
+            sku_master = normalizar_texto(item.get("sku_master") or descricao)
+            fabricante = normalizar_texto(item.get("fabricante"))
+            categoria = normalizar_texto(item.get("categoria"))
+            codigo_fornecedor = str(item.get("codigo_fornecedor") or "").strip()
+            preco = converter_float(item.get("preco_unitario"))
+            observacao = str(item.get("observacao") or "").strip()
+
+            if not descricao:
+                erros.append(f"Item {idx}: descrição vazia.")
+                continue
+
+            if preco <= 0:
+                erros.append(f"Item {idx}: preço unitário inválido.")
+                continue
+
+            # Localiza produto por SKU Master ou produto padrão.
+            cur.execute("""
+                SELECT id
+                FROM produtos
+                WHERE ativo = 1
+                  AND (
+                        UPPER(COALESCE(sku_master, '')) = UPPER(?)
+                        OR UPPER(COALESCE(produto_padrao, '')) = UPPER(?)
+                  )
+                ORDER BY id
+                LIMIT 1
+            """, (sku_master, descricao))
+
+            produto = cur.fetchone()
+
+            if produto:
+                produto_id = produto["id"]
+
+                cur.execute("""
+                    UPDATE produtos
+                    SET sku_master = COALESCE(NULLIF(?, ''), sku_master),
+                        fabricante = COALESCE(NULLIF(?, ''), fabricante),
+                        categoria = COALESCE(NULLIF(?, ''), categoria),
+                        observacoes = COALESCE(NULLIF(?, ''), observacoes),
+                        ativo = 1
+                    WHERE id = ?
+                """, (
+                    sku_master,
+                    fabricante,
+                    categoria,
+                    observacao,
+                    produto_id,
+                ))
+            else:
+                cur.execute("""
+                    INSERT INTO produtos (
+                        sku,
+                        produto_padrao,
+                        sku_master,
+                        fabricante,
+                        categoria,
+                        ativo,
+                        observacoes
+                    )
+                    VALUES (?, ?, ?, ?, ?, 1, ?)
+                """, (
+                    sku_master,
+                    descricao,
+                    sku_master,
+                    fabricante,
+                    categoria,
+                    observacao,
+                ))
+                produto_id = cur.lastrowid
+
+            registrar_preco_fornecedor(
+                fornecedor_id=fid,
+                produto_id=produto_id,
+                descricao_original=descricao,
+                codigo_fornecedor=codigo_fornecedor,
+                marca=fabricante,
+                preco=preco,
+                arquivo_origem="LANCAMENTO MANUAL",
+                origem_importacao="MANUAL_FORNECEDOR",
+                conn_existente=conn,
+            )
+
+            total_salvo += 1
+
+        conn.commit()
+        conn.close()
+
+        if total_salvo > 0:
+            registrar_cotacao(
+                fornecedor_id=fid,
+                arquivo_origem="LANCAMENTO MANUAL",
+                total_itens=total_salvo,
+            )
+
+        return jsonify({
+            "ok": True,
+            "mensagem": f"{total_salvo} item(ns) manual(is) salvo(s) para {nome_fornecedor_final}.",
+            "total": total_salvo,
+            "fornecedor": nome_fornecedor_final,
+            "erros": erros[:10],
+            "url": url_for("importacoes") + f"?sucesso={total_salvo}&nome={nome_fornecedor_final}",
+        })
+
+    except Exception as erro:
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+
+        return jsonify({"ok": False, "erro": str(erro)}), 500
 
 
 @app.route("/historico")
@@ -3585,6 +3933,280 @@ try:
 except Exception as _exc:
     print("AVISO: não foi possível substituir endpoints de lances:", _exc)
 
+
+
+
+
+# ============================================================
+# PATCH AUDITORIA SKU MASTER - BUSCA DESCRIÇÕES FORNECEDOR
+# Sugere descrições reais da base considerando especificações
+# como dosagem, tamanho, volume, cor, material, nº e referência.
+# ============================================================
+
+def _aud_sku_norm_txt(valor):
+    import re
+    texto = str(valor or "").upper().strip()
+    mapa = {
+        "Á": "A", "À": "A", "Ã": "A", "Â": "A",
+        "É": "E", "Ê": "E",
+        "Í": "I",
+        "Ó": "O", "Ô": "O", "Õ": "O",
+        "Ú": "U",
+        "Ç": "C",
+    }
+    for a, b in mapa.items():
+        texto = texto.replace(a, b)
+    texto = texto.replace("N°", "Nº").replace("NO.", "Nº").replace("NUMERO", "Nº")
+    texto = re.sub(r"[^A-Z0-9%º/,.+\- X]+", " ", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto
+
+
+def _aud_sku_tokens(valor):
+    import re
+    texto = _aud_sku_norm_txt(valor)
+    ignorar = {
+        "DE", "DA", "DO", "DAS", "DOS", "COM", "SEM", "PARA", "POR", "VIA",
+        "USO", "ADULTO", "INFANTIL", "PEDIATRICO", "MARCA", "GENERICO",
+        "IMPORTADO", "MANIPULADO", "UND", "UN", "UNIDADE"
+    }
+    return [t for t in re.split(r"\s+", texto) if len(t) >= 2 and t not in ignorar]
+
+
+def _aud_sku_specs(valor):
+    import re
+    texto = _aud_sku_norm_txt(valor)
+    specs = set()
+
+    # Medidas, dosagens e volumes
+    for m in re.findall(r"\b\d+(?:[,.]\d+)?\s*(?:MG|G|MCG|ML|L|UI|U|CM|MM|M|FR|G|GA|GZ)\b", texto):
+        specs.add(re.sub(r"\s+", "", m.replace(",", ".")))
+
+    # Tamanhos compostos: 13X4,5 | 25X7 | 8,5MM | 20CMX30CM
+    for m in re.findall(r"\b\d+(?:[,.]\d+)?\s*X\s*\d+(?:[,.]\d+)?(?:\s*(?:MM|CM|M))?\b", texto):
+        specs.add(re.sub(r"\s+", "", m.replace(",", ".")))
+
+    # Nº / número / FR / gauge solto
+    for m in re.findall(r"(?:Nº|N|NO)\s*\.?\s*\d+(?:[,.]\d+)?", texto):
+        specs.add(re.sub(r"\s+", "", m.replace(",", ".")))
+
+    # Referências
+    for m in re.findall(r"REF\.?\s*[:\-]?\s*[A-Z0-9/\-.]+", texto):
+        specs.add(m.replace(" ", ""))
+
+    # Palavras técnicas que mudam o produto
+    termos_criticos = [
+        "COM BALAO", "SEM BALAO", "C/ BALAO", "S/ BALAO",
+        "LATEX", "SILICONE", "PVC", "POLIURETANO",
+        "AZUL", "PRETO", "VERDE", "ROSA", "BRANCO",
+        "OPACO", "TRANSPARENTE",
+        "2 VIAS", "3 VIAS", "DUAS VIAS", "TRES VIAS",
+        "DRENAVEL", "FECHADA", "ABERTA",
+        "ESTERIL", "NAO ESTERIL",
+    ]
+    for termo in termos_criticos:
+        if termo in texto:
+            specs.add(termo)
+
+    return specs
+
+
+def _aud_sku_score(descricao_base, candidato):
+    base_norm = _aud_sku_norm_txt(descricao_base)
+    cand_norm = _aud_sku_norm_txt(candidato)
+
+    base_tokens = set(_aud_sku_tokens(base_norm))
+    cand_tokens = set(_aud_sku_tokens(cand_norm))
+
+    if not base_tokens or not cand_tokens:
+        return 0, ["SEM_TOKENS"]
+
+    inter = base_tokens.intersection(cand_tokens)
+    uniao = base_tokens.union(cand_tokens)
+    score_tokens = (len(inter) / max(1, len(uniao))) * 70
+
+    base_specs = _aud_sku_specs(base_norm)
+    cand_specs = _aud_sku_specs(cand_norm)
+
+    alertas = []
+
+    if base_specs:
+        specs_iguais = base_specs.intersection(cand_specs)
+        specs_faltando = base_specs.difference(cand_specs)
+        specs_extras = cand_specs.difference(base_specs)
+
+        score_specs = (len(specs_iguais) / max(1, len(base_specs))) * 30
+
+        if specs_faltando:
+            alertas.append("ESPEC_FALTANDO: " + ", ".join(sorted(list(specs_faltando))[:5]))
+        if specs_extras:
+            alertas.append("ESPEC_EXTRA: " + ", ".join(sorted(list(specs_extras))[:5]))
+    else:
+        score_specs = 15
+        if cand_specs:
+            alertas.append("CANDIDATO_TEM_ESPECIFICACAO_EXTRA")
+
+    score = int(round(score_tokens + score_specs))
+
+    # Penaliza candidatos que parecem parecidos, mas têm especificações conflitantes.
+    if alertas:
+        score = max(0, score - 15)
+
+    # Bônus quando o começo bate.
+    base_inicio = " ".join(_aud_sku_tokens(base_norm)[:3])
+    cand_inicio = " ".join(_aud_sku_tokens(cand_norm)[:3])
+    if base_inicio and base_inicio == cand_inicio:
+        score += 10
+
+    return min(100, score), alertas
+
+
+@app.route("/sku-master/auditoria/descricoes-fornecedor-json")
+def sku_master_auditoria_descricoes_fornecedor_json():
+    produto_id = request.args.get("produto_id", "").strip()
+    descricao = request.args.get("descricao", "").strip()
+    limite = 30
+
+    conn = conectar()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    if produto_id and not descricao:
+        row = cur.execute("""
+            SELECT produto_padrao, sku_master
+            FROM produtos
+            WHERE id = ?
+            LIMIT 1
+        """, (produto_id,)).fetchone()
+        if row:
+            descricao = row["produto_padrao"] or row["sku_master"] or ""
+
+    descricao_norm = _aud_sku_norm_txt(descricao)
+    tokens = _aud_sku_tokens(descricao_norm)
+    principais = tokens[:5]
+
+    candidatos = []
+
+    # Busca em preços de fornecedores: descrição real mais útil para preencher o campo.
+    where = []
+    params = []
+    for termo in principais:
+        where.append("UPPER(COALESCE(pf.descricao_original, '')) LIKE ?")
+        params.append(f"%{termo}%")
+
+    where_sql = " OR ".join(where) if where else "1=1"
+
+    try:
+        rows = cur.execute(f"""
+            SELECT
+                pf.produto_id,
+                pf.descricao_original,
+                pf.marca,
+                pf.preco,
+                pf.fornecedor_id,
+                f.nome AS fornecedor,
+                p.sku_master,
+                p.fabricante,
+                p.categoria
+            FROM precos_fornecedores pf
+            LEFT JOIN fornecedores f ON f.id = pf.fornecedor_id
+            LEFT JOIN produtos p ON p.id = pf.produto_id
+            WHERE pf.descricao_original IS NOT NULL
+              AND TRIM(pf.descricao_original) <> ''
+              AND ({where_sql})
+            ORDER BY pf.id DESC
+            LIMIT 800
+        """, params).fetchall()
+    except Exception:
+        rows = []
+
+    vistos = set()
+
+    for r in rows:
+        desc_cand = str(r["descricao_original"] or "").strip()
+        chave = _aud_sku_norm_txt(desc_cand)
+        if not chave or chave in vistos:
+            continue
+        vistos.add(chave)
+
+        score, alertas = _aud_sku_score(descricao, desc_cand)
+        if score < 35:
+            continue
+
+        marca = str(r["marca"] or r["fabricante"] or "").strip().upper()
+        sku = str(r["sku_master"] or "").strip().upper()
+
+        candidatos.append({
+            "origem": "PRECO_FORNECEDOR",
+            "descricao": desc_cand.upper(),
+            "sku_master": sku,
+            "marca": marca,
+            "categoria": str(r["categoria"] or "").strip().upper(),
+            "fornecedor": str(r["fornecedor"] or "").strip().upper(),
+            "preco": float(r["preco"] or 0),
+            "score": score,
+            "alertas": alertas,
+        })
+
+    # Complementa com produtos já cadastrados.
+    where = []
+    params = []
+    for termo in principais:
+        where.append("(UPPER(COALESCE(produto_padrao, '')) LIKE ? OR UPPER(COALESCE(sku_master, '')) LIKE ?)")
+        params.extend([f"%{termo}%", f"%{termo}%"])
+
+    where_sql = " OR ".join(where) if where else "1=1"
+
+    try:
+        rows_prod = cur.execute(f"""
+            SELECT id, produto_padrao, sku_master, fabricante, categoria
+            FROM produtos
+            WHERE ativo = 1
+              AND ({where_sql})
+            ORDER BY id DESC
+            LIMIT 500
+        """, params).fetchall()
+    except Exception:
+        rows_prod = []
+
+    for r in rows_prod:
+        desc_cand = str(r["sku_master"] or r["produto_padrao"] or "").strip()
+        chave = "PROD::" + _aud_sku_norm_txt(desc_cand)
+        if not desc_cand or chave in vistos:
+            continue
+        vistos.add(chave)
+
+        score, alertas = _aud_sku_score(descricao, desc_cand)
+        if score < 35:
+            continue
+
+        candidatos.append({
+            "origem": "PRODUTOS",
+            "descricao": desc_cand.upper(),
+            "sku_master": str(r["sku_master"] or "").strip().upper(),
+            "marca": str(r["fabricante"] or "").strip().upper(),
+            "categoria": str(r["categoria"] or "").strip().upper(),
+            "fornecedor": "",
+            "preco": 0,
+            "score": score,
+            "alertas": alertas,
+        })
+
+    conn.close()
+
+    candidatos.sort(key=lambda x: (
+        -x["score"],
+        0 if x.get("sku_master") else 1,
+        0 if not x.get("alertas") else 1,
+        x["descricao"]
+    ))
+
+    return jsonify({
+        "ok": True,
+        "descricao_base": descricao,
+        "total": len(candidatos[:limite]),
+        "itens": candidatos[:limite],
+    })
 
 
 if __name__ == "__main__":

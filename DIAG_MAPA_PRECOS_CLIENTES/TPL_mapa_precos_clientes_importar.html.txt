@@ -1,0 +1,211 @@
+﻿    1: {% extends "base.html" %}
+    2: 
+    3: {% block title %}Importar CotaÃ§Ã£o Cliente{% endblock %}
+    4: {% block subtitle %}LanÃ§amento de produtos, quantidade cotada e meses de referÃªncia para previsÃ£o mensal{% endblock %}
+    5: 
+    6: {% block content %}
+    7: 
+    8: <style>
+    9:     .mpc-form-card {
+   10:         background: white;
+   11:         border: 1px solid #d9e2ef;
+   12:         border-radius: 14px;
+   13:         padding: 18px;
+   14:         max-width: 1040px;
+   15:         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+   16:         margin-bottom: 18px;
+   17:     }
+   18: 
+   19:     .mpc-form-grid {
+   20:         display: grid;
+   21:         grid-template-columns: 1.3fr 1.3fr .8fr .9fr;
+   22:         gap: 14px;
+   23:         margin-bottom: 14px;
+   24:     }
+   25: 
+   26:     .mpc-field label {
+   27:         display: block;
+   28:         font-size: 11px;
+   29:         text-transform: uppercase;
+   30:         font-weight: 800;
+   31:         color: #334155;
+   32:         margin-bottom: 6px;
+   33:     }
+   34: 
+   35:     .mpc-field input,
+   36:     .mpc-field select,
+   37:     .mpc-field textarea {
+   38:         width: 100%;
+   39:         border: 1px solid #cbd5e1;
+   40:         border-radius: 10px;
+   41:         padding: 10px;
+   42:         font-size: 13px;
+   43:     }
+   44: 
+   45:     .mpc-info {
+   46:         background: #eff6ff;
+   47:         border: 1px solid #bfdbfe;
+   48:         color: #1e3a8a;
+   49:         padding: 12px;
+   50:         border-radius: 12px;
+   51:         margin-bottom: 16px;
+   52:         font-size: 13px;
+   53:     }
+   54: 
+   55:     .mpc-btn {
+   56:         background: #00486C;
+   57:         color: white;
+   58:         border: none;
+   59:         padding: 11px 16px;
+   60:         border-radius: 10px;
+   61:         font-weight: 800;
+   62:         cursor: pointer;
+   63:     }
+   64: 
+   65:     .mpc-btn.secondary {
+   66:         background: #D80024;
+   67:         text-decoration: none;
+   68:         display: inline-block;
+   69:     }
+   70: 
+   71:     .mpc-table {
+   72:         width: 100%;
+   73:         border-collapse: collapse;
+   74:         font-size: 12px;
+   75:         background: white;
+   76:         border: 1px solid #d9e2ef;
+   77:         border-radius: 14px;
+   78:         overflow: hidden;
+   79:     }
+   80: 
+   81:     .mpc-table th {
+   82:         background: #0f1b2d;
+   83:         color: white;
+   84:         padding: 9px;
+   85:         text-align: left;
+   86:     }
+   87: 
+   88:     .mpc-table td {
+   89:         padding: 9px;
+   90:         border-top: 1px solid #e5edf7;
+   91:     }
+   92: 
+   93:     .mpc-alert {
+   94:         padding: 12px;
+   95:         border-radius: 12px;
+   96:         margin-bottom: 14px;
+   97:         font-weight: 700;
+   98:     }
+   99: 
+  100:     .mpc-alert.ok {
+  101:         background: #dcfce7;
+  102:         color: #166534;
+  103:         border: 1px solid #86efac;
+  104:     }
+  105: 
+  106:     .mpc-alert.erro {
+  107:         background: #fee2e2;
+  108:         color: #991b1b;
+  109:         border: 1px solid #fecaca;
+  110:     }
+  111: </style>
+  112: 
+  113: {% if sucesso %}
+  114:     <div class="mpc-alert ok">{{ sucesso }}</div>
+  115: {% endif %}
+  116: 
+  117: {% if erro %}
+  118:     <div class="mpc-alert erro">{{ erro }}</div>
+  119: {% endif %}
+  120: 
+  121: <div class="mpc-form-card">
+  122:     <div class="mpc-info">
+  123:         <strong>Regra:</strong> quantidade mensal estimada = quantidade cotada Ã· meses de referÃªncia.
+  124:         Exemplo: 30.000 unidades para 3 meses = 10.000 unidades/mÃªs.
+  125:     </div>
+  126: 
+  127:     <form method="POST" action="/mapa-precos-clientes/importar" enctype="multipart/form-data">
+  128:         <div class="mpc-form-grid">
+  129:             <div class="mpc-field">
+  130:                 <label>Cliente existente</label>
+  131:                 <select name="cliente_id">
+  132:                     <option value="">Selecione ou informe novo cliente</option>
+  133:                     {% for cliente in clientes %}
+  134:                         <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
+  135:                     {% endfor %}
+  136:                 </select>
+  137:             </div>
+  138: 
+  139:             <div class="mpc-field">
+  140:                 <label>Novo cliente variÃ¡vel</label>
+  141:                 <input name="nome_cliente_novo" placeholder="Ex.: HOSPITAL X">
+  142:             </div>
+  143: 
+  144:             <div class="mpc-field">
+  145:                 <label>Qtd. referente a meses</label>
+  146:                 <input name="meses_referencia" type="number" min="1" step="1" value="1" required>
+  147:             </div>
+  148: 
+  149:             <div class="mpc-field">
+  150:                 <label>Data referÃªncia</label>
+  151:                 <input name="data_referencia" type="month">
+  152:             </div>
+  153:         </div>
+  154: 
+  155:         <div class="mpc-field">
+  156:             <label>Arquivo Excel da cotaÃ§Ã£o do cliente</label>
+  157:             <input name="arquivo" type="file" accept=".xlsx,.xlsm,.xls" required>
+  158:         </div>
+  159: 
+  160:         <br>
+  161: 
+  162:         <div class="mpc-field">
+  163:             <label>ObservaÃ§Ã£o</label>
+  164:             <textarea name="observacao" rows="2" placeholder="Opcional"></textarea>
+  165:         </div>
+  166: 
+  167:         <br>
+  168: 
+  169:         <button class="mpc-btn" type="submit">Importar CotaÃ§Ã£o Cliente</button>
+  170:         <a class="mpc-btn secondary" href="/mapa-precos-clientes">Voltar ao Mapa</a>
+  171:     </form>
+  172: </div>
+  173: 
+  174: <div class="mpc-form-card">
+  175:     <h3>Ãšltimas cotaÃ§Ãµes importadas</h3>
+  176: 
+  177:     <table class="mpc-table">
+  178:         <thead>
+  179:             <tr>
+  180:                 <th>ID</th>
+  181:                 <th>Cliente</th>
+  182:                 <th>Arquivo</th>
+  183:                 <th>Meses</th>
+  184:                 <th>Itens</th>
+  185:                 <th>Demanda mensal</th>
+  186:                 <th>Importado em</th>
+  187:             </tr>
+  188:         </thead>
+  189:         <tbody>
+  190:             {% if cotacoes %}
+  191:                 {% for cot in cotacoes %}
+  192:                     <tr>
+  193:                         <td>{{ cot.id }}</td>
+  194:                         <td>{{ cot.cliente }}</td>
+  195:                         <td>{{ cot.arquivo_origem }}</td>
+  196:                         <td>{{ cot.meses_referencia }}</td>
+  197:                         <td>{{ cot.total_itens }}</td>
+  198:                         <td>{{ cot.demanda_mensal_formatada }}</td>
+  199:                         <td>{{ cot.criado_em }}</td>
+  200:                     </tr>
+  201:                 {% endfor %}
+  202:             {% else %}
+  203:                 <tr>
+  204:                     <td colspan="7">Nenhuma cotaÃ§Ã£o de cliente importada ainda.</td>
+  205:                 </tr>
+  206:             {% endif %}
+  207:         </tbody>
+  208:     </table>
+  209: </div>
+  210: 
+  211: {% endblock %}

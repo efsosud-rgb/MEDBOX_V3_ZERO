@@ -1,0 +1,2931 @@
+{% extends "base.html" %}
+
+{% block title %}Mapa de Preços Clientes
+<script id="mpc-salvar-sku-enter-20260623">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sku-input').forEach(function(input) {
+        input.addEventListener('keydown', function(ev) {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                if (typeof salvarCampoMapa === 'function') {
+                    salvarCampoMapa(input);
+                } else {
+                    input.blur();
+                }
+            }
+        });
+    });
+});
+</script>
+
+
+<script id="mpc-colunas-redimensionaveis-js">
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.querySelector('.mpc-table');
+    const wrap = document.querySelector('.mpc-table-wrap');
+
+    if (!table || !wrap) return;
+
+    const STORAGE_KEY = 'medbox_mapa_precos_col_widths_v1_' + location.pathname;
+
+    function getLeafHeaders() {
+        const thead = table.tHead;
+        if (!thead || thead.rows.length < 2) return [];
+
+        const row1 = thead.rows[0];
+        const row2 = thead.rows[1];
+
+        const leafs = [];
+        let col = 1;
+        let row2Index = 0;
+
+        Array.from(row1.cells).forEach(function (th) {
+            const colspan = th.colSpan || 1;
+            const rowspan = th.rowSpan || 1;
+
+            if (colspan > 1 && rowspan === 1) {
+                for (let i = 0; i < colspan; i++) {
+                    const sub = row2.cells[row2Index++];
+                    if (sub) {
+                        leafs.push({ el: sub, col: col });
+                    }
+                    col++;
+                }
+            } else {
+                leafs.push({ el: th, col: col });
+                col += colspan;
+            }
+        });
+
+        return leafs;
+    }
+
+    function getColumnCount() {
+        const firstBodyRow = table.querySelector('tbody tr');
+        if (firstBodyRow && firstBodyRow.cells.length) {
+            return firstBodyRow.cells.length;
+        }
+
+        const leafs = getLeafHeaders();
+        return leafs.length || 43;
+    }
+
+    const columnCount = getColumnCount();
+    const leafHeaders = getLeafHeaders();
+
+    function loadWidths() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            return saved && typeof saved === 'object' ? saved : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveWidths(widths) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+    }
+
+    let widths = loadWidths();
+
+    function pxNumber(value, fallback) {
+        const n = parseFloat(value);
+        return Number.isFinite(n) && n > 0 ? n : fallback;
+    }
+
+    function ensureInitialWidths() {
+        leafHeaders.forEach(function (item) {
+            const col = item.col;
+            if (!widths[col]) {
+                const rect = item.el.getBoundingClientRect();
+                widths[col] = Math.max(60, Math.round(rect.width || 100));
+            }
+        });
+
+        const firstRow = table.querySelector('tbody tr');
+        if (firstRow) {
+            Array.from(firstRow.cells).forEach(function (td, index) {
+                const col = index + 1;
+                if (!widths[col]) {
+                    const rect = td.getBoundingClientRect();
+                    widths[col] = Math.max(60, Math.round(rect.width || 100));
+                }
+            });
+        }
+
+        for (let col = 1; col <= columnCount; col++) {
+            if (!widths[col]) widths[col] = col <= 13 ? 100 : 95;
+        }
+    }
+
+    function cssRulesForColumns() {
+        let css = '';
+
+        for (let col = 1; col <= columnCount; col++) {
+            css += `
+                .mpc-table tbody td:nth-child(${col}),
+                .mpc-table thead tr:nth-child(2) th:nth-child(${col}) {
+                    width: var(--mpc-col-${col}) !important;
+                    min-width: var(--mpc-col-${col}) !important;
+                    max-width: var(--mpc-col-${col}) !important;
+                }
+            `;
+        }
+
+        for (let col = 1; col <= 13; col++) {
+            css += `
+                .mpc-table tbody td:nth-child(${col}) {
+                    left: var(--mpc-left-${col}) !important;
+                }
+            `;
+        }
+
+        return css;
+    }
+
+    function ensureDynamicStyle() {
+        let style = document.getElementById('mpc-colunas-dinamicas-style');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'mpc-colunas-dinamicas-style';
+            document.head.appendChild(style);
+        }
+        style.textContent = cssRulesForColumns();
+    }
+
+    function applyHeaderWidthsAndSticky() {
+        leafHeaders.forEach(function (item) {
+            const col = item.col;
+            const w = widths[col] || 100;
+
+            item.el.classList.add('mpc-resizable-th');
+            item.el.dataset.mpcCol = col;
+
+            item.el.style.setProperty('width', w + 'px', 'important');
+            item.el.style.setProperty('min-width', w + 'px', 'important');
+            item.el.style.setProperty('max-width', w + 'px', 'important');
+
+            if (col <= 13) {
+                item.el.style.setProperty('left', `var(--mpc-left-${col})`, 'important');
+                item.el.style.setProperty('z-index', '120', 'important');
+            }
+        });
+    }
+
+    function recalcStickyLefts() {
+        let left = 0;
+
+        for (let col = 1; col <= 13; col++) {
+            table.style.setProperty(`--mpc-left-${col}`, left + 'px');
+            left += pxNumber(widths[col], 100);
+        }
+    }
+
+    function applyWidths() {
+        ensureDynamicStyle();
+
+        for (let col = 1; col <= columnCount; col++) {
+            table.style.setProperty(`--mpc-col-${col}`, `${Math.round(widths[col] || 100)}px`);
+        }
+
+        recalcStickyLefts();
+        applyHeaderWidthsAndSticky();
+    }
+
+    function addResetButton() {
+        if (document.getElementById('mpc-reset-colunas-btn')) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'mpc-reset-colunas-btn';
+        btn.className = 'mpc-reset-colunas-btn';
+        btn.textContent = 'Redefinir larguras';
+
+        btn.addEventListener('click', function () {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        });
+
+        const botoes = document.querySelector('.mpc-filtro-botoes');
+        if (botoes) {
+            botoes.appendChild(btn);
+        } else {
+            wrap.parentElement.insertBefore(btn, wrap);
+        }
+
+        const hint = document.createElement('div');
+        hint.className = 'mpc-col-hint';
+        hint.textContent = 'Dica: arraste a borda direita do cabeçalho para ajustar a largura da coluna. Dê duplo clique para ajuste automático.';
+        if (botoes && botoes.parentElement) {
+            botoes.parentElement.appendChild(hint);
+        }
+    }
+
+    function autoFitColumn(col) {
+        let maxLen = 8;
+
+        const header = leafHeaders.find(x => x.col === col);
+        if (header) {
+            maxLen = Math.max(maxLen, (header.el.innerText || '').trim().length);
+        }
+
+        const rows = Array.from(table.querySelectorAll('tbody tr')).slice(0, 80);
+        rows.forEach(function (tr) {
+            const cell = tr.cells[col - 1];
+            if (!cell) return;
+
+            let text = '';
+            const input = cell.querySelector('input, select');
+            if (input) {
+                text = input.value || input.options?.[input.selectedIndex]?.text || '';
+            } else {
+                text = cell.innerText || '';
+            }
+
+            text = text.trim();
+            maxLen = Math.max(maxLen, text.length);
+        });
+
+        let newWidth = Math.round(maxLen * 7.2 + 28);
+
+        if (col === 2 || col === 3) {
+            newWidth = Math.min(Math.max(newWidth, 180), 520);
+        } else {
+            newWidth = Math.min(Math.max(newWidth, 70), 260);
+        }
+
+        widths[col] = newWidth;
+        saveWidths(widths);
+        applyWidths();
+    }
+
+    function addResizers() {
+        leafHeaders.forEach(function (item) {
+            const th = item.el;
+            const col = item.col;
+
+            if (th.querySelector('.mpc-col-resizer')) return;
+
+            th.classList.add('mpc-resizable-th');
+
+            const resizer = document.createElement('span');
+            resizer.className = 'mpc-col-resizer';
+            resizer.title = 'Arraste para ajustar a largura. Duplo clique para autoajustar.';
+
+            th.appendChild(resizer);
+
+            let startX = 0;
+            let startWidth = 0;
+
+            resizer.addEventListener('mousedown', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+
+                startX = ev.clientX;
+                startWidth = pxNumber(widths[col], th.getBoundingClientRect().width);
+
+                document.body.classList.add('mpc-resizing-columns');
+                resizer.classList.add('mpc-resizing');
+
+                function onMove(moveEv) {
+                    const delta = moveEv.clientX - startX;
+                    let newWidth = startWidth + delta;
+
+                    if (col === 2 || col === 3) {
+                        newWidth = Math.max(120, Math.min(650, newWidth));
+                    } else {
+                        newWidth = Math.max(55, Math.min(360, newWidth));
+                    }
+
+                    widths[col] = Math.round(newWidth);
+                    applyWidths();
+                }
+
+                function onUp() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    document.body.classList.remove('mpc-resizing-columns');
+                    resizer.classList.remove('mpc-resizing');
+                    saveWidths(widths);
+                }
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+
+            resizer.addEventListener('dblclick', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                autoFitColumn(col);
+            });
+        });
+    }
+
+    ensureInitialWidths();
+    applyWidths();
+    addResizers();
+    addResetButton();
+});
+</script>
+
+{% endblock %}
+{% block subtitle %}Previsão de demanda mensal, preços por cliente e oportunidade de compra MedBox
+<script id="mpc-salvar-sku-enter-20260623">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sku-input').forEach(function(input) {
+        input.addEventListener('keydown', function(ev) {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                if (typeof salvarCampoMapa === 'function') {
+                    salvarCampoMapa(input);
+                } else {
+                    input.blur();
+                }
+            }
+        });
+    });
+});
+</script>
+
+
+<script id="mpc-colunas-redimensionaveis-js">
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.querySelector('.mpc-table');
+    const wrap = document.querySelector('.mpc-table-wrap');
+
+    if (!table || !wrap) return;
+
+    const STORAGE_KEY = 'medbox_mapa_precos_col_widths_v1_' + location.pathname;
+
+    function getLeafHeaders() {
+        const thead = table.tHead;
+        if (!thead || thead.rows.length < 2) return [];
+
+        const row1 = thead.rows[0];
+        const row2 = thead.rows[1];
+
+        const leafs = [];
+        let col = 1;
+        let row2Index = 0;
+
+        Array.from(row1.cells).forEach(function (th) {
+            const colspan = th.colSpan || 1;
+            const rowspan = th.rowSpan || 1;
+
+            if (colspan > 1 && rowspan === 1) {
+                for (let i = 0; i < colspan; i++) {
+                    const sub = row2.cells[row2Index++];
+                    if (sub) {
+                        leafs.push({ el: sub, col: col });
+                    }
+                    col++;
+                }
+            } else {
+                leafs.push({ el: th, col: col });
+                col += colspan;
+            }
+        });
+
+        return leafs;
+    }
+
+    function getColumnCount() {
+        const firstBodyRow = table.querySelector('tbody tr');
+        if (firstBodyRow && firstBodyRow.cells.length) {
+            return firstBodyRow.cells.length;
+        }
+
+        const leafs = getLeafHeaders();
+        return leafs.length || 43;
+    }
+
+    const columnCount = getColumnCount();
+    const leafHeaders = getLeafHeaders();
+
+    function loadWidths() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            return saved && typeof saved === 'object' ? saved : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveWidths(widths) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+    }
+
+    let widths = loadWidths();
+
+    function pxNumber(value, fallback) {
+        const n = parseFloat(value);
+        return Number.isFinite(n) && n > 0 ? n : fallback;
+    }
+
+    function ensureInitialWidths() {
+        leafHeaders.forEach(function (item) {
+            const col = item.col;
+            if (!widths[col]) {
+                const rect = item.el.getBoundingClientRect();
+                widths[col] = Math.max(60, Math.round(rect.width || 100));
+            }
+        });
+
+        const firstRow = table.querySelector('tbody tr');
+        if (firstRow) {
+            Array.from(firstRow.cells).forEach(function (td, index) {
+                const col = index + 1;
+                if (!widths[col]) {
+                    const rect = td.getBoundingClientRect();
+                    widths[col] = Math.max(60, Math.round(rect.width || 100));
+                }
+            });
+        }
+
+        for (let col = 1; col <= columnCount; col++) {
+            if (!widths[col]) widths[col] = col <= 13 ? 100 : 95;
+        }
+    }
+
+    function cssRulesForColumns() {
+        let css = '';
+
+        for (let col = 1; col <= columnCount; col++) {
+            css += `
+                .mpc-table tbody td:nth-child(${col}),
+                .mpc-table thead tr:nth-child(2) th:nth-child(${col}) {
+                    width: var(--mpc-col-${col}) !important;
+                    min-width: var(--mpc-col-${col}) !important;
+                    max-width: var(--mpc-col-${col}) !important;
+                }
+            `;
+        }
+
+        for (let col = 1; col <= 13; col++) {
+            css += `
+                .mpc-table tbody td:nth-child(${col}) {
+                    left: var(--mpc-left-${col}) !important;
+                }
+            `;
+        }
+
+        return css;
+    }
+
+    function ensureDynamicStyle() {
+        let style = document.getElementById('mpc-colunas-dinamicas-style');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'mpc-colunas-dinamicas-style';
+            document.head.appendChild(style);
+        }
+        style.textContent = cssRulesForColumns();
+    }
+
+    function applyHeaderWidthsAndSticky() {
+        leafHeaders.forEach(function (item) {
+            const col = item.col;
+            const w = widths[col] || 100;
+
+            item.el.classList.add('mpc-resizable-th');
+            item.el.dataset.mpcCol = col;
+
+            item.el.style.setProperty('width', w + 'px', 'important');
+            item.el.style.setProperty('min-width', w + 'px', 'important');
+            item.el.style.setProperty('max-width', w + 'px', 'important');
+
+            if (col <= 13) {
+                item.el.style.setProperty('left', `var(--mpc-left-${col})`, 'important');
+                item.el.style.setProperty('z-index', '120', 'important');
+            }
+        });
+    }
+
+    function recalcStickyLefts() {
+        let left = 0;
+
+        for (let col = 1; col <= 13; col++) {
+            table.style.setProperty(`--mpc-left-${col}`, left + 'px');
+            left += pxNumber(widths[col], 100);
+        }
+    }
+
+    function applyWidths() {
+        ensureDynamicStyle();
+
+        for (let col = 1; col <= columnCount; col++) {
+            table.style.setProperty(`--mpc-col-${col}`, `${Math.round(widths[col] || 100)}px`);
+        }
+
+        recalcStickyLefts();
+        applyHeaderWidthsAndSticky();
+    }
+
+    function addResetButton() {
+        if (document.getElementById('mpc-reset-colunas-btn')) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'mpc-reset-colunas-btn';
+        btn.className = 'mpc-reset-colunas-btn';
+        btn.textContent = 'Redefinir larguras';
+
+        btn.addEventListener('click', function () {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        });
+
+        const botoes = document.querySelector('.mpc-filtro-botoes');
+        if (botoes) {
+            botoes.appendChild(btn);
+        } else {
+            wrap.parentElement.insertBefore(btn, wrap);
+        }
+
+        const hint = document.createElement('div');
+        hint.className = 'mpc-col-hint';
+        hint.textContent = 'Dica: arraste a borda direita do cabeçalho para ajustar a largura da coluna. Dê duplo clique para ajuste automático.';
+        if (botoes && botoes.parentElement) {
+            botoes.parentElement.appendChild(hint);
+        }
+    }
+
+    function autoFitColumn(col) {
+        let maxLen = 8;
+
+        const header = leafHeaders.find(x => x.col === col);
+        if (header) {
+            maxLen = Math.max(maxLen, (header.el.innerText || '').trim().length);
+        }
+
+        const rows = Array.from(table.querySelectorAll('tbody tr')).slice(0, 80);
+        rows.forEach(function (tr) {
+            const cell = tr.cells[col - 1];
+            if (!cell) return;
+
+            let text = '';
+            const input = cell.querySelector('input, select');
+            if (input) {
+                text = input.value || input.options?.[input.selectedIndex]?.text || '';
+            } else {
+                text = cell.innerText || '';
+            }
+
+            text = text.trim();
+            maxLen = Math.max(maxLen, text.length);
+        });
+
+        let newWidth = Math.round(maxLen * 7.2 + 28);
+
+        if (col === 2 || col === 3) {
+            newWidth = Math.min(Math.max(newWidth, 180), 520);
+        } else {
+            newWidth = Math.min(Math.max(newWidth, 70), 260);
+        }
+
+        widths[col] = newWidth;
+        saveWidths(widths);
+        applyWidths();
+    }
+
+    function addResizers() {
+        leafHeaders.forEach(function (item) {
+            const th = item.el;
+            const col = item.col;
+
+            if (th.querySelector('.mpc-col-resizer')) return;
+
+            th.classList.add('mpc-resizable-th');
+
+            const resizer = document.createElement('span');
+            resizer.className = 'mpc-col-resizer';
+            resizer.title = 'Arraste para ajustar a largura. Duplo clique para autoajustar.';
+
+            th.appendChild(resizer);
+
+            let startX = 0;
+            let startWidth = 0;
+
+            resizer.addEventListener('mousedown', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+
+                startX = ev.clientX;
+                startWidth = pxNumber(widths[col], th.getBoundingClientRect().width);
+
+                document.body.classList.add('mpc-resizing-columns');
+                resizer.classList.add('mpc-resizing');
+
+                function onMove(moveEv) {
+                    const delta = moveEv.clientX - startX;
+                    let newWidth = startWidth + delta;
+
+                    if (col === 2 || col === 3) {
+                        newWidth = Math.max(120, Math.min(650, newWidth));
+                    } else {
+                        newWidth = Math.max(55, Math.min(360, newWidth));
+                    }
+
+                    widths[col] = Math.round(newWidth);
+                    applyWidths();
+                }
+
+                function onUp() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    document.body.classList.remove('mpc-resizing-columns');
+                    resizer.classList.remove('mpc-resizing');
+                    saveWidths(widths);
+                }
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+
+            resizer.addEventListener('dblclick', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                autoFitColumn(col);
+            });
+        });
+    }
+
+    ensureInitialWidths();
+    applyWidths();
+    addResizers();
+    addResetButton();
+});
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<style>
+    .mpc-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(160px, 1fr));
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .mpc-card {
+        background: linear-gradient(145deg, #ffffff, #eef4fb);
+        border: 1px solid #d9e2ef;
+        border-radius: 16px;
+        padding: 15px;
+        box-shadow: 8px 8px 18px rgba(15, 23, 42, 0.08), -6px -6px 18px rgba(255,255,255,0.9);
+    }
+
+    .mpc-card small {
+        display: block;
+        color: #64748b;
+        font-size: 10px;
+        text-transform: uppercase;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .mpc-card strong {
+        font-size: 22px;
+        color: #0f172a;
+    }
+
+    .mpc-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+    }
+
+    .mpc-btn {
+        background: linear-gradient(145deg, #00557d, #003d5c);
+        color: white;
+        border: none;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-weight: 800;
+        text-decoration: none;
+        display: inline-block;
+        box-shadow: 0 5px 12px rgba(0,72,108,.24);
+    }
+
+    .mpc-btn.secondary {
+        background: linear-gradient(145deg, #ef1235, #b8001e);
+    }
+
+    .mpc-panel {
+        background: #f8fafc;
+        border: 1px solid #d9e2ef;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 10px 10px 24px rgba(15, 23, 42, 0.10), -6px -6px 18px rgba(255,255,255,0.9);
+    }
+
+    .mpc-panel-header {
+        padding: 13px 16px;
+        border-bottom: 1px solid #d6e0ec;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        background: linear-gradient(180deg, #ffffff, #edf3f9);
+    }
+
+    .mpc-panel-header h3 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 15px;
+    }
+
+    .mpc-table-wrap {
+        overflow: auto;
+        max-height: calc(100vh - 245px);
+        border-top: 1px solid #dce6f1;
+    }
+
+    .mpc-table {
+        width: max-content;
+        min-width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 10.5px;
+    }
+
+    .mpc-table th {
+        position: sticky;
+        top: 0;
+        background: #0f1b2d;
+        color: white;
+        z-index: 3;
+        padding: 7px;
+        border-right: 1px solid #2b3c59;
+        border-bottom: 1px solid #2b3c59;
+        white-space: nowrap;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .mpc-table tr:nth-child(even) td {
+        background-color: #f9fbfe;
+    }
+
+    .mpc-table td {
+        padding: 6px 7px;
+        border-right: 1px solid #d7dfeb;
+        border-bottom: 1px solid #d7dfeb;
+        background: white;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .col-categoria {
+        width: 115px;
+        min-width: 115px;
+    }
+
+    .col-descricao {
+        width: 235px;
+        min-width: 235px;
+        max-width: 235px;
+        white-space: normal !important;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .col-sku {
+        width: 250px;
+        min-width: 250px;
+        max-width: 250px;
+        white-space: normal !important;
+    }
+
+    .col-num {
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .col-moeda {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+    }
+
+    .mpc-input {
+        width: 100%;
+        min-width: 90px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 5px 7px;
+        font-size: 10.5px;
+        background: #ffffff;
+    }
+
+    .mpc-input.sku {
+        min-width: 230px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .mpc-input.cat {
+        min-width: 105px;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .mpc-input.markup {
+        width: 58px;
+        min-width: 58px;
+        text-align: center;
+        font-weight: 800;
+        color: #00486C;
+    }
+
+    .mpc-client-head {
+        color: #0f172a !important;
+        font-weight: 900;
+        border-left: 2px solid rgba(15, 23, 42, .15);
+    }
+
+    .mpc-subhead {
+        color: #0f172a !important;
+        font-weight: 800;
+    }
+
+    {% set cores = [
+        '#dbeafe', '#ffedd5', '#dcfce7', '#ede9fe', '#fee2e2',
+        '#e0e7ff', '#fef3c7', '#ccfbf1', '#e2e8f0', '#fce7f3',
+        '#d9f99d', '#cffafe', '#fae8ff', '#fde68a', '#e5e7eb'
+    ] %}
+
+    {% for cliente in dados.clientes_colunas %}
+        .cliente-bg-{{ loop.index0 }} {
+            background: {{ cores[loop.index0] }} !important;
+        }
+
+        .cliente-head-{{ loop.index0 }} {
+            background: linear-gradient(145deg, {{ cores[loop.index0] }}, #ffffff) !important;
+            color: #0f172a !important;
+        }
+    {% endfor %}
+
+    .menor-cliente {
+        color: #D80024 !important;
+        font-weight: 900 !important;
+    }
+
+    .medbox-menor {
+        color: #0046ff !important;
+        font-weight: 900 !important;
+    }
+
+    .menor-preco-box {
+        font-weight: 900;
+        color: #0f172a;
+    }
+
+    .origem-menor {
+        display: block;
+        font-size: 9px;
+        color: #64748b;
+        margin-top: 2px;
+    }
+
+    .mpc-empty {
+        padding: 28px;
+        text-align: center;
+        color: #64748b;
+    }
+
+    .mpc-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-top: 1px solid #e5edf7;
+    }
+
+    .mpc-chip {
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: #e0f2fe;
+        color: #075985;
+        font-weight: 800;
+        font-size: 10px;
+    }
+
+    .mpc-chip.var {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+
+
+    /* ============================================================
+       MAPA ERP - SCROLL ESTÁVEL FINAL
+       A página não rola para o lado.
+       A rolagem horizontal fica somente dentro da área da tabela.
+    ============================================================ */
+
+    html,
+    body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+    }
+
+    .content,
+    .main-content,
+    .page-content,
+    main {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+    }
+
+    .mpc-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .mpc-table-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        max-height: calc(100vh - 245px) !important;
+        position: relative !important;
+        border-top: 1px solid #dce6f1 !important;
+        scrollbar-width: auto;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar {
+        height: 14px;
+        width: 14px;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar-track {
+        background: #e5edf7;
+        border-radius: 999px;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar-thumb {
+        background: #00486C;
+        border-radius: 999px;
+        border: 3px solid #e5edf7;
+    }
+
+    .mpc-table {
+        width: max-content !important;
+        min-width: 100% !important;
+        table-layout: fixed;
+    }
+
+    .mpc-table th {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 30 !important;
+    }
+
+    .mpc-table thead tr:nth-child(2) th {
+        top: 31px !important;
+        z-index: 31 !important;
+    }
+
+    /* Remove qualquer sticky lateral antigo */
+    .mpc-sticky-col {
+        position: static !important;
+        left: auto !important;
+        z-index: auto !important;
+        box-shadow: none !important;
+    }
+
+    .mpc-filter-btn {
+        margin-left: 5px;
+        width: 18px;
+        height: 18px;
+        border: 1px solid rgba(255,255,255,.55);
+        border-radius: 5px;
+        background: rgba(255,255,255,.20);
+        color: #fff;
+        font-size: 10px;
+        cursor: pointer;
+        font-weight: 900;
+        vertical-align: middle;
+    }
+
+    .mpc-client-head .mpc-filter-btn,
+    .mpc-subhead .mpc-filter-btn {
+        color: #0f172a;
+        border-color: rgba(15,23,42,.25);
+        background: rgba(255,255,255,.75);
+    }
+
+    .mpc-filter-btn.active {
+        background: #D80024 !important;
+        color: #fff !important;
+        border-color: #D80024 !important;
+    }
+
+    .mpc-sort-menu {
+        position: fixed;
+        min-width: 190px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        box-shadow: 0 18px 38px rgba(15, 23, 42, .22);
+        z-index: 99999;
+        overflow: hidden;
+        display: none;
+    }
+
+    .mpc-sort-menu button {
+        display: block;
+        width: 100%;
+        border: none;
+        background: white;
+        padding: 10px 12px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        color: #0f172a;
+    }
+
+    .mpc-sort-menu button:hover {
+        background: #eff6ff;
+    }
+
+    .mpc-sort-menu .danger {
+        color: #D80024;
+    }
+
+
+    /* ============================================================
+       MAPA ERP - BLOCO FIXO + CLIENTES ROLAVEIS
+       Congela as 13 primeiras colunas.
+       Apenas as colunas dos clientes rolam horizontalmente.
+    ============================================================ */
+
+    html,
+    body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+    }
+
+    .content,
+    .main-content,
+    .page-content,
+    main {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+    }
+
+    .mpc-panel {
+        width: 100% !important;
+        max-width: calc(100vw - 285px) !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .mpc-table-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        max-height: calc(100vh - 245px) !important;
+        position: relative !important;
+        border-top: 1px solid #dce6f1 !important;
+        scrollbar-width: auto;
+    }
+
+    .mpc-table {
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        table-layout: fixed !important;
+        min-width: 4200px !important;
+        width: max-content !important;
+    }
+
+    .mpc-table th,
+    .mpc-table td {
+        box-sizing: border-box !important;
+    }
+
+    /* Larguras do bloco fixo */
+    .mpc-table th:nth-child(1),
+    .mpc-table td:nth-child(1) {
+        width: 105px !important;
+        min-width: 105px !important;
+        max-width: 105px !important;
+    }
+
+    .mpc-table th:nth-child(2),
+    .mpc-table td:nth-child(2) {
+        width: 260px !important;
+        min-width: 260px !important;
+        max-width: 260px !important;
+    }
+
+    .mpc-table th:nth-child(3),
+    .mpc-table td:nth-child(3) {
+        width: 260px !important;
+        min-width: 260px !important;
+        max-width: 260px !important;
+    }
+
+    .mpc-table th:nth-child(4),
+    .mpc-table td:nth-child(4) {
+        width: 95px !important;
+        min-width: 95px !important;
+        max-width: 95px !important;
+    }
+
+    .mpc-table th:nth-child(5),
+    .mpc-table td:nth-child(5),
+    .mpc-table th:nth-child(6),
+    .mpc-table td:nth-child(6),
+    .mpc-table th:nth-child(7),
+    .mpc-table td:nth-child(7),
+    .mpc-table th:nth-child(8),
+    .mpc-table td:nth-child(8),
+    .mpc-table th:nth-child(9),
+    .mpc-table td:nth-child(9),
+    .mpc-table th:nth-child(10),
+    .mpc-table td:nth-child(10),
+    .mpc-table th:nth-child(11),
+    .mpc-table td:nth-child(11),
+    .mpc-table th:nth-child(12),
+    .mpc-table td:nth-child(12),
+    .mpc-table th:nth-child(13),
+    .mpc-table td:nth-child(13) {
+        width: 95px !important;
+        min-width: 95px !important;
+        max-width: 95px !important;
+    }
+
+    /* Colunas dos clientes */
+    .mpc-table td:nth-child(n+14),
+    .mpc-table thead tr:nth-child(2) th:nth-child(n+7) {
+        width: 120px !important;
+        min-width: 120px !important;
+        max-width: 120px !important;
+    }
+
+    .mpc-client-head {
+        min-width: 240px !important;
+        width: 240px !important;
+    }
+
+    /* Congelamento do corpo: 13 primeiras colunas */
+    .mpc-table tbody td:nth-child(1)  { position: sticky !important; left: 0px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(2)  { position: sticky !important; left: 105px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(3)  { position: sticky !important; left: 365px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(4)  { position: sticky !important; left: 625px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(5)  { position: sticky !important; left: 720px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(6)  { position: sticky !important; left: 815px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(7)  { position: sticky !important; left: 910px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(8)  { position: sticky !important; left: 1005px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(9)  { position: sticky !important; left: 1100px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(10) { position: sticky !important; left: 1195px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(11) { position: sticky !important; left: 1290px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(12) { position: sticky !important; left: 1385px !important; z-index: 20 !important; }
+    .mpc-table tbody td:nth-child(13) { position: sticky !important; left: 1480px !important; z-index: 20 !important; }
+
+    .mpc-table tbody tr:nth-child(odd) td:nth-child(-n+13) {
+        background: #ffffff !important;
+    }
+
+    .mpc-table tbody tr:nth-child(even) td:nth-child(-n+13) {
+        background: #f8fbff !important;
+    }
+
+    /* Cabeçalho fixo vertical + bloco fixo lateral */
+    .mpc-table thead th {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 40 !important;
+    }
+
+    .mpc-table thead tr:nth-child(2) th {
+        top: 31px !important;
+        z-index: 41 !important;
+    }
+
+    /* Cabeçalho da primeira linha: colunas fixas */
+    .mpc-table thead tr:nth-child(1) th:nth-child(1) { left: 0px !important; z-index: 70 !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(2) { left: 105px !important; z-index: 70 !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(3) { left: 365px !important; z-index: 70 !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(4) { left: 625px !important; z-index: 70 !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(5) { left: 720px !important; z-index: 70 !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(6) { left: 1290px !important; z-index: 70 !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(7) { left: 1385px !important; z-index: 70 !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(8) { left: 1480px !important; z-index: 70 !important; }
+
+    .mpc-table thead tr:nth-child(1) th:nth-child(-n+8) {
+        position: sticky !important;
+        background: #0f1b2d !important;
+    }
+
+    /* Cabeçalho da segunda linha: Compra 2026 MedBox */
+    .mpc-table thead tr:nth-child(2) th:nth-child(1) { left: 720px !important; z-index: 71 !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(2) { left: 815px !important; z-index: 71 !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(3) { left: 910px !important; z-index: 71 !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(4) { left: 1005px !important; z-index: 71 !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(5) { left: 1100px !important; z-index: 71 !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(6) { left: 1195px !important; z-index: 71 !important; }
+
+    .mpc-table thead tr:nth-child(2) th:nth-child(-n+6) {
+        position: sticky !important;
+        background: #0f1b2d !important;
+    }
+
+    /* Divisória visual entre bloco fixo e clientes */
+    .mpc-table tbody td:nth-child(13),
+    .mpc-table thead tr:nth-child(1) th:nth-child(8) {
+        box-shadow: 4px 0 8px rgba(15, 23, 42, .18) !important;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar {
+        height: 14px;
+        width: 14px;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar-track {
+        background: #e5edf7;
+        border-radius: 999px;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar-thumb {
+        background: #00486C;
+        border-radius: 999px;
+        border: 3px solid #e5edf7;
+    }
+
+
+    /* ============================================================
+       MAPA ERP - AJUSTE FINO COLUNAS + SCROLL CLIENTES
+       Reduz largura desproporcional e evidencia a barra horizontal.
+    ============================================================ */
+
+    .mpc-panel {
+        max-width: calc(100vw - 285px) !important;
+        overflow: hidden !important;
+    }
+
+    .mpc-table-wrap {
+        overflow-x: scroll !important;
+        overflow-y: auto !important;
+        padding-bottom: 18px !important;
+        scrollbar-gutter: stable both-edges;
+    }
+
+    .mpc-table {
+        table-layout: fixed !important;
+        min-width: 3350px !important;
+        width: max-content !important;
+    }
+
+    .mpc-table th,
+    .mpc-table td {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        vertical-align: middle !important;
+    }
+
+    .mpc-table td {
+        font-size: 11px !important;
+    }
+
+    .mpc-table th {
+        font-size: 10.5px !important;
+        line-height: 1.15 !important;
+    }
+
+    /* Novas larguras mais proporcionais do bloco fixo */
+    .mpc-table th:nth-child(1),
+    .mpc-table td:nth-child(1) {
+        width: 90px !important;
+        min-width: 90px !important;
+        max-width: 90px !important;
+    }
+
+    .mpc-table th:nth-child(2),
+    .mpc-table td:nth-child(2) {
+        width: 250px !important;
+        min-width: 250px !important;
+        max-width: 250px !important;
+        white-space: normal !important;
+        line-height: 1.25 !important;
+    }
+
+    .mpc-table th:nth-child(3),
+    .mpc-table td:nth-child(3) {
+        width: 225px !important;
+        min-width: 225px !important;
+        max-width: 225px !important;
+    }
+
+    .mpc-table th:nth-child(4),
+    .mpc-table td:nth-child(4) {
+        width: 80px !important;
+        min-width: 80px !important;
+        max-width: 80px !important;
+    }
+
+    .mpc-table th:nth-child(5),
+    .mpc-table td:nth-child(5),
+    .mpc-table th:nth-child(6),
+    .mpc-table td:nth-child(6),
+    .mpc-table th:nth-child(9),
+    .mpc-table td:nth-child(9),
+    .mpc-table th:nth-child(10),
+    .mpc-table td:nth-child(10),
+    .mpc-table th:nth-child(11),
+    .mpc-table td:nth-child(11),
+    .mpc-table th:nth-child(12),
+    .mpc-table td:nth-child(12),
+    .mpc-table th:nth-child(13),
+    .mpc-table td:nth-child(13) {
+        width: 82px !important;
+        min-width: 82px !important;
+        max-width: 82px !important;
+    }
+
+    .mpc-table th:nth-child(7),
+    .mpc-table td:nth-child(7) {
+        width: 120px !important;
+        min-width: 120px !important;
+        max-width: 120px !important;
+    }
+
+    .mpc-table th:nth-child(8),
+    .mpc-table td:nth-child(8) {
+        width: 95px !important;
+        min-width: 95px !important;
+        max-width: 95px !important;
+    }
+
+    /* Colunas dos clientes mais compactas */
+    .mpc-table td:nth-child(n+14),
+    .mpc-table thead tr:nth-child(2) th:nth-child(n+7) {
+        width: 105px !important;
+        min-width: 105px !important;
+        max-width: 105px !important;
+    }
+
+    .mpc-client-head {
+        min-width: 210px !important;
+        width: 210px !important;
+        max-width: 210px !important;
+    }
+
+    .mpc-input {
+        max-width: 100% !important;
+        height: 24px !important;
+        font-size: 10.5px !important;
+        padding: 3px 6px !important;
+    }
+
+    .sku-input {
+        width: 100% !important;
+    }
+
+    .markup-input {
+        width: 52px !important;
+        text-align: center !important;
+    }
+
+    .valor-cliente-input {
+        width: 92px !important;
+    }
+
+    /* Recalcula os pontos de congelamento conforme as novas larguras */
+    .mpc-table tbody td:nth-child(1)  { left: 0px !important; }
+    .mpc-table tbody td:nth-child(2)  { left: 90px !important; }
+    .mpc-table tbody td:nth-child(3)  { left: 340px !important; }
+    .mpc-table tbody td:nth-child(4)  { left: 565px !important; }
+    .mpc-table tbody td:nth-child(5)  { left: 645px !important; }
+    .mpc-table tbody td:nth-child(6)  { left: 727px !important; }
+    .mpc-table tbody td:nth-child(7)  { left: 809px !important; }
+    .mpc-table tbody td:nth-child(8)  { left: 929px !important; }
+    .mpc-table tbody td:nth-child(9)  { left: 1024px !important; }
+    .mpc-table tbody td:nth-child(10) { left: 1106px !important; }
+    .mpc-table tbody td:nth-child(11) { left: 1188px !important; }
+    .mpc-table tbody td:nth-child(12) { left: 1270px !important; }
+    .mpc-table tbody td:nth-child(13) { left: 1352px !important; }
+
+    .mpc-table thead tr:nth-child(1) th:nth-child(1) { left: 0px !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(2) { left: 90px !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(3) { left: 340px !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(4) { left: 565px !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(5) { left: 645px !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(6) { left: 1188px !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(7) { left: 1270px !important; }
+    .mpc-table thead tr:nth-child(1) th:nth-child(8) { left: 1352px !important; }
+
+    .mpc-table thead tr:nth-child(2) th:nth-child(1) { left: 645px !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(2) { left: 727px !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(3) { left: 809px !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(4) { left: 929px !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(5) { left: 1024px !important; }
+    .mpc-table thead tr:nth-child(2) th:nth-child(6) { left: 1106px !important; }
+
+    .mpc-table tbody td:nth-child(13),
+    .mpc-table thead tr:nth-child(1) th:nth-child(8) {
+        box-shadow: 5px 0 10px rgba(15, 23, 42, .22) !important;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar {
+        height: 18px !important;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar-track {
+        background: #dbeafe !important;
+        border-radius: 999px !important;
+    }
+
+    .mpc-table-wrap::-webkit-scrollbar-thumb {
+        background: #00486C !important;
+        border-radius: 999px !important;
+        border: 4px solid #dbeafe !important;
+    }
+
+</style>
+
+<style id="mpc-flags-5-resumo-css">
+/* ============================================================
+   MAPA PREÇOS CLIENTES - 5 FLAGS COMPACTAS NO RESUMO
+============================================================ */
+
+.mpc-resumo-filtro-sku {
+    display: grid !important;
+    grid-template-columns: 0.75fr 1fr 0.85fr 0.75fr 0.75fr !important;
+    gap: 7px !important;
+    margin: 8px 0 10px 0 !important;
+    width: 100% !important;
+}
+
+.mpc-resumo-card {
+    min-width: 0 !important;
+    min-height: 52px !important;
+    padding: 7px 8px !important;
+    border-radius: 9px !important;
+}
+
+.mpc-resumo-card span {
+    font-size: 8px !important;
+    line-height: 1 !important;
+    margin-bottom: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.mpc-resumo-card strong {
+    font-size: 15px !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+}
+
+.mpc-resumo-card small {
+    font-size: 8px !important;
+    line-height: 1 !important;
+    margin-top: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.mpc-card-faturamento {
+    border-color: #0ea5e9 !important;
+    background: #eff6ff !important;
+}
+
+.mpc-card-faturamento strong {
+    color: #00486C !important;
+}
+
+@media (max-width: 1280px) {
+    .mpc-resumo-filtro-sku {
+        grid-template-columns: repeat(3, minmax(170px, 1fr)) !important;
+    }
+}
+
+@media (max-width: 900px) {
+    .mpc-resumo-filtro-sku {
+        grid-template-columns: repeat(2, minmax(170px, 1fr)) !important;
+    }
+}
+
+@media (max-width: 620px) {
+    .mpc-resumo-filtro-sku {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
+
+
+
+
+
+
+<style id="mpc-resumo-filtro-sku-css">
+.mpc-resumo-filtro-sku {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(220px, 1fr)) !important;
+    gap: 12px !important;
+    margin: 10px 0 12px 0 !important;
+}
+
+.mpc-resumo-card {
+    background: #ffffff !important;
+    border: 1px solid #dbe7f3 !important;
+    border-radius: 14px !important;
+    padding: 13px 14px !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
+    min-height: 82px !important;
+}
+
+.mpc-resumo-card span {
+    display: block !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    color: #334155 !important;
+    margin-bottom: 6px !important;
+}
+
+.mpc-resumo-card strong {
+    display: block !important;
+    font-size: 21px !important;
+    color: #0f172a !important;
+    line-height: 1.15 !important;
+}
+
+.mpc-resumo-card small {
+    display: block !important;
+    margin-top: 6px !important;
+    font-size: 11px !important;
+    color: #64748b !important;
+    font-weight: 700 !important;
+}
+
+.mpc-card-atencao {
+    border-color: #f59e0b !important;
+    background: #fffbeb !important;
+}
+
+.mpc-card-atencao strong {
+    color: #92400e !important;
+}
+
+.mpc-card-medbox-ok {
+    border-color: #0ea5e9 !important;
+    background: #eff6ff !important;
+}
+
+.mpc-card-medbox-ok strong {
+    color: #00486C !important;
+}
+
+@media (max-width: 1100px) {
+    .mpc-resumo-filtro-sku {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
+
+
+<style id="mpc-colunas-redimensionaveis-css">
+/* ============================================================
+   MAPA PREÇOS CLIENTES - COLUNAS REDIMENSIONÁVEIS
+   Arrastar borda do cabeçalho como Excel.
+============================================================ */
+
+.mpc-table th {
+    position: sticky;
+}
+
+.mpc-table th.mpc-resizable-th {
+    position: sticky !important;
+    overflow: visible !important;
+}
+
+.mpc-col-resizer {
+    position: absolute !important;
+    top: 0 !important;
+    right: -3px !important;
+    width: 7px !important;
+    height: 100% !important;
+    cursor: col-resize !important;
+    z-index: 999 !important;
+    user-select: none !important;
+}
+
+.mpc-col-resizer:hover,
+.mpc-col-resizer.mpc-resizing {
+    background: rgba(216, 0, 36, 0.35) !important;
+}
+
+body.mpc-resizing-columns {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+.mpc-reset-colunas-btn {
+    height: 36px !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 8px 12px !important;
+    background: #D80024 !important;
+    color: white !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+}
+
+.mpc-col-hint {
+    font-size: 11px !important;
+    color: #64748b !important;
+    margin-top: 6px !important;
+    font-weight: 700 !important;
+}
+</style>
+
+
+<style id="mpc-filtro-leve-css">
+.mpc-filtro-leve {
+    margin: 14px 0 12px 0 !important;
+    padding: 14px !important;
+    background: #f8fafc !important;
+    border: 1px solid #d9e2ef !important;
+    border-radius: 14px !important;
+}
+
+.mpc-filtro-form {
+    display: grid !important;
+    grid-template-columns: minmax(260px, 1fr) 150px auto !important;
+    gap: 12px !important;
+    align-items: end !important;
+}
+
+.mpc-filtro-form label {
+    display: block !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    color: #334155 !important;
+    margin-bottom: 4px !important;
+    text-transform: uppercase !important;
+}
+
+.mpc-filtro-form input,
+.mpc-filtro-form select {
+    width: 100% !important;
+    height: 36px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    padding: 7px 10px !important;
+    font-size: 13px !important;
+}
+
+.mpc-filtro-botoes {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+}
+
+.mpc-filtro-botoes button,
+.mpc-filtro-botoes a {
+    height: 36px !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 8px 12px !important;
+    background: #00486C !important;
+    color: white !important;
+    font-weight: 800 !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+}
+
+.mpc-filtro-botoes button:disabled {
+    background: #94a3b8 !important;
+    cursor: not-allowed !important;
+}
+
+.mpc-filtro-info {
+    grid-column: 1 / -1 !important;
+    font-size: 12px !important;
+    color: #475569 !important;
+    padding-top: 4px !important;
+}
+</style>
+
+
+<style id="mpc-layout-final-20260623">
+/* ============================================================
+   MAPA PREÇOS CLIENTES - LAYOUT FINAL
+   Bloco esquerdo congelado + clientes com rolagem horizontal
+============================================================ */
+
+html,
+body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+}
+
+.main-content,
+.content,
+.page-content,
+main {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+}
+
+.mpc-panel {
+    max-width: 100% !important;
+    overflow: hidden !important;
+}
+
+.mpc-table-wrap {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100vh - 285px) !important;
+    min-height: 480px !important;
+    overflow-x: scroll !important;
+    overflow-y: auto !important;
+    position: relative !important;
+    border-top: 1px solid #dce6f1 !important;
+    scrollbar-width: auto !important;
+}
+
+.mpc-table-wrap::-webkit-scrollbar {
+    height: 18px !important;
+    width: 14px !important;
+}
+
+.mpc-table-wrap::-webkit-scrollbar-track {
+    background: #e5edf7 !important;
+    border-radius: 999px !important;
+}
+
+.mpc-table-wrap::-webkit-scrollbar-thumb {
+    background: #00486C !important;
+    border-radius: 999px !important;
+    border: 3px solid #e5edf7 !important;
+}
+
+.mpc-table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    table-layout: fixed !important;
+    width: max-content !important;
+    min-width: 2650px !important;
+}
+
+.mpc-table th,
+.mpc-table td {
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    vertical-align: middle !important;
+}
+
+.mpc-table th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    white-space: normal !important;
+}
+
+/* Larguras proporcionais */
+.mpc-table th:nth-child(1),  .mpc-table td:nth-child(1)  { width: 92px  !important; min-width: 92px  !important; max-width: 92px  !important; }
+.mpc-table th:nth-child(2),  .mpc-table td:nth-child(2)  { width: 255px !important; min-width: 255px !important; max-width: 255px !important; }
+.mpc-table th:nth-child(3),  .mpc-table td:nth-child(3)  { width: 250px !important; min-width: 250px !important; max-width: 250px !important; }
+.mpc-table th:nth-child(4),  .mpc-table td:nth-child(4)  { width: 82px  !important; min-width: 82px  !important; max-width: 82px  !important; }
+.mpc-table th:nth-child(5),  .mpc-table td:nth-child(5)  { width: 95px  !important; min-width: 95px  !important; max-width: 95px  !important; }
+.mpc-table th:nth-child(6),  .mpc-table td:nth-child(6)  { width: 80px  !important; min-width: 80px  !important; max-width: 80px  !important; }
+.mpc-table th:nth-child(7),  .mpc-table td:nth-child(7)  { width: 165px !important; min-width: 165px !important; max-width: 165px !important; }
+.mpc-table th:nth-child(8),  .mpc-table td:nth-child(8)  { width: 110px !important; min-width: 110px !important; max-width: 110px !important; }
+.mpc-table th:nth-child(9),  .mpc-table td:nth-child(9)  { width: 95px  !important; min-width: 95px  !important; max-width: 95px  !important; }
+.mpc-table th:nth-child(10), .mpc-table td:nth-child(10) { width: 92px  !important; min-width: 92px  !important; max-width: 92px  !important; }
+.mpc-table th:nth-child(11), .mpc-table td:nth-child(11) { width: 86px  !important; min-width: 86px  !important; max-width: 86px  !important; }
+.mpc-table th:nth-child(12), .mpc-table td:nth-child(12) { width: 95px  !important; min-width: 95px  !important; max-width: 95px  !important; }
+.mpc-table th:nth-child(13), .mpc-table td:nth-child(13) { width: 112px !important; min-width: 112px !important; max-width: 112px !important; }
+
+/* Colunas dos clientes */
+.mpc-client-head {
+    min-width: 190px !important;
+    width: 190px !important;
+    max-width: 190px !important;
+}
+
+.mpc-subhead,
+.mpc-table td:nth-child(n+14) {
+    width: 95px !important;
+    min-width: 95px !important;
+    max-width: 95px !important;
+}
+
+/* Congelamento do bloco esquerdo */
+.mpc-table th:nth-child(1),  .mpc-table td:nth-child(1)  { position: sticky !important; left: 0px    !important; z-index: 30 !important; }
+.mpc-table th:nth-child(2),  .mpc-table td:nth-child(2)  { position: sticky !important; left: 92px   !important; z-index: 30 !important; }
+.mpc-table th:nth-child(3),  .mpc-table td:nth-child(3)  { position: sticky !important; left: 347px  !important; z-index: 30 !important; }
+.mpc-table th:nth-child(4),  .mpc-table td:nth-child(4)  { position: sticky !important; left: 597px  !important; z-index: 30 !important; }
+.mpc-table th:nth-child(5),  .mpc-table td:nth-child(5)  { position: sticky !important; left: 679px  !important; z-index: 30 !important; }
+.mpc-table th:nth-child(6),  .mpc-table td:nth-child(6)  { position: sticky !important; left: 774px  !important; z-index: 30 !important; }
+.mpc-table th:nth-child(7),  .mpc-table td:nth-child(7)  { position: sticky !important; left: 854px  !important; z-index: 30 !important; }
+.mpc-table th:nth-child(8),  .mpc-table td:nth-child(8)  { position: sticky !important; left: 1019px !important; z-index: 30 !important; }
+.mpc-table th:nth-child(9),  .mpc-table td:nth-child(9)  { position: sticky !important; left: 1129px !important; z-index: 30 !important; }
+.mpc-table th:nth-child(10), .mpc-table td:nth-child(10) { position: sticky !important; left: 1224px !important; z-index: 30 !important; }
+.mpc-table th:nth-child(11), .mpc-table td:nth-child(11) { position: sticky !important; left: 1316px !important; z-index: 30 !important; }
+.mpc-table th:nth-child(12), .mpc-table td:nth-child(12) { position: sticky !important; left: 1402px !important; z-index: 30 !important; }
+.mpc-table th:nth-child(13), .mpc-table td:nth-child(13) { position: sticky !important; left: 1497px !important; z-index: 30 !important; box-shadow: 7px 0 10px rgba(15,23,42,.18) !important; }
+
+/* Cabeçalho congelado acima do corpo */
+.mpc-table thead th:nth-child(-n+13) {
+    z-index: 80 !important;
+    background: #0f1b2d !important;
+    color: white !important;
+}
+
+/* Fundo das colunas fixas para não ficar transparente */
+.mpc-table tbody tr:nth-child(odd) td:nth-child(-n+13) {
+    background: #ffffff !important;
+}
+
+.mpc-table tbody tr:nth-child(even) td:nth-child(-n+13) {
+    background: #f8fbff !important;
+}
+
+/* Inputs mais proporcionais */
+.mpc-input {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 24px !important;
+    font-size: 11px !important;
+    padding: 3px 7px !important;
+}
+
+.sku-input {
+    min-width: 210px !important;
+}
+
+.markup-input {
+    text-align: center !important;
+    max-width: 54px !important;
+}
+
+.col-descricao {
+    white-space: normal !important;
+    line-height: 1.18 !important;
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+}
+
+.col-categoria select {
+    font-size: 10px !important;
+    font-weight: 800 !important;
+}
+
+.col-num,
+.col-moeda {
+    font-size: 11px !important;
+}
+
+.mpc-chip-list {
+    display: none !important;
+}
+</style>
+
+
+<div class="mpc-grid">
+    <div class="mpc-card">
+        <small>Clientes ativos</small>
+        <strong>{{ dados.resumo_mapa.total_clientes }}</strong>
+    </div>
+
+    <div class="mpc-card">
+        <small>Cotações lançadas</small>
+        <strong>{{ dados.resumo_mapa.total_cotacoes }}</strong>
+    </div>
+
+    <div class="mpc-card">
+        <small>Itens mapeados</small>
+        <strong>{{ dados.resumo_mapa.total_itens }}</strong>
+    </div>
+
+    <div class="mpc-card">
+        <small>Faturamento estimado mensal</small>
+        <strong>{{ dados.resumo_mapa.faturamento_estimado_formatado }}</strong>
+    </div>
+</div>
+
+<div class="mpc-actions">
+    <a class="mpc-btn" href="/mapa-precos-clientes">Mapa Consolidado</a>
+    <a class="mpc-btn secondary" href="/mapa-precos-clientes/importar">Importar Cotação Cliente</a>
+</div>
+
+
+<div class="mpc-panel mpc-filtro-leve">
+    <form method="get" action="/mapa-precos-clientes" class="mpc-filtro-form">
+        <div>
+            <label>Pesquisar produto / SKU / categoria</label>
+            <input
+                type="text"
+                name="q"
+                value="{{ dados.filtros_mapa.q }}"
+                placeholder="Ex.: soro 500ml, dipirona, luva, seringa..."
+            >
+        </div>
+
+        <div>
+            <label>Itens por página</label>
+            <select name="limite">
+                <option value="100" {% if dados.filtros_mapa.limite == 100 %}selected{% endif %}>100</option>
+                <option value="300" {% if dados.filtros_mapa.limite == 300 %}selected{% endif %}>300</option>
+                <option value="500" {% if dados.filtros_mapa.limite == 500 %}selected{% endif %}>500</option>
+                <option value="1000" {% if dados.filtros_mapa.limite == 1000 %}selected{% endif %}>1000</option>
+            </select>
+        </div>
+
+        <div class="mpc-filtro-botoes">
+            <button type="submit" name="pagina" value="1">Filtrar</button>
+
+            <button
+                type="submit"
+                name="pagina"
+                value="{{ dados.filtros_mapa.pagina_anterior }}"
+                {% if not dados.filtros_mapa.tem_anterior %}disabled{% endif %}
+            >
+                ◀ Anterior
+            </button>
+
+            <button
+                type="submit"
+                name="pagina"
+                value="{{ dados.filtros_mapa.proxima_pagina }}"
+                {% if not dados.filtros_mapa.tem_proxima %}disabled{% endif %}
+            >
+                Próxima ▶
+            </button>
+
+            <a href="/mapa-precos-clientes">Limpar</a>
+        </div>
+
+        <div class="mpc-filtro-info">
+            Exibindo
+            <strong>{{ dados.filtros_mapa.exibindo_inicio }}</strong>
+            a
+            <strong>{{ dados.filtros_mapa.exibindo_fim }}</strong>
+            de
+            <strong>{{ dados.filtros_mapa.total_filtrado }}</strong>
+            produtos filtrados.
+            Total geral:
+            <strong>{{ dados.filtros_mapa.total_geral }}</strong>.
+            Página
+            <strong>{{ dados.filtros_mapa.pagina }}</strong>
+            de
+            <strong>{{ dados.filtros_mapa.total_paginas }}</strong>.
+        </div>
+    </form>
+</div>
+
+
+
+
+
+<div class="mpc-resumo-filtro-sku">
+    <div class="mpc-resumo-card">
+        <span>Demanda</span>
+        <strong>{{ dados.resumo_filtro.demanda_total_formatada }}</strong>
+        <small>{{ dados.resumo_filtro.total_itens_considerados }} itens</small>
+    </div>
+
+    <div class="mpc-resumo-card mpc-card-faturamento">
+        <span>Faturamento estimado</span>
+        <strong>{{ dados.resumo_filtro.faturamento_estimado_total_formatado }}</strong>
+        <small>Somatório dos itens filtrados</small>
+    </div>
+
+    <div class="mpc-resumo-card">
+        <span>Menor preço</span>
+        <strong>{{ dados.resumo_filtro.menor_preco_formatado }}</strong>
+        <small>Origem: {{ dados.resumo_filtro.menor_preco_origem }}</small>
+    </div>
+
+    <div class="mpc-resumo-card mpc-card-atencao">
+        <span>Compra 80%</span>
+        {% if dados.resumo_filtro.custo_compra_80 > 0 %}
+            <strong>{{ dados.resumo_filtro.custo_compra_80_formatado }}</strong>
+            <small>Menor preço ÷ 1,80</small>
+        {% else %}
+            <strong>Sem cálculo</strong>
+            <small>Sem menor preço positivo</small>
+        {% endif %}
+    </div>
+
+    <div class="mpc-resumo-card mpc-card-50">
+        <span>Compra 50%</span>
+        {% if dados.resumo_filtro.custo_compra_50 > 0 %}
+            <strong>{{ dados.resumo_filtro.custo_compra_50_formatado }}</strong>
+            <small>Menor preço ÷ 1,50</small>
+        {% else %}
+            <strong>Sem cálculo</strong>
+            <small>Sem menor preço positivo</small>
+        {% endif %}
+    </div>
+</div>
+
+<div class="mpc-panel">
+    <div class="mpc-panel-header">
+        <h3>MEDBOX | Mapa de Comparação de Preços por Cliente</h3>
+        <span>SKU agrupado, demanda mensal e comparação de menor preço</span>
+    </div>
+
+    <div class="mpc-table-wrap">
+        <table class="mpc-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">Categoria</th>
+                    <th rowspan="2">Descrição do Produto</th>
+                    <th rowspan="2">SKU_MASTER</th>
+                    <th rowspan="2">Demanda<br>mensal total</th>
+                    <th colspan="6">Compra 2026 MedBox</th>
+                    <th rowspan="2">Menor<br>preço</th>
+                    <th rowspan="2">Preço médio<br>clientes</th>
+                    <th rowspan="2">Faturamento<br>estimado</th>
+
+                    {% for cliente in dados.clientes_colunas %}
+                        <th class="mpc-client-head cliente-head-{{ loop.index0 }}" colspan="2">{{ cliente.nome }}</th>
+                    {% endfor %}
+                </tr>
+
+                <tr>
+                    <th>Preço compra</th>
+                    <th>% Markup</th>
+                    <th>Fornecedor</th>
+                    <th>Fabricante</th>
+                    <th>Preço MedBox</th>
+                    <th>Status</th>
+
+                    {% for cliente in dados.clientes_colunas %}
+                        <th class="mpc-subhead cliente-head-{{ loop.index0 }}">Quant. mês</th>
+                        <th class="mpc-subhead cliente-head-{{ loop.index0 }}">Valor unit.</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+
+            <tbody>
+                {% if dados.itens %}
+                    {% for item in dados.itens %}
+                        <tr data-grupo-key="{{ item.grupo_key }}" data-preco-compra="{{ item.preco_compra or 0 }}">
+                            <td class="col-categoria">
+                                <select class="mpc-input cat categoria-input" data-grupo-key="{{ item.grupo_key }}">
+                                    <option value="">REVISAR</option>
+                                    <option value="MEDICAMENTOS" {% if item.categoria == "MEDICAMENTOS" %}selected{% endif %}>MEDICAMENTOS</option>
+                                    <option value="CORRELATOS" {% if item.categoria == "CORRELATOS" %}selected{% endif %}>CORRELATOS</option>
+                                </select>
+                            </td>
+
+                            <td class="col-descricao" title="{{ item.descricao }}">
+                                {{ item.descricao }}
+                            </td>
+
+                            <td class="col-sku">
+                                <input
+                                    class="mpc-input sku sku-input"
+                                    list="lista-skus-master"
+                                    value="{{ item.sku_master or "" }}"
+                                    data-grupo-key="{{ item.grupo_key }}"
+                                    placeholder="Digite ou selecione SKU Master e pressione ENTER..."
+                                >
+                            </td>
+
+                            <td class="col-num">{{ item.demanda_mensal_total_formatada }}</td>
+
+                            <td class="col-moeda preco-compra">{{ item.preco_compra_formatado }}</td>
+
+                            <td class="col-num">
+                                <input class="mpc-input markup markup-input" value="{{ item.markup_percentual|int }}" data-preco-compra="{{ item.preco_compra or 0 }}">
+                            </td>
+
+                            <td>{{ item.fornecedor }}</td>
+                            <td>{{ item.fabricante }}</td>
+
+                            <td class="col-moeda preco-medbox {% if item.medbox_menor %}medbox-menor{% endif %}">
+                                {{ item.preco_medbox_formatado }}
+                            </td>
+
+                            <td class="col-num status-menor">
+                                {% if item.medbox_menor %}
+                                    MEDBOX MENOR
+                                {% elif item.menor_preco_origem %}
+                                    {{ item.menor_preco_origem }}
+                                {% endif %}
+                            </td>
+
+                            <td class="col-moeda">
+                                <span class="menor-preco-box">{{ item.menor_preco_geral_formatado }}</span>
+                                <span class="origem-menor">{{ item.menor_preco_origem }}</span>
+                            </td>
+
+                            <td class="col-moeda">{{ item.preco_medio_formatado }}</td>
+                            <td class="col-moeda">{{ item.faturamento_formatado }}</td>
+
+                            {% for cliente in dados.clientes_colunas %}
+                                {% set celula = item.clientes.get(cliente.nome, {}) if item.clientes is defined else {} %}
+                                <td class="col-num cliente-bg-{{ loop.index0 }}">
+                                    {{ celula.quantidade_mensal_formatada or "" }}
+                                </td>
+                                <td class="col-moeda cliente-bg-{{ loop.index0 }} {% if celula.menor_cliente %}menor-cliente{% endif %}">
+                                    {% if celula.cliente_id %}
+                                        <input
+                                            class="mpc-input valor-cliente-input {% if celula.menor_cliente %}menor-cliente{% endif %}"
+                                            value="{{ celula.valor_unitario_formatado or '' }}"
+                                            data-grupo-key="{{ item.grupo_key }}"
+                                            data-cliente-id="{{ celula.cliente_id }}"
+                                            placeholder="R$ 0,00"
+                                        >
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="{{ 13 + (dados.clientes_colunas|length * 2) }}">
+                            <div class="mpc-empty">
+                                Nenhum item importado ainda. Importe uma cotação de cliente para preencher o mapa.
+                            </div>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mpc-chip-list">
+        {% for cliente in dados.clientes_colunas %}
+            <span class="mpc-chip {% if not cliente.fixo %}var{% endif %}">
+                {{ cliente.nome }}
+            </span>
+        {% endfor %}
+    </div>
+</div>
+
+<datalist id="lista-skus-master"></datalist>
+
+<script>
+function moedaBR(valor) {
+    const numero = Number(valor || 0);
+    return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function numeroDeMoedaBR(texto) {
+    if (!texto) return 0;
+    return Number(String(texto).replace('R$', '').replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+}
+
+async function carregarSugestoesSku(termo) {
+    if (!termo || termo.length < 2) return;
+
+    try {
+        const resp = await fetch('/mapa-precos-clientes/skus-json?q=' + encodeURIComponent(termo));
+        const data = await resp.json();
+        const lista = document.getElementById('lista-skus-master');
+        lista.innerHTML = '';
+
+        const itens = data.skus || data.sugestoes || data || [];
+
+        itens.slice(0, 30).forEach(item => {
+            const valor = typeof item === 'string' ? item : (item.sku || item.sku_master || item.nome || '');
+            if (!valor) return;
+            const opt = document.createElement('option');
+            opt.value = valor;
+            lista.appendChild(opt);
+        });
+    } catch (e) {
+        console.warn('Erro ao buscar SKUs', e);
+    }
+}
+
+async function salvarCampoMapa(input) {
+    const tr = input.closest('tr');
+    const grupoKey = input.dataset.grupoKey || tr.dataset.grupoKey;
+
+    const skuInput = tr.querySelector('.sku-input');
+    const catInput = tr.querySelector('.categoria-input');
+
+    const payload = {
+        grupo_key: grupoKey,
+        sku_master: skuInput ? skuInput.value : '',
+        categoria: catInput ? catInput.value : ''
+    };
+
+    try {
+        const resp = await fetch('/mapa-precos-clientes/atualizar-item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+            alert(data.erro || 'Não foi possível salvar.');
+            return;
+        }
+
+        input.style.borderColor = '#16a34a';
+        input.style.boxShadow = '0 0 0 2px rgba(22,163,74,.15)';
+
+        if (input.classList.contains('sku-input')) {
+            setTimeout(() => window.location.reload(), 500);
+            return;
+        }
+
+        setTimeout(() => {
+            input.style.borderColor = '';
+            input.style.boxShadow = '';
+        }, 900);
+
+    } catch (e) {
+        alert('Erro ao salvar alteração no mapa.');
+    }
+}
+
+function recalcularLinhaMenorPreco(tr) {
+    const precoMedboxCel = tr.querySelector('.preco-medbox');
+    const menorBox = tr.querySelector('.menor-preco-box');
+    const origemBox = tr.querySelector('.origem-menor');
+    const statusBox = tr.querySelector('.status-menor');
+
+    let precoMedbox = numeroDeMoedaBR(precoMedboxCel ? precoMedboxCel.textContent : '');
+    let menorValor = precoMedbox > 0 ? precoMedbox : Infinity;
+    let menorOrigem = precoMedbox > 0 ? 'MEDBOX' : '';
+
+    if (precoMedboxCel) precoMedboxCel.classList.remove('medbox-menor');
+
+    tr.querySelectorAll('.valor-cliente-input').forEach(input => {
+        input.classList.remove('menor-cliente');
+
+        const valor = numeroDeMoedaBR(input.value);
+        if (valor > 0 && valor < menorValor) {
+            menorValor = valor;
+            menorOrigem = input.closest('td').dataset.clienteNome || 'CLIENTE';
+        }
+    });
+
+    if (menorValor === Infinity) {
+        if (menorBox) menorBox.textContent = '';
+        if (origemBox) origemBox.textContent = '';
+        if (statusBox) statusBox.textContent = '';
+        return;
+    }
+
+    if (menorBox) menorBox.textContent = moedaBR(menorValor);
+    if (origemBox) origemBox.textContent = menorOrigem;
+    if (statusBox) statusBox.textContent = menorOrigem === 'MEDBOX' ? 'MEDBOX MENOR' : menorOrigem;
+
+    if (menorOrigem === 'MEDBOX') {
+        if (precoMedboxCel) precoMedboxCel.classList.add('medbox-menor');
+    } else {
+        tr.querySelectorAll('.valor-cliente-input').forEach(input => {
+            const valor = numeroDeMoedaBR(input.value);
+            if (valor > 0 && valor === menorValor) {
+                input.classList.add('menor-cliente');
+            }
+        });
+    }
+}
+
+function recalcularMarkup(input) {
+    const tr = input.closest('tr');
+    const precoCompra = Number(input.dataset.precoCompra || tr.dataset.precoCompra || 0);
+    const markup = Number(String(input.value).replace(',', '.') || 0);
+    const precoMedbox = precoCompra * (1 + markup / 100);
+
+    const celPreco = tr.querySelector('.preco-medbox');
+    if (celPreco) {
+        celPreco.textContent = precoMedbox > 0 ? moedaBR(precoMedbox) : '';
+    }
+
+    recalcularLinhaMenorPreco(tr);
+}
+
+async function salvarValorCliente(input) {
+    const payload = {
+        grupo_key: input.dataset.grupoKey,
+        cliente_id: input.dataset.clienteId,
+        valor_unitario: input.value
+    };
+
+    try {
+        const resp = await fetch('/mapa-precos-clientes/atualizar-valor-cliente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+            alert(data.erro || 'Não foi possível salvar o valor unitário.');
+            return;
+        }
+
+        input.value = data.valor_unitario_formatado || '';
+        input.style.borderColor = '#16a34a';
+        input.style.boxShadow = '0 0 0 2px rgba(22,163,74,.15)';
+        recalcularLinhaMenorPreco(input.closest('tr'));
+
+        setTimeout(() => {
+            input.style.borderColor = '';
+            input.style.boxShadow = '';
+        }, 900);
+
+    } catch (e) {
+        alert('Erro ao salvar valor unitário do cliente.');
+    }
+}
+
+document.querySelectorAll('.sku-input').forEach(input => {
+    input.addEventListener('input', () => carregarSugestoesSku(input.value));
+    input.addEventListener('change', () => salvarCampoMapa(input));
+    input.addEventListener('blur', () => salvarCampoMapa(input));
+});
+
+document.querySelectorAll('.categoria-input').forEach(input => {
+    input.addEventListener('change', () => salvarCampoMapa(input));
+    input.addEventListener('blur', () => salvarCampoMapa(input));
+});
+
+document.querySelectorAll('.markup-input').forEach(input => {
+    input.addEventListener('input', () => recalcularMarkup(input));
+});
+
+document.querySelectorAll('.valor-cliente-input').forEach(input => {
+    input.addEventListener('change', () => salvarValorCliente(input));
+    input.addEventListener('blur', () => {
+        if (input.value && !String(input.value).includes('R$')) {
+            const valor = numeroDeMoedaBR(input.value);
+            input.value = valor > 0 ? moedaBR(valor) : '';
+        }
+    });
+});
+</script>
+
+
+
+<script>
+/* MAPA ERP - FILTROS SEM STICKY LATERAL */
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.querySelector('.mpc-table');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    function textoCelula(td) {
+        if (!td) return '';
+        const input = td.querySelector('input, select, textarea');
+        if (input) {
+            if (input.tagName === 'SELECT') {
+                return input.options[input.selectedIndex]?.text || input.value || '';
+            }
+            return input.value || '';
+        }
+        return td.innerText || td.textContent || '';
+    }
+
+    function numeroBR(valor) {
+        let txt = String(valor || '').trim();
+
+        if (!txt) return 0;
+
+        txt = txt
+            .replace(/\s/g, '')
+            .replace(/R\$/gi, '')
+            .replace(/[^\d,.\-]/g, '');
+
+        if (!txt) return 0;
+
+        if (txt.includes(',') && txt.includes('.')) {
+            txt = txt.replace(/\./g, '').replace(',', '.');
+        } else if (txt.includes(',')) {
+            txt = txt.replace(',', '.');
+        } else if ((txt.match(/\./g) || []).length === 1) {
+            const partes = txt.split('.');
+            if (partes[1] && partes[1].length === 3) {
+                txt = partes.join('');
+            }
+        } else {
+            txt = txt.replace(/\./g, '');
+        }
+
+        const n = Number(txt);
+        return Number.isFinite(n) ? n : 0;
+    }
+
+    function headerToColumn(th) {
+        const row = th.parentElement;
+        const rows = Array.from(table.querySelectorAll('thead tr'));
+        const rowIndex = rows.indexOf(row);
+        const cells = Array.from(row.children);
+        const idx = cells.indexOf(th);
+        const texto = (th.innerText || '').toUpperCase();
+
+        if (rowIndex === 0) {
+            if (texto.includes('CATEGORIA')) return 0;
+            if (texto.includes('DESCRIÇÃO') || texto.includes('DESCRICAO')) return 1;
+            if (texto.includes('SKU')) return 2;
+            if (texto.includes('DEMANDA')) return 3;
+            if (texto.includes('MENOR')) return 10;
+            if (texto.includes('MÉDIO') || texto.includes('MEDIO')) return 11;
+            if (texto.includes('FATURAMENTO')) return 12;
+            return null;
+        }
+
+        if (rowIndex === 1) {
+            if (idx < 6) return 4 + idx;
+            return 13 + (idx - 6);
+        }
+
+        return null;
+    }
+
+    function tipoColuna(colIndex) {
+        const th = table.querySelector(`thead th[data-col-index="${colIndex}"]`);
+        const thText = th ? (th.innerText || '').toUpperCase() : '';
+        const primeiraLinha = tbody.querySelector('tr');
+        const texto = textoCelula(primeiraLinha ? primeiraLinha.children[colIndex] : null);
+
+        if (
+            texto.includes('R$') ||
+            thText.includes('QUANT') ||
+            thText.includes('DEMANDA') ||
+            thText.includes('PREÇO') ||
+            thText.includes('PRECO') ||
+            thText.includes('VALOR') ||
+            thText.includes('FATURAMENTO') ||
+            thText.includes('MARKUP')
+        ) {
+            return 'number';
+        }
+
+        if (/^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(texto)) return 'number';
+        if (/^-?\d+([,.]\d+)?$/.test(texto)) return 'number';
+
+        return 'text';
+    }
+
+    function linhasOrdenaveis() {
+        return Array.from(tbody.querySelectorAll('tr')).filter(tr => tr.children.length > 3);
+    }
+
+    function ordenarTabela(colIndex, direcao) {
+        const tipo = tipoColuna(colIndex);
+        const linhas = linhasOrdenaveis();
+
+        linhas.sort((a, b) => {
+            const va = textoCelula(a.children[colIndex]);
+            const vb = textoCelula(b.children[colIndex]);
+
+            if (tipo === 'number') {
+                const na = numeroBR(va);
+                const nb = numeroBR(vb);
+                return direcao === 'asc' ? na - nb : nb - na;
+            }
+
+            return direcao === 'asc'
+                ? va.localeCompare(vb, 'pt-BR', { sensitivity: 'base' })
+                : vb.localeCompare(va, 'pt-BR', { sensitivity: 'base' });
+        });
+
+        linhas.forEach(tr => tbody.appendChild(tr));
+
+        document.querySelectorAll('.mpc-filter-btn').forEach(btn => btn.classList.remove('active'));
+
+        const th = table.querySelector(`thead th[data-col-index="${colIndex}"]`);
+        if (th) {
+            const btn = th.querySelector('.mpc-filter-btn');
+            if (btn) btn.classList.add('active');
+        }
+    }
+
+    function criarMenu() {
+        let menu = document.querySelector('.mpc-sort-menu');
+
+        if (!menu) {
+            menu = document.createElement('div');
+            menu.className = 'mpc-sort-menu';
+            menu.innerHTML = `
+                <button data-dir="asc" data-kind="text">A → Z</button>
+                <button data-dir="desc" data-kind="text">Z → A</button>
+                <button data-dir="asc" data-kind="number">Menor → Maior</button>
+                <button data-dir="desc" data-kind="number">Maior → Menor</button>
+                <button class="danger" data-dir="clear">Fechar</button>
+            `;
+            document.body.appendChild(menu);
+        }
+
+        return menu;
+    }
+
+    function adicionarFiltros() {
+        table.querySelectorAll('thead th').forEach(th => {
+            if (th.querySelector('.mpc-filter-btn')) return;
+
+            const colIndex = headerToColumn(th);
+            if (colIndex === null || colIndex === undefined) return;
+
+            th.dataset.colIndex = String(colIndex);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'mpc-filter-btn';
+            btn.textContent = '⇅';
+            btn.title = 'Ordenar';
+
+            btn.addEventListener('click', ev => {
+                ev.stopPropagation();
+
+                const menu = criarMenu();
+                const tipo = tipoColuna(colIndex);
+
+                menu.querySelectorAll('button').forEach(item => {
+                    const kind = item.dataset.kind;
+                    item.style.display = (!kind || kind === tipo) ? 'block' : 'none';
+                });
+
+                const rect = btn.getBoundingClientRect();
+                menu.style.left = rect.left + 'px';
+                menu.style.top = (rect.bottom + 6) + 'px';
+                menu.style.display = 'block';
+                menu.dataset.colIndex = String(colIndex);
+            });
+
+            th.appendChild(btn);
+        });
+    }
+
+    document.addEventListener('click', ev => {
+        const menu = document.querySelector('.mpc-sort-menu');
+
+        const item = ev.target.closest('.mpc-sort-menu button');
+        if (item && menu) {
+            const dir = item.dataset.dir;
+
+            if (dir === 'clear') {
+                menu.style.display = 'none';
+                return;
+            }
+
+            const colIndex = Number(menu.dataset.colIndex || 0);
+            ordenarTabela(colIndex, dir);
+            menu.style.display = 'none';
+            return;
+        }
+
+        if (menu && !menu.contains(ev.target) && !ev.target.classList.contains('mpc-filter-btn')) {
+            menu.style.display = 'none';
+        }
+    });
+
+    adicionarFiltros();
+});
+</script>
+
+
+<script id="mpc-salvar-sku-enter-20260623">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sku-input').forEach(function(input) {
+        input.addEventListener('keydown', function(ev) {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                if (typeof salvarCampoMapa === 'function') {
+                    salvarCampoMapa(input);
+                } else {
+                    input.blur();
+                }
+            }
+        });
+    });
+});
+</script>
+
+
+<script id="mpc-colunas-redimensionaveis-js">
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.querySelector('.mpc-table');
+    const wrap = document.querySelector('.mpc-table-wrap');
+
+    if (!table || !wrap) return;
+
+    const STORAGE_KEY = 'medbox_mapa_precos_col_widths_v1_' + location.pathname;
+
+    function getLeafHeaders() {
+        const thead = table.tHead;
+        if (!thead || thead.rows.length < 2) return [];
+
+        const row1 = thead.rows[0];
+        const row2 = thead.rows[1];
+
+        const leafs = [];
+        let col = 1;
+        let row2Index = 0;
+
+        Array.from(row1.cells).forEach(function (th) {
+            const colspan = th.colSpan || 1;
+            const rowspan = th.rowSpan || 1;
+
+            if (colspan > 1 && rowspan === 1) {
+                for (let i = 0; i < colspan; i++) {
+                    const sub = row2.cells[row2Index++];
+                    if (sub) {
+                        leafs.push({ el: sub, col: col });
+                    }
+                    col++;
+                }
+            } else {
+                leafs.push({ el: th, col: col });
+                col += colspan;
+            }
+        });
+
+        return leafs;
+    }
+
+    function getColumnCount() {
+        const firstBodyRow = table.querySelector('tbody tr');
+        if (firstBodyRow && firstBodyRow.cells.length) {
+            return firstBodyRow.cells.length;
+        }
+
+        const leafs = getLeafHeaders();
+        return leafs.length || 43;
+    }
+
+    const columnCount = getColumnCount();
+    const leafHeaders = getLeafHeaders();
+
+    function loadWidths() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            return saved && typeof saved === 'object' ? saved : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveWidths(widths) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+    }
+
+    let widths = loadWidths();
+
+    function pxNumber(value, fallback) {
+        const n = parseFloat(value);
+        return Number.isFinite(n) && n > 0 ? n : fallback;
+    }
+
+    function ensureInitialWidths() {
+        leafHeaders.forEach(function (item) {
+            const col = item.col;
+            if (!widths[col]) {
+                const rect = item.el.getBoundingClientRect();
+                widths[col] = Math.max(60, Math.round(rect.width || 100));
+            }
+        });
+
+        const firstRow = table.querySelector('tbody tr');
+        if (firstRow) {
+            Array.from(firstRow.cells).forEach(function (td, index) {
+                const col = index + 1;
+                if (!widths[col]) {
+                    const rect = td.getBoundingClientRect();
+                    widths[col] = Math.max(60, Math.round(rect.width || 100));
+                }
+            });
+        }
+
+        for (let col = 1; col <= columnCount; col++) {
+            if (!widths[col]) widths[col] = col <= 13 ? 100 : 95;
+        }
+    }
+
+    function cssRulesForColumns() {
+        let css = '';
+
+        for (let col = 1; col <= columnCount; col++) {
+            css += `
+                .mpc-table tbody td:nth-child(${col}),
+                .mpc-table thead tr:nth-child(2) th:nth-child(${col}) {
+                    width: var(--mpc-col-${col}) !important;
+                    min-width: var(--mpc-col-${col}) !important;
+                    max-width: var(--mpc-col-${col}) !important;
+                }
+            `;
+        }
+
+        for (let col = 1; col <= 13; col++) {
+            css += `
+                .mpc-table tbody td:nth-child(${col}) {
+                    left: var(--mpc-left-${col}) !important;
+                }
+            `;
+        }
+
+        return css;
+    }
+
+    function ensureDynamicStyle() {
+        let style = document.getElementById('mpc-colunas-dinamicas-style');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'mpc-colunas-dinamicas-style';
+            document.head.appendChild(style);
+        }
+        style.textContent = cssRulesForColumns();
+    }
+
+    function applyHeaderWidthsAndSticky() {
+        leafHeaders.forEach(function (item) {
+            const col = item.col;
+            const w = widths[col] || 100;
+
+            item.el.classList.add('mpc-resizable-th');
+            item.el.dataset.mpcCol = col;
+
+            item.el.style.setProperty('width', w + 'px', 'important');
+            item.el.style.setProperty('min-width', w + 'px', 'important');
+            item.el.style.setProperty('max-width', w + 'px', 'important');
+
+            if (col <= 13) {
+                item.el.style.setProperty('left', `var(--mpc-left-${col})`, 'important');
+                item.el.style.setProperty('z-index', '120', 'important');
+            }
+        });
+    }
+
+    function recalcStickyLefts() {
+        let left = 0;
+
+        for (let col = 1; col <= 13; col++) {
+            table.style.setProperty(`--mpc-left-${col}`, left + 'px');
+            left += pxNumber(widths[col], 100);
+        }
+    }
+
+    function applyWidths() {
+        ensureDynamicStyle();
+
+        for (let col = 1; col <= columnCount; col++) {
+            table.style.setProperty(`--mpc-col-${col}`, `${Math.round(widths[col] || 100)}px`);
+        }
+
+        recalcStickyLefts();
+        applyHeaderWidthsAndSticky();
+    }
+
+    function addResetButton() {
+        if (document.getElementById('mpc-reset-colunas-btn')) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'mpc-reset-colunas-btn';
+        btn.className = 'mpc-reset-colunas-btn';
+        btn.textContent = 'Redefinir larguras';
+
+        btn.addEventListener('click', function () {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        });
+
+        const botoes = document.querySelector('.mpc-filtro-botoes');
+        if (botoes) {
+            botoes.appendChild(btn);
+        } else {
+            wrap.parentElement.insertBefore(btn, wrap);
+        }
+
+        const hint = document.createElement('div');
+        hint.className = 'mpc-col-hint';
+        hint.textContent = 'Dica: arraste a borda direita do cabeçalho para ajustar a largura da coluna. Dê duplo clique para ajuste automático.';
+        if (botoes && botoes.parentElement) {
+            botoes.parentElement.appendChild(hint);
+        }
+    }
+
+    function autoFitColumn(col) {
+        let maxLen = 8;
+
+        const header = leafHeaders.find(x => x.col === col);
+        if (header) {
+            maxLen = Math.max(maxLen, (header.el.innerText || '').trim().length);
+        }
+
+        const rows = Array.from(table.querySelectorAll('tbody tr')).slice(0, 80);
+        rows.forEach(function (tr) {
+            const cell = tr.cells[col - 1];
+            if (!cell) return;
+
+            let text = '';
+            const input = cell.querySelector('input, select');
+            if (input) {
+                text = input.value || input.options?.[input.selectedIndex]?.text || '';
+            } else {
+                text = cell.innerText || '';
+            }
+
+            text = text.trim();
+            maxLen = Math.max(maxLen, text.length);
+        });
+
+        let newWidth = Math.round(maxLen * 7.2 + 28);
+
+        if (col === 2 || col === 3) {
+            newWidth = Math.min(Math.max(newWidth, 180), 520);
+        } else {
+            newWidth = Math.min(Math.max(newWidth, 70), 260);
+        }
+
+        widths[col] = newWidth;
+        saveWidths(widths);
+        applyWidths();
+    }
+
+    function addResizers() {
+        leafHeaders.forEach(function (item) {
+            const th = item.el;
+            const col = item.col;
+
+            if (th.querySelector('.mpc-col-resizer')) return;
+
+            th.classList.add('mpc-resizable-th');
+
+            const resizer = document.createElement('span');
+            resizer.className = 'mpc-col-resizer';
+            resizer.title = 'Arraste para ajustar a largura. Duplo clique para autoajustar.';
+
+            th.appendChild(resizer);
+
+            let startX = 0;
+            let startWidth = 0;
+
+            resizer.addEventListener('mousedown', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+
+                startX = ev.clientX;
+                startWidth = pxNumber(widths[col], th.getBoundingClientRect().width);
+
+                document.body.classList.add('mpc-resizing-columns');
+                resizer.classList.add('mpc-resizing');
+
+                function onMove(moveEv) {
+                    const delta = moveEv.clientX - startX;
+                    let newWidth = startWidth + delta;
+
+                    if (col === 2 || col === 3) {
+                        newWidth = Math.max(120, Math.min(650, newWidth));
+                    } else {
+                        newWidth = Math.max(55, Math.min(360, newWidth));
+                    }
+
+                    widths[col] = Math.round(newWidth);
+                    applyWidths();
+                }
+
+                function onUp() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    document.body.classList.remove('mpc-resizing-columns');
+                    resizer.classList.remove('mpc-resizing');
+                    saveWidths(widths);
+                }
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+
+            resizer.addEventListener('dblclick', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                autoFitColumn(col);
+            });
+        });
+    }
+
+    ensureInitialWidths();
+    applyWidths();
+    addResizers();
+    addResetButton();
+});
+</script>
+
+{% endblock %}

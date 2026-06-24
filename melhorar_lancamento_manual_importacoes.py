@@ -1,0 +1,656 @@
+﻿from pathlib import Path
+from datetime import datetime
+import re
+
+path = Path("templates/importacoes.html")
+html = path.read_text(encoding="utf-8", errors="ignore")
+
+backup = path.with_suffix(path.suffix + ".bak_melhora_manual_fornecedor_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
+backup.write_text(html, encoding="utf-8")
+print(f"Backup criado: {backup}")
+
+nova_secao = r'''
+<section class="panel large manual-fornecedor-panel">
+    <div class="manual-fornecedor-header">
+        <div>
+            <h3>Acrescentar Manualmente Itens Cotados</h3>
+            <p>
+                Lance manualmente preços recebidos de fornecedores. Os itens serão salvos no cadastro de produtos
+                e entrarão na base de preços da MedBox.
+            </p>
+        </div>
+        <span class="manual-fornecedor-badge">Cadastro manual de preços</span>
+    </div>
+
+    <div class="manual-fornecedor-card">
+        <div class="manual-fornecedor-grid">
+            <div class="form-group">
+                <label>Tipo do Fornecedor</label>
+                <select id="manual_tipo_fornecedor">
+                    <option value="Distribuidor">Distribuidor</option>
+                    <option value="Fabricante">Fabricante</option>
+                    <option value="Importador">Importador</option>
+                    <option value="Representante">Representante</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Fornecedor existente</label>
+                <select id="manual_fornecedor_id">
+                    <option value="">— Novo fornecedor —</option>
+                    {% for f in fornecedores %}
+                    <option value="{{ f.id }}">{{ f.nome }} ({{ f.tipo }})</option>
+                    {% endfor %}
+                </select>
+                <small>Selecione um fornecedor cadastrado ou informe um novo.</small>
+            </div>
+
+            <div class="form-group manual-novo-fornecedor">
+                <label>Novo fornecedor</label>
+                <input type="text" id="manual_nome_fornecedor" placeholder="Digite o nome do fornecedor se ele ainda não estiver cadastrado">
+                <small>Se informado, será cadastrado automaticamente.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="manual-itens-toolbar">
+        <button type="button" class="btn-primary" id="btn-add-item-manual-fornecedor">+ Adicionar Item</button>
+        <button type="button" class="btn-primary btn-manual-salvar" id="btn-salvar-itens-manuais-fornecedor">⇩ Salvar Itens Manuais</button>
+    </div>
+
+    <div class="manual-itens-lista" id="manual-itens-body"></div>
+
+    <div id="manual-itens-alerta" class="manual-itens-alerta"></div>
+</section>
+'''
+
+novo_js = r'''
+<script>
+/* ============================================================
+   MEDBOX - Lançamento Manual de Itens de Fornecedor V2
+   Escopo: templates/importacoes.html
+   - Layout em cards
+   - Autocomplete SKU Master
+   - Categoria limitada a MEDICAMENTOS / CORRELATOS
+   - Mantém POST em /importacoes/manual
+   ============================================================ */
+(function () {
+    if (window.MEDBOX_IMPORTACOES_MANUAL_FORNECEDOR_V2 === true) {
+        return;
+    }
+
+    window.MEDBOX_IMPORTACOES_MANUAL_FORNECEDOR_V2 = true;
+
+    let SKUS_MASTER_CACHE = [];
+
+    function parseBR(valor) {
+        let txt = String(valor || "").trim();
+        txt = txt.replace("R$", "").replace(/\s+/g, "").replace(/[^\d,.\-]/g, "");
+
+        if (!txt) return 0;
+
+        if (txt.includes(",")) {
+            txt = txt.replace(/\./g, "").replace(",", ".");
+        }
+
+        const n = parseFloat(txt);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function moedaBR(valor) {
+        const n = Number(valor || 0);
+        return "R$ " + n.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function normalizar(txt) {
+        return String(txt || "")
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim();
+    }
+
+    async function carregarSkusMaster() {
+        if (SKUS_MASTER_CACHE.length) return SKUS_MASTER_CACHE;
+
+        try {
+            const resp = await fetch("/sku-master/skus-json");
+            const data = await resp.json();
+            SKUS_MASTER_CACHE = Array.isArray(data) ? data : [];
+        } catch (e) {
+            console.warn("Não foi possível carregar SKU Master:", e);
+            SKUS_MASTER_CACHE = [];
+        }
+
+        return SKUS_MASTER_CACHE;
+    }
+
+    function linhaItemManual() {
+        const uid = "manual-sku-list-" + Math.random().toString(36).slice(2);
+
+        return `
+            <div class="manual-item-card">
+                <div class="manual-item-card-top">
+                    <strong>Item manual</strong>
+                    <button type="button" class="btn-remover-item-manual">Excluir</button>
+                </div>
+
+                <div class="manual-item-grid">
+                    <div class="manual-field manual-field-desc">
+                        <label>Descrição do Produto *</label>
+                        <input type="text" class="manual-desc" placeholder="Ex.: AGULHA DESCARTAVEL 13 X 0,45MM">
+                    </div>
+
+                    <div class="manual-field manual-sku-wrap">
+                        <label>SKU Master</label>
+                        <input type="text" class="manual-sku" placeholder="Comece a digitar o SKU Master" autocomplete="off" data-lista="${uid}">
+                        <div class="manual-sku-sugestoes" id="${uid}"></div>
+                    </div>
+
+                    <div class="manual-field">
+                        <label>Fabricante / Marca</label>
+                        <input type="text" class="manual-fabricante" placeholder="Ex.: SALDANHA RODRIGUES">
+                    </div>
+
+                    <div class="manual-field">
+                        <label>Categoria</label>
+                        <select class="manual-categoria">
+                            <option value="">Selecionar...</option>
+                            <option value="MEDICAMENTOS">MEDICAMENTOS</option>
+                            <option value="CORRELATOS">CORRELATOS</option>
+                        </select>
+                    </div>
+
+                    <div class="manual-field">
+                        <label>Código Fornecedor</label>
+                        <input type="text" class="manual-codigo" placeholder="Código">
+                    </div>
+
+                    <div class="manual-field">
+                        <label>Qtd.</label>
+                        <input type="text" class="manual-qtd" value="1">
+                    </div>
+
+                    <div class="manual-field">
+                        <label>Preço Unit. Custo *</label>
+                        <input type="text" class="manual-preco" placeholder="R$ 0,00">
+                    </div>
+
+                    <div class="manual-field manual-field-obs">
+                        <label>Obs.</label>
+                        <input type="text" class="manual-obs" placeholder="Observação opcional">
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function alertaManual(msg, tipo) {
+        const box = document.getElementById("manual-itens-alerta");
+        if (!box) return;
+
+        box.style.display = "block";
+        box.textContent = msg;
+        box.className = "manual-itens-alerta " + (tipo === "erro" ? "erro" : "ok");
+    }
+
+    function adicionarLinhaManual() {
+        const body = document.getElementById("manual-itens-body");
+        if (!body) return;
+
+        body.insertAdjacentHTML("beforeend", linhaItemManual());
+    }
+
+    function coletarItensManuais() {
+        const body = document.getElementById("manual-itens-body");
+        if (!body) return [];
+
+        return Array.from(body.querySelectorAll(".manual-item-card")).map(function (card) {
+            const get = function (sel) {
+                const el = card.querySelector(sel);
+                return el ? String(el.value || "").trim() : "";
+            };
+
+            return {
+                descricao: get(".manual-desc").toUpperCase(),
+                sku_master: get(".manual-sku").toUpperCase(),
+                fabricante: get(".manual-fabricante").toUpperCase(),
+                categoria: get(".manual-categoria").toUpperCase(),
+                codigo_fornecedor: get(".manual-codigo"),
+                quantidade: parseBR(get(".manual-qtd")),
+                preco_unitario: parseBR(get(".manual-preco")),
+                observacao: get(".manual-obs")
+            };
+        }).filter(function (item) {
+            return item.descricao || item.preco_unitario > 0;
+        });
+    }
+
+    function validarItens(itens) {
+        for (let i = 0; i < itens.length; i++) {
+            const item = itens[i];
+
+            if (!item.descricao) {
+                return "Item " + (i + 1) + ": informe a descrição do produto.";
+            }
+
+            if (!item.categoria || !["MEDICAMENTOS", "CORRELATOS"].includes(item.categoria)) {
+                return "Item " + (i + 1) + ": selecione a categoria MEDICAMENTOS ou CORRELATOS.";
+            }
+
+            if (!item.preco_unitario || item.preco_unitario <= 0) {
+                return "Item " + (i + 1) + ": informe um preço unitário de custo válido.";
+            }
+        }
+
+        return "";
+    }
+
+    async function salvarItensManuais() {
+        const fornecedorId = document.getElementById("manual_fornecedor_id")?.value || "";
+        const nomeFornecedor = document.getElementById("manual_nome_fornecedor")?.value || "";
+        const tipoFornecedor = document.getElementById("manual_tipo_fornecedor")?.value || "Distribuidor";
+
+        const itens = coletarItensManuais();
+
+        if (!fornecedorId && !nomeFornecedor.trim()) {
+            alertaManual("Informe um fornecedor existente ou digite um novo fornecedor.", "erro");
+            return;
+        }
+
+        if (!itens.length) {
+            alertaManual("Adicione ao menos um item com descrição e preço.", "erro");
+            return;
+        }
+
+        const erroValidacao = validarItens(itens);
+        if (erroValidacao) {
+            alertaManual(erroValidacao, "erro");
+            return;
+        }
+
+        const primeiro = itens[0] || {};
+        const ok = confirm(
+            "CONFIRA O LANÇAMENTO MANUAL:\n\n" +
+            "Fornecedor: " + (nomeFornecedor || "Fornecedor selecionado") + "\n" +
+            "Total de itens: " + itens.length + "\n\n" +
+            "Primeiro item:\n" +
+            "Descrição: " + primeiro.descricao + "\n" +
+            "SKU Master: " + primeiro.sku_master + "\n" +
+            "Fabricante: " + primeiro.fabricante + "\n" +
+            "Categoria: " + primeiro.categoria + "\n" +
+            "Preço unitário: " + moedaBR(primeiro.preco_unitario) + "\n\n" +
+            "Clique OK para salvar."
+        );
+
+        if (!ok) return;
+
+        const resp = await fetch("/importacoes/manual", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                fornecedor_id: fornecedorId,
+                nome_fornecedor: nomeFornecedor,
+                tipo_fornecedor: tipoFornecedor,
+                itens: itens
+            })
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+            alertaManual(data.erro || "Erro ao salvar itens manuais.", "erro");
+            return;
+        }
+
+        alertaManual(data.mensagem || "Itens salvos com sucesso.", "ok");
+
+        setTimeout(function () {
+            window.location.href = data.url || "/importacoes";
+        }, 700);
+    }
+
+    function fecharSugestoes() {
+        document.querySelectorAll(".manual-sku-sugestoes").forEach(function (box) {
+            box.innerHTML = "";
+            box.style.display = "none";
+        });
+    }
+
+    async function abrirSugestoesSku(input) {
+        const termo = normalizar(input.value);
+        const listaId = input.dataset.lista;
+        const box = document.getElementById(listaId);
+
+        if (!box) return;
+
+        if (termo.length < 2) {
+            fecharSugestoes();
+            return;
+        }
+
+        const skus = await carregarSkusMaster();
+
+        const termos = termo.split(/\s+/).filter(Boolean);
+
+        const encontrados = skus.filter(function (sku) {
+            const skuNorm = normalizar(sku);
+            return termos.every(t => skuNorm.includes(t));
+        }).slice(0, 12);
+
+        box.innerHTML = "";
+
+        if (!encontrados.length) {
+            box.style.display = "none";
+            return;
+        }
+
+        encontrados.forEach(function (sku) {
+            const item = document.createElement("button");
+            item.type = "button";
+            item.className = "manual-sku-sugestao-item";
+            item.textContent = sku;
+
+            item.addEventListener("mousedown", function (event) {
+                event.preventDefault();
+                input.value = sku;
+                fecharSugestoes();
+            });
+
+            box.appendChild(item);
+        });
+
+        box.style.display = "block";
+    }
+
+    document.addEventListener("input", function (event) {
+        if (event.target && event.target.classList.contains("manual-sku")) {
+            abrirSugestoesSku(event.target);
+        }
+
+        if (event.target && event.target.classList.contains("manual-preco")) {
+            const campo = event.target;
+            campo.dataset.rawValue = campo.value;
+        }
+    });
+
+    document.addEventListener("focusout", function (event) {
+        if (event.target && event.target.classList.contains("manual-preco")) {
+            const valor = parseBR(event.target.value);
+            event.target.value = valor > 0 ? moedaBR(valor) : "";
+        }
+    });
+
+    document.addEventListener("focusin", function (event) {
+        if (event.target && event.target.classList.contains("manual-preco")) {
+            const valor = parseBR(event.target.value);
+            event.target.value = valor > 0 ? String(valor).replace(".", ",") : "";
+            setTimeout(() => event.target.select(), 20);
+        }
+    });
+
+    document.addEventListener("click", function (event) {
+        if (event.target && event.target.id === "btn-add-item-manual-fornecedor") {
+            adicionarLinhaManual();
+        }
+
+        if (event.target && event.target.id === "btn-salvar-itens-manuais-fornecedor") {
+            salvarItensManuais();
+        }
+
+        if (event.target && event.target.classList.contains("btn-remover-item-manual")) {
+            const card = event.target.closest(".manual-item-card");
+            if (card) card.remove();
+        }
+
+        if (!event.target.closest(".manual-sku-wrap")) {
+            fecharSugestoes();
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const body = document.getElementById("manual-itens-body");
+        if (body && !body.querySelector(".manual-item-card")) {
+            adicionarLinhaManual();
+        }
+        carregarSkusMaster();
+    });
+})();
+</script>
+'''
+
+css = r'''
+<style>
+/* ============================================================
+   MEDBOX - Layout Manual de Itens de Fornecedor
+   ============================================================ */
+.manual-fornecedor-panel {
+    border-left: 4px solid #E91E4D;
+}
+
+.manual-fornecedor-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid #dbe5ef;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+
+.manual-fornecedor-header h3 {
+    margin: 0 0 6px 0;
+}
+
+.manual-fornecedor-header p {
+    margin: 0;
+    color: #667085;
+    font-size: 0.9rem;
+}
+
+.manual-fornecedor-badge {
+    background: #eef6ff;
+    color: #00486C;
+    border: 1px solid #c7d7e8;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.manual-fornecedor-card {
+    background: #f8fafc;
+    border: 1px solid #dbe5ef;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.manual-fornecedor-grid {
+    display: grid;
+    grid-template-columns: 180px minmax(260px, 1fr) minmax(320px, 2fr);
+    gap: 12px;
+    align-items: start;
+}
+
+.manual-fornecedor-grid label,
+.manual-field label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: #344054;
+    margin-bottom: 5px;
+    letter-spacing: .03em;
+}
+
+.manual-fornecedor-grid select,
+.manual-fornecedor-grid input,
+.manual-field input,
+.manual-field select {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.86rem;
+    background: #fff;
+}
+
+.manual-fornecedor-grid small {
+    color: #8a98aa;
+    display: block;
+    margin-top: 4px;
+    font-size: 0.75rem;
+}
+
+.manual-itens-toolbar {
+    display: flex;
+    gap: 10px;
+    margin: 14px 0;
+    flex-wrap: wrap;
+}
+
+.btn-manual-salvar {
+    background: #00486C !important;
+}
+
+.manual-itens-lista {
+    display: grid;
+    gap: 12px;
+}
+
+.manual-item-card {
+    background: #fff;
+    border: 1px solid #dbe5ef;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+}
+
+.manual-item-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    color: #001f3f;
+}
+
+.btn-remover-item-manual {
+    background: #8a0017;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.manual-item-grid {
+    display: grid;
+    grid-template-columns: 2.2fr 1.6fr 1.3fr 1fr .9fr .6fr .9fr 1fr;
+    gap: 10px;
+}
+
+.manual-sku-wrap {
+    position: relative;
+}
+
+.manual-sku-sugestoes {
+    display: none;
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #c7d7e8;
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.14);
+}
+
+.manual-sku-sugestao-item {
+    width: 100%;
+    display: block;
+    border: none;
+    background: #fff;
+    text-align: left;
+    padding: 9px 10px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #001f3f;
+    cursor: pointer;
+    border-bottom: 1px solid #eef2f6;
+}
+
+.manual-sku-sugestao-item:hover {
+    background: #eef6ff;
+}
+
+.manual-itens-alerta {
+    display: none;
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: 800;
+}
+
+.manual-itens-alerta.erro {
+    background: #fff5f5;
+    color: #8a1f1f;
+    border: 1px solid #f1b6b6;
+}
+
+.manual-itens-alerta.ok {
+    background: #f0fff4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+@media (max-width: 1400px) {
+    .manual-item-grid {
+        grid-template-columns: 1.8fr 1.4fr 1.2fr .9fr .8fr .6fr .9fr;
+    }
+
+    .manual-field-obs {
+        grid-column: span 2;
+    }
+}
+</style>
+'''
+
+# Substitui a seção HTML antiga.
+inicio_secao = html.find('<section class="panel large">\n    <h3>Acrescentar Manualmente Itens Cotados</h3>')
+fim_secao = html.find('<!-- HISTÓRICO -->', inicio_secao)
+
+if inicio_secao == -1 or fim_secao == -1:
+    raise SystemExit("ERRO: não encontrei a seção manual antiga ou o marcador de histórico.")
+
+html = html[:inicio_secao] + nova_secao + "\n\n" + html[fim_secao:]
+
+# Substitui o script antigo.
+padrao_script = re.compile(
+    r"\n*<script>\s*/\*\s*=+\s*MEDBOX - Lançamento Manual de Itens de Fornecedor.*?</script>\s*",
+    re.DOTALL
+)
+html, removidos = padrao_script.subn("\n", html)
+print(f"Scripts manuais antigos removidos: {removidos}")
+
+# Insere CSS e JS antes do endblock.
+pos = html.rfind("{% endblock %}")
+if pos == -1:
+    raise SystemExit("ERRO: não encontrei {% endblock %}.")
+
+if "MEDBOX - Layout Manual de Itens de Fornecedor" not in html:
+    html = html[:pos] + css + "\n" + novo_js + "\n" + html[pos:]
+else:
+    print("CSS/JS novo já existia. Não dupliquei.")
+
+path.write_text(html, encoding="utf-8")
+print("OK: layout, autocomplete SKU e categorias corrigidos no lançamento manual.")

@@ -1,0 +1,907 @@
+{
+  "/modulo-pesquisa-preco/2_consultarMaterialDetalhe": {
+    "get": {
+      "tags": [
+        "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
+      ],
+      "operationId": "consultarMaterialDetalhe",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10
+          }
+        },
+        {
+          "name": "codigoItemCatalogo",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "dataCompraInicio",
+          "in": "query",
+          "description": "YYYY-MM-DD",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        },
+        {
+          "name": "dataCompraFim",
+          "in": "query",
+          "description": "YYYY-MM-DD",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTOFtPesqPrecoCompraMaterialDetalheDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-pesquisa-preco/2.1_consultarMaterialDetalhe_CSV": {
+    "get": {
+      "tags": [
+        "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
+      ],
+      "operationId": "consultarMaterialDetalheCSV",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10
+          }
+        },
+        {
+          "name": "codigoItemCatalogo",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "dataCompraInicio",
+          "in": "query",
+          "description": "YYYY-MM-DD",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        },
+        {
+          "name": "dataCompraFim",
+          "in": "query",
+          "description": "YYYY-MM-DD",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "format": "byte"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-pesquisa-preco/1_consultarMaterial": {
+    "get": {
+      "tags": [
+        "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
+      ],
+      "operationId": "consultarMaterial",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10
+          }
+        },
+        {
+          "name": "codigoItemCatalogo",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "codigoUasg",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "estado",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "codigoMunicipio",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "dataResultado",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        {
+          "name": "codigoClasse",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "poder",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "esfera",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "idCompra",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "dataCompraInicio",
+          "in": "query",
+          "description": "YYYY-MM-DD",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        },
+        {
+          "name": "dataCompraFim",
+          "in": "query",
+          "description": "YYYY-MM-DD",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTOFtPesqPrecoCompraMaterialDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-pesquisa-preco/1.1_consultarMaterial_CSV": {
+    "get": {
+      "tags": [
+        "03 - PESQUISA DE PREÇO - PREÇOS PRATICADOS"
+      ],
+      "operationId": "consultarMaterialCSV",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10
+          }
+        },
+        {
+          "name": "codigoItemCatalogo",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "codigoUasg",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "estado",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "codigoMunicipio",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "dataResultado",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        {
+          "name": "codigoClasse",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "poder",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "esfera",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "idCompra",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "dataCompraInicio",
+          "in": "query",
+          "description": "YYYY-MM-DD",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        },
+        {
+          "name": "dataCompraFim",
+          "in": "query",
+          "description": "YYYY-MM-DD",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "description": "YYYY-MM-DD"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "format": "byte"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-material/7_consultarMaterialCaracteristicas": {
+    "get": {
+      "tags": [
+        "01 - CATÁLOGO - MATERIAL"
+      ],
+      "operationId": "consultarMaterialCaracteristicas",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "codigoItem",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialCaracteristicasDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-material/6_consultarMaterialUnidadeFornecimento": {
+    "get": {
+      "tags": [
+        "01 - CATÁLOGO - MATERIAL"
+      ],
+      "operationId": "consultarMaterialUnidadeFornecimento",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "codigoPdm",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "statusUnidadeFornecimentoPdm",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialUnidadeFornecimentoDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-material/5_consultarMaterialNaturezaDespesa": {
+    "get": {
+      "tags": [
+        "01 - CATÁLOGO - MATERIAL"
+      ],
+      "operationId": "consultarMaterialNaturezaDespesa",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "codigoPdm",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "codigoNaturezaDespesa",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "statusNaturezaDespesa",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialNaturezaDespesaDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-material/4_consultarItemMaterial": {
+    "get": {
+      "tags": [
+        "01 - CATÁLOGO - MATERIAL"
+      ],
+      "operationId": "consultarItemMaterial",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "codigoItem",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "codigoGrupo",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "codigoClasse",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "codigoPdm",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "descricaoItem",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "statusItem",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "name": "bps",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        {
+          "name": "codigo_ncm",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialItemDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-material/3_consultarPdmMaterial": {
+    "get": {
+      "tags": [
+        "01 - CATÁLOGO - MATERIAL"
+      ],
+      "operationId": "consultarPdmMaterial",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "tamanhoPagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "statusPdm",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "name": "codigoPdm",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "codigoGrupo",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "codigoClasse",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "bps",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialPDMDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-material/2_consultarClasseMaterial": {
+    "get": {
+      "tags": [
+        "01 - CATÁLOGO - MATERIAL"
+      ],
+      "operationId": "consultarClasseMaterial",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "codigoGrupo",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "codigoClasse",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "statusClasse",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "name": "bps",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialClasseDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/modulo-material/1_consultarGrupoMaterial": {
+    "get": {
+      "tags": [
+        "01 - CATÁLOGO - MATERIAL"
+      ],
+      "operationId": "consultarGrupoMaterial",
+      "parameters": [
+        {
+          "name": "pagina",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          }
+        },
+        {
+          "name": "codigoGrupo",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        {
+          "name": "statusGrupo",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "*/*": {
+              "schema": {
+                "$ref": "#/components/schemas/GenericAPIResponseDTODmMaterialGrupoDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

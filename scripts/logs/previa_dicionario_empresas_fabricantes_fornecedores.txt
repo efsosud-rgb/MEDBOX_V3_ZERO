@@ -1,0 +1,33 @@
+===== PRÉVIA DICIONÁRIO DE FABRICANTES / FORNECEDORES =====
+
+Data/hora: 2026-06-24 09:27:39
+Backup criado: banco\backups\medbox_v3_backup_criar_dicionario_empresas_20260624_092739.db
+
+Banco de produtos alterado: NÃO
+Fabricantes/fornecedores alterados: NÃO
+
+Empresas canônicas cadastradas: 8
+Aliases cadastrados/conferidos: 15
+Nomes com sugestão de resumo encontrados: 8
+
+===== CONTAGEM POR NOME RESUMIDO =====
+MEDIX: 5 nomes/variações
+BLAU: 1 nomes/variações
+EUROFARMA: 1 nomes/variações
+FRESENIUS: 1 nomes/variações
+
+===== AMOSTRA DAS NORMALIZAÇÕES =====
+produtos.fabricante | MEDIX BRASIL - TOP QUALITY -> MEDIX | qtd=493
+produtos.fabricante | MEDIX BRASIL - PROF. -> MEDIX | qtd=142
+produtos.fabricante | MEDIX BRASIL - PROFISSIONAL -> MEDIX | qtd=81
+produtos.fabricante | MEDIXLAB -> MEDIX | qtd=79
+produtos.fabricante | BLAU FARMACEUTICA S.A. -> BLAU | qtd=14
+produtos.fabricante | MEDIX BRASIL -> MEDIX | qtd=12
+produtos.fabricante | EUROFARMA LABORATORIOS S. -> EUROFARMA | qtd=8
+produtos.fabricante | FR -> FRESENIUS | qtd=4
+
+CSV gerado: C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\previa_normalizacao_empresas.csv
+
+VEREDITO:
+DICIONARIO_EMPRESAS_CRIADO_PREVIA_GERADA
+Aplicação automática: NÃO

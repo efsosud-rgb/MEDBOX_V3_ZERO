@@ -1,37 +1,44 @@
-# Python
+﻿# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
+.mypy_cache/
 
 # Ambiente virtual
 venv/
 .venv/
 env/
 
-# Variáveis de ambiente
-.env
-.env.*
+# Flask / logs
+instance/
+*.log
 
-# Banco de dados
+# Banco de dados local
 *.db
 *.sqlite
 *.sqlite3
 
-# Uploads
+# Uploads e arquivos temporários
 uploads/
+temp/
+tmp/
 
-# Flask
-instance/
-.webassets-cache
+# Excel/PDF temporários
+~$*.xlsx
+~$*.xls
+*.tmp
 
-# Distribuição / empacotamento
-dist/
-build/
-*.egg-info/
+# Sistema operacional
+.DS_Store
+Thumbs.db
 
-# IDEs
+# IDE
 .vscode/
 .idea/
-*.swp
-.aider*
+
+# Backups locais antigos
+*.bak
+*.bak_*
+app.py.bak_*

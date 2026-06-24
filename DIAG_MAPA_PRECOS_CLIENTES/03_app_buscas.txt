@@ -1,0 +1,132 @@
+﻿[Linha 14]     listar_sugestoes_busca,
+[Linha 23] from core.auditoria_sku_master import (
+[Linha 25]     GRUPOS_SUGESTOES as GRUPOS_SUGESTOES_SKU,
+[Linha 26]     aplicar_correcao_sku_master,
+[Linha 27]     aplicar_correcao_manual_sku_master,
+[Linha 28]     aplicar_lote_correcoes_sku_master,
+[Linha 29]     gerar_auditoria_sku_master,
+[Linha 30]     gerar_csv_auditoria_sku_master,
+[Linha 31]     gerar_csv_sugestoes_sku_master,
+[Linha 32]     gerar_sugestoes_sku_master,
+[Linha 33]     previsualizar_lote_correcoes_sku_master,
+[Linha 40] from core.importador_sku import importar_sku_master
+[Linha 114]     sugestoes = []
+[Linha 141]         sugestoes = listar_sugestoes_busca(termo)
+[Linha 148]         sugestoes=sugestoes,
+[Linha 165] def sku_master_auditoria():
+[Linha 169]     auditoria = gerar_auditoria_sku_master(filtro="todos", q=q, pagina=page, limite=50)
+[Linha 171]         "sku_master_auditoria.html",
+[Linha 180] def sku_master_auditoria_csv():
+[Linha 182]     conteudo = gerar_csv_auditoria_sku_master(filtro="todos", q=q)
+[Linha 183]     nome_arquivo = f"auditoria_sku_master.csv"
+[Linha 193] @app.route("/sku-master/sugestoes")
+[Linha 194] def sku_master_sugestoes():
+[Linha 196]     sugestoes = gerar_sugestoes_sku_master(grupo=grupo, limite=250)
+[Linha 198]         "sku_master_sugestoes.html",
+[Linha 201]         sugestoes=sugestoes,
+[Linha 202]         grupos=GRUPOS_SUGESTOES_SKU,
+[Linha 206] @app.route("/sku-master/sugestoes.csv")
+[Linha 207] def sku_master_sugestoes_csv():
+[Linha 209]     conteudo = gerar_csv_sugestoes_sku_master(grupo=grupo)
+[Linha 210]     nome_arquivo = f"sugestoes_sku_master_{grupo}.csv"
+[Linha 220] @app.route("/sku-master/sugestoes/aplicar", methods=["POST"])
+[Linha 221] def sku_master_sugestoes_aplicar():
+[Linha 224]         resultado = aplicar_correcao_sku_master(
+[Linha 228]             origem_sugestao=request.form.get("origem_sugestao"),
+[Linha 238]     return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+[Linha 241] @app.route("/sku-master/sugestoes/aplicar-manual", methods=["POST"])
+[Linha 242] def sku_master_sugestoes_aplicar_manual():
+[Linha 245]         resultado = aplicar_correcao_manual_sku_master(
+[Linha 259]     return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+[Linha 269] @app.route("/sku-master/sugestoes/lote/previsualizar", methods=["POST"])
+[Linha 270] def sku_master_sugestoes_lote_previsualizar():
+[Linha 274]         preview = previsualizar_lote_correcoes_sku_master(itens)
+[Linha 276]             "sku_master_lote_preview.html",
+[Linha 284]         return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+[Linha 287] @app.route("/sku-master/sugestoes/lote/aplicar", methods=["POST"])
+[Linha 288] def sku_master_sugestoes_lote_aplicar():
+[Linha 292]         resultado = aplicar_lote_correcoes_sku_master(itens, usuario="compras")
+[Linha 301]     return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+[Linha 304] @app.route("/importar_sku_master", methods=["POST"])
+[Linha 305] def importar_sku_master_rota():
+[Linha 312]         importar_sku_master(caminho)
+[Linha 470]         sugestoes = sugerir_skus_lances(termo, limite=12)
+[Linha 473]             "sugestoes": sugestoes
+[Linha 479]             "sugestoes": []
+[Linha 583]             sku_master TEXT,
+[Linha 700]                 "sku_master": str(item.get("sku_master") or "").strip().upper(),
+[Linha 747]                     sku_master,
+[Linha 760]                 item["sku_master"],
+[Linha 860]         sku_master=data.get("sku_master", ""),
+[Linha 918] @app.route("/mapa-precos-clientes")
+[Linha 919] def mapa_precos_clientes():
+[Linha 920]     from core.mapa_precos_clientes import dados_tela_mapa_precos_clientes
+[Linha 922]     dados = dados_tela_mapa_precos_clientes()
+[Linha 925]         "mapa_precos_clientes.html",
+[Linha 932] @app.route("/mapa-precos-clientes/importar")
+[Linha 933] def mapa_precos_clientes_importar():
+[Linha 934]     from core.mapa_precos_clientes import listar_clientes_mapa_precos, listar_cotacoes_mapa_precos
+[Linha 940]         "mapa_precos_clientes_importar.html",
+[Linha 952] @app.route("/mapa-precos-clientes/importar", methods=["POST"])
+[Linha 953] def mapa_precos_clientes_importar_post():
+[Linha 962]         return redirect(url_for("mapa_precos_clientes_importar") + "?erro=Nenhum arquivo selecionado.")
+[Linha 965]         return redirect(url_for("mapa_precos_clientes_importar") + "?erro=Selecione um cliente ou informe novo cliente.")
+[Linha 971]         from core.mapa_precos_clientes import importar_cotacao_cliente_mapa
+[Linha 973]         resultado = importar_cotacao_cliente_mapa(
+[Linha 989]         return redirect(url_for("mapa_precos_clientes_importar") + "?" + urlencode({"sucesso": msg}))
+[Linha 992]         return redirect(url_for("mapa_precos_clientes_importar") + "?" + urlencode({"erro": str(erro)}))
+[Linha 1129]             sku_master = normalizar_texto(item.get("sku_master") or descricao)
+[Linha 1150]                         UPPER(COALESCE(sku_master, '')) = UPPER(?)
+[Linha 1155]             """, (sku_master, descricao))
+[Linha 1164]                     SET sku_master = COALESCE(NULLIF(?, ''), sku_master),
+[Linha 1171]                     sku_master,
+[Linha 1182]                         sku_master,
+[Linha 1190]                     sku_master,
+[Linha 1192]                     sku_master,
+[Linha 1276] def sku_master_marcas_json():
+[Linha 1290] def sku_master_categorias_json():
+[Linha 1304] def sku_master_auditoria_preview_cascata():
+[Linha 1326] def sku_master_auditoria_salvar_edicao():
+[Linha 1353] def sku_master_auditoria_excluir(produto_id):
+[Linha 1371] def sku_master_auditoria_salvar_sku_ajax():
+[Linha 1376]         resultado = aplicar_correcao_manual_sku_master(
+[Linha 1402] def sku_master_auditoria_corrigir_todos():
+[Linha 1414]                 aplicar_correcao_manual_sku_master(
+[Linha 1428]     return redirect(url_for("sku_master_auditoria"))
+[Linha 1432] def sku_master_skus_json():
+[Linha 1435]     # Use COALESCE to prioritize sku_master over produto_padrao in suggestions
+[Linha 1437]         """SELECT DISTINCT COALESCE(NULLIF(TRIM(sku_master), ''), produto_padrao) as sku
+[Linha 1448] def sku_master_auditoria_salvar_sku():
+[Linha 1452]         resultado = aplicar_correcao_manual_sku_master(
+[Linha 1465]     return redirect(url_for("sku_master_auditoria"))
+[Linha 1671]         sku_master = str(item.get("sku_master") or "").strip().upper()
+[Linha 1705]                 sku_master,
+[Linha 1726]             sku_master,
+[Linha 2108]         sku_master = str(item.get("sku_master") or "").strip().upper()
+[Linha 2140]                 sku_master,
+[Linha 2162]             sku_master,
+[Linha 2398]         "sku_master": item.get("sku_master", ""),
+[Linha 2399]         "sku_encontrado": bool(item.get("sku_master")),
+[Linha 2401]         "sugestoes_sku": [],
+[Linha 2544]         sku_master = str(item.get("sku_master") or "").strip().upper()
+[Linha 2571]                 sku_master,
+[Linha 2593]             sku_master,
+[Linha 2974]         sku_master = str(item.get("sku_master") or "").strip().upper()
+[Linha 3003]                 sku_master,
+[Linha 3025]             sku_master,
+[Linha 3206]         "sku_master": item.get("sku_master", ""),
+[Linha 3207]         "sku_encontrado": bool(item.get("sku_master")),
+[Linha 3209]         "sugestoes_sku": [],
+[Linha 3334]         sku_master = str(item.get("sku_master") or "").strip().upper()
+[Linha 3362]                 sku_master,
+[Linha 3384]             sku_master,
+[Linha 3608]         "sku_master": g("sku_master", ""),
+[Linha 3629]         "sku_encontrado": bool(g("sku_master", "")),
+[Linha 3631]         "status": "SKU SELECIONADO" if g("sku_master", "") else "REVISAR SKU",
+[Linha 3633]         "sugestoes_sku": [],
+[Linha 3669]             "itens_com_sku": sum(1 for i in itens if i.get("sku_master")),
+[Linha 3670]             "itens_revisar_sku": sum(1 for i in itens if not i.get("sku_master")),
+[Linha 3729]         sku_master = str(item.get("sku_master") or "").strip().upper()
+[Linha 3764]                 sku_master,
+[Linha 3791]             sku_master,
+[Linha 3797]             "SKU SELECIONADO" if sku_master else "REVISAR SKU",

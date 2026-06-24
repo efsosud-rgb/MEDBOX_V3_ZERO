@@ -1,0 +1,3882 @@
+﻿    1: import sqlite3
+    2: import json
+    3: import logging
+    4: import traceback
+    5: from flask import Flask, Response, render_template, request, redirect, url_for, flash, jsonify
+    6: from datetime import datetime
+    7: from pathlib import Path
+    8: from urllib.parse import urlencode
+    9: from werkzeug.utils import secure_filename
+   10: 
+   11: from core.banco import (
+   12:     criar_banco, resumo_dashboard, conectar,
+   13:     listar_fornecedores, cadastrar_fornecedor, excluir_fornecedor,
+   14:     listar_sugestoes_busca,
+   15:     listar_equivalencias, adicionar_equivalencia, excluir_equivalencia,
+   16:     listar_produtos_simples, listar_cotacoes
+   17: )
+   18: from core.lances_cotacao import importar_lances_cotacao
+   19: from core.busca_inteligente import (
+   20:     buscar_produto_inteligente,
+   21:     buscar_produtos_por_fornecedor,
+   22: )
+   23: from core.auditoria_sku_master import (
+   24:     FILTROS as FILTROS_AUDITORIA_SKU,
+   25:     GRUPOS_SUGESTOES as GRUPOS_SUGESTOES_SKU,
+   26:     aplicar_correcao_sku_master,
+   27:     aplicar_correcao_manual_sku_master,
+   28:     aplicar_lote_correcoes_sku_master,
+   29:     gerar_auditoria_sku_master,
+   30:     gerar_csv_auditoria_sku_master,
+   31:     gerar_csv_sugestoes_sku_master,
+   32:     gerar_sugestoes_sku_master,
+   33:     previsualizar_lote_correcoes_sku_master,
+   34:     buscar_produtos_afetados_cascata,
+   35:     salvar_edicao_manual_produto,
+   36:     excluir_produto_logico,
+   37: )
+   38: from core.cotacao_lances_v2 import analisar_arquivo_cotacao, analisar_itens_manuais_lance, configurar_logger_cotacao, salvar_sku_rapido_lances, sugerir_skus_lances
+   39: from core.formatadores import moeda_br
+   40: from core.importador_sku import importar_sku_master
+   41: 
+   42: app = Flask(__name__)
+   43: app.secret_key = "medbox_v3_zero"
+   44: 
+   45: criar_banco()
+   46: 
+   47: BASE_DIR = Path(__file__).resolve().parent
+   48: PASTA_UPLOADS = BASE_DIR / "uploads"
+   49: PASTA_UPLOADS.mkdir(exist_ok=True)
+   50: PASTA_UPLOADS_LANCES = PASTA_UPLOADS / "cotacoes_lances"
+   51: PASTA_UPLOADS_LANCES.mkdir(exist_ok=True)
+   52: 
+   53: LOG_PATH = BASE_DIR / "debug_importacao.txt"
+   54: 
+   55: DATA_ATUAL = datetime.now().strftime("%d/%m/%Y")
+   56: 
+   57: 
+   58: def _criar_logger_requisicao() -> logging.Logger:
+   59:     logger = logging.getLogger("importacao")
+   60:     logger.setLevel(logging.DEBUG)
+   61: 
+   62:     for handler in logger.handlers[:]:
+   63:         handler.close()
+   64:         logger.removeHandler(handler)
+   65: 
+   66:     file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
+   67:     file_handler.setLevel(logging.DEBUG)
+   68: 
+   69:     formatter = logging.Formatter(
+   70:         fmt="%(asctime)s.%(msecs)03d | %(message)s",
+   71:         datefmt="%H:%M:%S",
+   72:     )
+   73:     file_handler.setFormatter(formatter)
+   74: 
+   75:     class FlushFileHandler(logging.FileHandler):
+   76:         def emit(self, record):
+   77:             super().emit(record)
+   78:             self.flush()
+   79: 
+   80:     logger.handlers = []
+   81:     fh = FlushFileHandler(LOG_PATH, mode="w", encoding="utf-8")
+   82:     fh.setLevel(logging.DEBUG)
+   83:     fh.setFormatter(formatter)
+   84:     logger.addHandler(fh)
+   85:     logger.propagate = False
+   86: 
+   87:     return logger
+   88: 
+   89: 
+   90: def contar_produtos():
+   91:     conn = conectar()
+   92:     cursor = conn.cursor()
+   93:     cursor.execute("SELECT COUNT(*) FROM produtos WHERE ativo = 1")
+   94:     total = cursor.fetchone()[0]
+   95:     conn.close()
+   96:     return total
+   97: 
+   98: 
+   99: @app.route("/")
+  100: def dashboard():
+  101:     resumo = resumo_dashboard()
+  102:     return render_template(
+  103:         "dashboard.html",
+  104:         data_atual=DATA_ATUAL,
+  105:         resumo=resumo,
+  106:         total_produtos=contar_produtos()
+  107:     )
+  108: 
+  109: 
+  110: @app.route("/busca")
+  111: def busca():
+  112:     termo = request.args.get("q", "").strip()
+  113:     resultados = []
+  114:     sugestoes = []
+  115:     modo_busca = "produto"
+  116:     fornecedor_encontrado = None
+  117:     if termo:
+  118:         resultado_fornecedor = buscar_produtos_por_fornecedor(termo, limite=50)
+  119:         if resultado_fornecedor:
+  120:             modo_busca = "fornecedor"
+  121:             fornecedor_encontrado = resultado_fornecedor["fornecedor"]
+  122:             resultados = resultado_fornecedor["resultados"]
+  123:         else:
+  124:             resultados = buscar_produto_inteligente(termo, limite=20)
+  125:         for item in resultados:
+  126:             item["menor_preco_formatado"] = moeda_br(item.get("menor_preco"))
+  127:             if not item.get("tem_preco"):
+  128:                 item["fornecedor_menor_formatado"] = "-"
+  129:                 item["origem_catalogo"] = (
+  130:                     item.get("fabricante")
+  131:                     or (item.get("precos") or [{}])[0].get("marca")
+  132:                     or "Catalogo"
+  133:                 )
+  134:                 item["origem_catalogo_formatada"] = f"{item['origem_catalogo']} (catalogo)"
+  135:             else:
+  136:                 item["fornecedor_menor_formatado"] = item.get("fornecedor_menor") or "-"
+  137:                 item["origem_catalogo"] = ""
+  138:                 item["origem_catalogo_formatada"] = ""
+  139:             for preco in item.get("precos", []):
+  140:                 preco["preco_formatado"] = moeda_br(preco.get("preco"))
+  141:         sugestoes = listar_sugestoes_busca(termo)
+  142:     return render_template(
+  143:         "busca.html",
+  144:         data_atual=DATA_ATUAL,
+  145:         resumo=resumo_dashboard(),
+  146:         termo=termo,
+  147:         resultados=resultados,
+  148:         sugestoes=sugestoes,
+  149:         modo_busca=modo_busca,
+  150:         fornecedor_encontrado=fornecedor_encontrado
+  151:     )
+  152: 
+  153: 
+  154: @app.route("/produtos")
+  155: def produtos():
+  156:     return render_template(
+  157:         "produtos.html",
+  158:         data_atual=DATA_ATUAL,
+  159:         resumo=resumo_dashboard(),
+  160:         total_produtos=contar_produtos()
+  161:     )
+  162: 
+  163: 
+  164: @app.route("/sku-master/auditoria")
+  165: def sku_master_auditoria():
+  166:     q = request.args.get("q", "").strip()
+  167:     page = int(request.args.get("page", 1))
+  168:     # 'filtro' parameter is now ignored to focus on universal keyword search
+  169:     auditoria = gerar_auditoria_sku_master(filtro="todos", q=q, pagina=page, limite=50)
+  170:     return render_template(
+  171:         "sku_master_auditoria.html",
+  172:         data_atual=DATA_ATUAL,
+  173:         resumo=resumo_dashboard(),
+  174:         auditoria=auditoria,
+  175:         filtros=FILTROS_AUDITORIA_SKU,
+  176:     )
+  177: 
+  178: 
+  179: @app.route("/sku-master/auditoria.csv")
+  180: def sku_master_auditoria_csv():
+  181:     q = request.args.get("q", "").strip()
+  182:     conteudo = gerar_csv_auditoria_sku_master(filtro="todos", q=q)
+  183:     nome_arquivo = f"auditoria_sku_master.csv"
+  184:     return Response(
+  185:         conteudo,
+  186:         content_type="text/csv; charset=utf-8",
+  187:         headers={
+  188:             "Content-Disposition": f"attachment; filename={nome_arquivo}"
+  189:         },
+  190:     )
+  191: 
+  192: 
+  193: @app.route("/sku-master/sugestoes")
+  194: def sku_master_sugestoes():
+  195:     grupo = request.args.get("grupo", "todos")
+  196:     sugestoes = gerar_sugestoes_sku_master(grupo=grupo, limite=250)
+  197:     return render_template(
+  198:         "sku_master_sugestoes.html",
+  199:         data_atual=DATA_ATUAL,
+  200:         resumo=resumo_dashboard(),
+  201:         sugestoes=sugestoes,
+  202:         grupos=GRUPOS_SUGESTOES_SKU,
+  203:     )
+  204: 
+  205: 
+  206: @app.route("/sku-master/sugestoes.csv")
+  207: def sku_master_sugestoes_csv():
+  208:     grupo = request.args.get("grupo", "todos")
+  209:     conteudo = gerar_csv_sugestoes_sku_master(grupo=grupo)
+  210:     nome_arquivo = f"sugestoes_sku_master_{grupo}.csv"
+  211:     return Response(
+  212:         conteudo,
+  213:         content_type="text/csv; charset=utf-8",
+  214:         headers={
+  215:             "Content-Disposition": f"attachment; filename={nome_arquivo}"
+  216:         },
+  217:     )
+  218: 
+  219: 
+  220: @app.route("/sku-master/sugestoes/aplicar", methods=["POST"])
+  221: def sku_master_sugestoes_aplicar():
+  222:     grupo = request.form.get("grupo", "todos")
+  223:     try:
+  224:         resultado = aplicar_correcao_sku_master(
+  225:             produto_origem_id=request.form.get("produto_origem_id"),
+  226:             produto_destino_id=request.form.get("produto_destino_id"),
+  227:             sku_sugerido=request.form.get("sku_sugerido"),
+  228:             origem_sugestao=request.form.get("origem_sugestao"),
+  229:             usuario="compras",
+  230:         )
+  231:         flash(
+  232:             "Correcao aplicada: "
+  233:             f"{resultado['precos_migrados']} precos e "
+  234:             f"{resultado['equivalencias_migradas']} equivalencias migrados."
+  235:         )
+  236:     except Exception as erro:
+  237:         flash(f"Correcao nao aplicada: {erro}")
+  238:     return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+  239: 
+  240: 
+  241: @app.route("/sku-master/sugestoes/aplicar-manual", methods=["POST"])
+  242: def sku_master_sugestoes_aplicar_manual():
+  243:     grupo = request.form.get("grupo", "todos")
+  244:     try:
+  245:         resultado = aplicar_correcao_manual_sku_master(
+  246:             produto_origem_id=request.form.get("produto_origem_id"),
+  247:             sku_manual=request.form.get("sku_manual"),
+  248:             usuario="compras",
+  249:         )
+  250:         acao_destino = "criado" if resultado["destino_criado"] else "existente"
+  251:         flash(
+  252:             "Correcao manual aplicada: "
+  253:             f"SKU destino {acao_destino}, "
+  254:             f"{resultado['precos_migrados']} precos e "
+  255:             f"{resultado['equivalencias_migradas']} equivalencias migrados."
+  256:         )
+  257:     except Exception as erro:
+  258:         flash(f"Correcao manual nao aplicada: {erro}")
+  259:     return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+  260: 
+  261: 
+  262: def _itens_lote_do_formulario():
+  263:     itens = []
+  264:     for valor in request.form.getlist("itens_lote"):
+  265:         itens.append(json.loads(valor))
+  266:     return itens
+  267: 
+  268: 
+  269: @app.route("/sku-master/sugestoes/lote/previsualizar", methods=["POST"])
+  270: def sku_master_sugestoes_lote_previsualizar():
+  271:     grupo = request.form.get("grupo", "todos")
+  272:     try:
+  273:         itens = _itens_lote_do_formulario()
+  274:         preview = previsualizar_lote_correcoes_sku_master(itens)
+  275:         return render_template(
+  276:             "sku_master_lote_preview.html",
+  277:             data_atual=DATA_ATUAL,
+  278:             resumo=resumo_dashboard(),
+  279:             grupo=grupo,
+  280:             preview=preview,
+  281:         )
+  282:     except Exception as erro:
+  283:         flash(f"Lote nao pode ser previsualizado: {erro}")
+  284:         return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+  285: 
+  286: 
+  287: @app.route("/sku-master/sugestoes/lote/aplicar", methods=["POST"])
+  288: def sku_master_sugestoes_lote_aplicar():
+  289:     grupo = request.form.get("grupo", "todos")
+  290:     try:
+  291:         itens = _itens_lote_do_formulario()
+  292:         resultado = aplicar_lote_correcoes_sku_master(itens, usuario="compras")
+  293:         flash(
+  294:             "Lote aplicado: "
+  295:             f"{resultado['total_itens']} itens, "
+  296:             f"{resultado['precos_migrados']} precos e "
+  297:             f"{resultado['equivalencias_migradas']} equivalencias migrados."
+  298:         )
+  299:     except Exception as erro:
+  300:         flash(f"Lote nao aplicado: {erro}")
+  301:     return redirect(url_for("sku_master_sugestoes", grupo=grupo))
+  302: 
+  303: 
+  304: @app.route("/importar_sku_master", methods=["POST"])
+  305: def importar_sku_master_rota():
+  306:     arquivo = request.files.get("arquivo")
+  307:     if not arquivo or arquivo.filename == "":
+  308:         return "Nenhum arquivo selecionado."
+  309:     caminho = PASTA_UPLOADS / arquivo.filename
+  310:     arquivo.save(caminho)
+  311:     try:
+  312:         importar_sku_master(caminho)
+  313:         return redirect(url_for("produtos"))
+  314:     except Exception as erro:
+  315:         return f"Erro ao importar SKU Master: {erro}"
+  316: 
+  317: 
+  318: @app.route("/fornecedores")
+  319: def fornecedores():
+  320:     return render_template(
+  321:         "fornecedores.html",
+  322:         data_atual=DATA_ATUAL,
+  323:         resumo=resumo_dashboard(),
+  324:         fornecedores=listar_fornecedores()
+  325:     )
+  326: 
+  327: 
+  328: @app.route("/fornecedores/cadastrar", methods=["POST"])
+  329: def cadastrar_fornecedor_rota():
+  330:     nome = request.form.get("nome", "").strip()
+  331:     tipo = request.form.get("tipo", "").strip()
+  332:     contato = request.form.get("contato", "").strip()
+  333:     email = request.form.get("email", "").strip()
+  334:     telefone = request.form.get("telefone", "").strip()
+  335:     if nome:
+  336:         cadastrar_fornecedor(nome, tipo, contato, email, telefone)
+  337:     return redirect(url_for("fornecedores"))
+  338: 
+  339: 
+  340: @app.route("/fornecedores/excluir/<int:fornecedor_id>", methods=["POST"])
+  341: def excluir_fornecedor_rota(fornecedor_id):
+  342:     excluir_fornecedor(fornecedor_id)
+  343:     return redirect(url_for("fornecedores"))
+  344: 
+  345: 
+  346: @app.route("/cotacoes")
+  347: def cotacoes():
+  348:     return render_template(
+  349:         "cotacoes.html",
+  350:         data_atual=DATA_ATUAL,
+  351:         resumo=resumo_dashboard(),
+  352:         cotacoes=listar_cotacoes(),
+  353:         fornecedores=listar_fornecedores()
+  354:     )
+  355: 
+  356: 
+  357: 
+  358: 
+  359: def analise_lances_vazia(markup_percentual=80):
+  360:     return {
+  361:         "arquivo": "",
+  362:         "itens_extraidos": 0,
+  363:         "markup_percentual": float(markup_percentual or 80),
+  364:         "itens": [],
+  365:         "resumo": {
+  366:             "total_itens": 0,
+  367:             "itens_com_sku": 0,
+  368:             "itens_revisar_sku": 0,
+  369:             "itens_com_preco_medbox": 0,
+  370:             "itens_sem_preco": 0,
+  371:             "itens_competitivos": 0,
+  372:             "itens_negociar": 0,
+  373:             "total_medbox": 0,
+  374:             "total_medbox_formatado": "R$ 0,00",
+  375:             "total_menor_lance": 0,
+  376:             "total_menor_lance_formatado": "R$ 0,00",
+  377:         }
+  378:     }
+  379: 
+  380: 
+  381: @app.route("/cotacoes/lances")
+  382: def cotacoes_lances():
+  383:     return render_template(
+  384:         "cotacao_lances.html",
+  385:         data_atual=DATA_ATUAL,
+  386:         resumo=resumo_dashboard(),
+  387:         analise=analise_lances_vazia(80),
+  388:         erro=None,
+  389:         arquivo_nome="",
+  390:         markup_percentual=80,
+  391:     )
+  392: 
+  393: 
+  394: @app.route("/cotacoes/lances/importar", methods=["POST"])
+  395: def importar_cotacao_lances():
+  396:     log = _criar_logger_requisicao()
+  397:     configurar_logger_cotacao(log)
+  398: 
+  399:     log.debug("=" * 70)
+  400:     log.debug("INICIO: Rota /cotacoes/lances/importar chamada")
+  401:     log.debug("=" * 70)
+  402: 
+  403:     arquivo = request.files.get("arquivo")
+  404:     markup_percentual = request.form.get("markup_percentual", 80)
+  405: 
+  406:     log.debug(f"Arquivo recebido: {arquivo}")
+  407:     log.debug(f"Nome do arquivo : {arquivo.filename if arquivo else 'None'}")
+  408:     log.debug(f"Markup          : {markup_percentual}")
+  409: 
+  410:     if not arquivo or arquivo.filename == "":
+  411:         log.debug("ERRO: Nenhum arquivo selecionado")
+  412:         return render_template(
+  413:             "cotacao_lances.html",
+  414:             data_atual=DATA_ATUAL,
+  415:             resumo=resumo_dashboard(),
+  416:             analise=None,
+  417:             erro="Nenhum arquivo selecionado.",
+  418:             arquivo_nome="",
+  419:             markup_percentual=markup_percentual,
+  420:         ), 400
+  421: 
+  422:     nome_seguro = secure_filename(arquivo.filename)
+  423:     caminho = PASTA_UPLOADS_LANCES / nome_seguro
+  424:     log.debug(f"Salvando arquivo em: {caminho}")
+  425:     arquivo.save(caminho)
+  426:     tamanho = caminho.stat().st_size
+  427:     log.debug(f"Arquivo salvo. Tamanho: {tamanho} bytes ({tamanho / 1024:.1f} KB)")
+  428: 
+  429:     try:
+  430:         log.debug("Chamando analisar_arquivo_cotacao() ...")
+  431:         analise = analisar_arquivo_cotacao(caminho, markup_percentual=markup_percentual)
+  432:         total_itens = len(analise.get("itens", []))
+  433:         log.debug(f"analisar_arquivo_cotacao() concluiu. Total de itens: {total_itens}")
+  434:         log.debug("Renderizando template cotacao_lances.html ...")
+  435:         resposta = render_template(
+  436:             "cotacao_lances.html",
+  437:             data_atual=DATA_ATUAL,
+  438:             resumo=resumo_dashboard(),
+  439:             analise=analise,
+  440:             erro=None,
+  441:             arquivo_nome=arquivo.filename,
+  442:             markup_percentual=analise["markup_percentual"],
+  443:         )
+  444:         log.debug("Template renderizado. Enviando resposta ao cliente.")
+  445:         return resposta
+  446: 
+  447:     except Exception as erro:
+  448:         log.debug(f"EXCECAO capturada: {type(erro).__name__}: {erro}")
+  449:         log.debug("Traceback completo:")
+  450:         log.debug(traceback.format_exc())
+  451:         return render_template(
+  452:             "cotacao_lances.html",
+  453:             data_atual=DATA_ATUAL,
+  454:             resumo=resumo_dashboard(),
+  455:             analise=None,
+  456:             erro=str(erro),
+  457:             arquivo_nome=arquivo.filename,
+  458:             markup_percentual=markup_percentual,
+  459:         ), 400
+  460: 
+  461: 
+  462: 
+  463: 
+  464: 
+  465: 
+  466: @app.route("/cotacoes/lances/sugerir-skus")
+  467: def sugerir_skus_lances_rota():
+  468:     termo = request.args.get("q", "")
+  469:     try:
+  470:         sugestoes = sugerir_skus_lances(termo, limite=12)
+  471:         return jsonify({
+  472:             "ok": True,
+  473:             "sugestoes": sugestoes
+  474:         })
+  475:     except Exception as exc:
+  476:         return jsonify({
+  477:             "ok": False,
+  478:             "erro": str(exc),
+  479:             "sugestoes": []
+  480:         }), 500
+  481: 
+  482: @app.route("/cotacoes/lances/adicionar-itens", methods=["POST"])
+  483: def adicionar_itens_manuais_lances():
+  484:     """
+  485:     Adiciona vÃ¡rios itens manuais Ã  Grade de Lances sem alterar o layout da tabela.
+  486:     Retorna JSON para o frontend anexar as linhas na grade atual.
+  487:     """
+  488:     texto_itens = request.form.get("texto_itens", "")
+  489:     markup_percentual = request.form.get("markup_percentual", 80)
+  490: 
+  491:     try:
+  492:         analise = analisar_itens_manuais_lance(
+  493:             texto_itens,
+  494:             markup_percentual=markup_percentual
+  495:         )
+  496: 
+  497:         if not analise.get("itens"):
+  498:             return jsonify({
+  499:                 "ok": False,
+  500:                 "erro": "Nenhum item vÃ¡lido foi informado."
+  501:             }), 400
+  502: 
+  503:         return jsonify({
+  504:             "ok": True,
+  505:             "analise": analise
+  506:         })
+  507: 
+  508:     except Exception as exc:
+  509:         return jsonify({
+  510:             "ok": False,
+  511:             "erro": str(exc)
+  512:         }), 500
+  513: 
+  514: 
+  515: # =========================================================
+  516: # COTAÃ‡Ã•ES GERADAS - LANCES
+  517: # =========================================================
+  518: 
+  519: EMPRESA_MEDBOX_COTACAO = {
+  520:     "razao_social": "MEDBOX DISTRIBUIDORA DE MEDICAMENTOS E MATERIAL HOSPITALAR LTDA",
+  521:     "cnpj": "37.141.903/0001-00",
+  522:     "endereco": "AV. PREFEITO ISOLDAKSON CRUZ DE BRITO, 158",
+  523:     "bairro": "VILA MARGARIDA",
+  524:     "cidade_uf": "ITAGUAÃ/RJ",
+  525:     "cep": "23.825-840",
+  526:     "email": "contato.medbox@gmail.com",
+  527:     "telefone": "(21) 2687-4954",
+  528: }
+  529: 
+  530: 
+  531: def moeda_float_lances(valor):
+  532:     valor = str(valor or "").strip()
+  533:     valor = valor.replace("R$", "").replace(" ", "")
+  534: 
+  535:     if not valor:
+  536:         return 0.0
+  537: 
+  538:     if "," in valor:
+  539:         valor = valor.replace(".", "").replace(",", ".")
+  540: 
+  541:     try:
+  542:         return float(valor)
+  543:     except Exception:
+  544:         return 0.0
+  545: 
+  546: 
+  547: def moeda_br_lances(valor):
+  548:     try:
+  549:         valor = float(valor or 0)
+  550:     except Exception:
+  551:         valor = 0.0
+  552: 
+  553:     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+  554: 
+  555: 
+  556: def garantir_tabelas_cotacoes_geradas():
+  557:     conn = conectar()
+  558:     cur = conn.cursor()
+  559: 
+  560:     cur.execute("""
+  561:         CREATE TABLE IF NOT EXISTS cotacoes_geradas (
+  562:             id INTEGER PRIMARY KEY AUTOINCREMENT,
+  563:             numero_cotacao TEXT UNIQUE NOT NULL,
+  564:             data_emissao TEXT NOT NULL,
+  565:             cliente TEXT,
+  566:             empresa_nome TEXT,
+  567:             empresa_cnpj TEXT,
+  568:             empresa_endereco TEXT,
+  569:             empresa_email TEXT,
+  570:             empresa_telefone TEXT,
+  571:             validade_dias INTEGER DEFAULT 7,
+  572:             total_geral REAL DEFAULT 0,
+  573:             criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+  574:         )
+  575:     """)
+  576: 
+  577:     cur.execute("""
+  578:         CREATE TABLE IF NOT EXISTS cotacoes_geradas_itens (
+  579:             id INTEGER PRIMARY KEY AUTOINCREMENT,
+  580:             cotacao_id INTEGER NOT NULL,
+  581:             item_numero INTEGER,
+  582:             descricao_produto TEXT,
+  583:             sku_master TEXT,
+  584:             marca TEXT,
+  585:             quantidade REAL DEFAULT 0,
+  586:             valor_unitario REAL DEFAULT 0,
+  587:             valor_total REAL DEFAULT 0,
+  588:             venceu_medbox INTEGER DEFAULT 0,
+  589:             status_lance TEXT,
+  590:             FOREIGN KEY(cotacao_id) REFERENCES cotacoes_geradas(id)
+  591:         )
+  592:     """)
+  593: 
+  594:     conn.commit()
+  595:     conn.close()
+  596: 
+  597: 
+  598: def proximo_numero_cotacao():
+  599:     garantir_tabelas_cotacoes_geradas()
+  600: 
+  601:     ano = datetime.now().year
+  602:     prefixo = f"MEDBOX-{ano}-"
+  603: 
+  604:     conn = conectar()
+  605:     cur = conn.cursor()
+  606: 
+  607:     cur.execute("""
+  608:         SELECT numero_cotacao
+  609:         FROM cotacoes_geradas
+  610:         WHERE numero_cotacao LIKE ?
+  611:         ORDER BY id DESC
+  612:         LIMIT 1
+  613:     """, (prefixo + "%",))
+  614: 
+  615:     row = cur.fetchone()
+  616:     conn.close()
+  617: 
+  618:     if not row:
+  619:         sequencial = 1
+  620:     else:
+  621:         ultimo = row[0] if not isinstance(row, sqlite3.Row) else row["numero_cotacao"]
+  622:         try:
+  623:             sequencial = int(str(ultimo).split("-")[-1]) + 1
+  624:         except Exception:
+  625:             sequencial = 1
+  626: 
+  627:     return f"{prefixo}{sequencial:06d}"
+  628: 
+  629: 
+  630: def carregar_cotacao_gerada(numero_cotacao):
+  631:     garantir_tabelas_cotacoes_geradas()
+  632: 
+  633:     conn = conectar()
+  634:     conn.row_factory = sqlite3.Row
+  635:     cur = conn.cursor()
+  636: 
+  637:     cur.execute("""
+  638:         SELECT *
+  639:         FROM cotacoes_geradas
+  640:         WHERE numero_cotacao = ?
+  641:         LIMIT 1
+  642:     """, (numero_cotacao,))
+  643: 
+  644:     cotacao = cur.fetchone()
+  645: 
+  646:     if not cotacao:
+  647:         conn.close()
+  648:         return None, []
+  649: 
+  650:     cur.execute("""
+  651:         SELECT *
+  652:         FROM cotacoes_geradas_itens
+  653:         WHERE cotacao_id = ?
+  654:         ORDER BY item_numero ASC, id ASC
+  655:     """, (cotacao["id"],))
+  656: 
+  657:     itens = cur.fetchall()
+  658:     conn.close()
+  659: 
+  660:     return dict(cotacao), [dict(i) for i in itens]
+  661: 
+  662: 
+  663: @app.route("/cotacoes/lances/gerar-cotacao", methods=["POST"])
+  664: def gerar_cotacao_lances():
+  665:     garantir_tabelas_cotacoes_geradas()
+  666: 
+  667:     try:
+  668:         payload = request.get_json(force=True) or {}
+  669:         itens_payload = payload.get("itens") or []
+  670:         cliente = str(payload.get("cliente") or "").strip().upper()
+  671: 
+  672:         if not itens_payload:
+  673:             return jsonify({
+  674:                 "ok": False,
+  675:                 "erro": "Nenhum item foi enviado para gerar a cotaÃ§Ã£o."
+  676:             }), 400
+  677: 
+  678:         numero = proximo_numero_cotacao()
+  679:         data_emissao = datetime.now().strftime("%d/%m/%Y")
+  680: 
+  681:         itens_final = []
+  682:         total_geral = 0.0
+  683: 
+  684:         for idx, item in enumerate(itens_payload, start=1):
+  685:             quantidade = moeda_float_lances(item.get("quantidade"))
+  686:             preco_medbox = moeda_float_lances(item.get("preco_medbox"))
+  687:             vencedor = str(item.get("vencedor") or "").upper()
+  688:             status = str(item.get("status") or "").upper()
+  689: 
+  690:             venceu_medbox = 1 if ("MEDBOX" in vencedor or status == "COMPETITIVO") and preco_medbox > 0 else 0
+  691: 
+  692:             valor_unitario = preco_medbox if venceu_medbox else 0.0
+  693:             valor_total = quantidade * valor_unitario
+  694: 
+  695:             total_geral += valor_total
+  696: 
+  697:             itens_final.append({
+  698:                 "item_numero": idx,
+  699:                 "descricao_produto": str(item.get("descricao_produto") or "").strip().upper(),
+  700:                 "sku_master": str(item.get("sku_master") or "").strip().upper(),
+  701:                 "marca": str(item.get("marca") or "").strip().upper(),
+  702:                 "quantidade": quantidade,
+  703:                 "valor_unitario": valor_unitario,
+  704:                 "valor_total": valor_total,
+  705:                 "venceu_medbox": venceu_medbox,
+  706:                 "status_lance": status,
+  707:             })
+  708: 
+  709:         conn = conectar()
+  710:         cur = conn.cursor()
+  711: 
+  712:         cur.execute("""
+  713:             INSERT INTO cotacoes_geradas (
+  714:                 numero_cotacao,
+  715:                 data_emissao,
+  716:                 cliente,
+  717:                 empresa_nome,
+  718:                 empresa_cnpj,
+  719:                 empresa_endereco,
+  720:                 empresa_email,
+  721:                 empresa_telefone,
+  722:                 validade_dias,
+  723:                 total_geral
+  724:             )
+  725:             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  726:         """, (
+  727:             numero,
+  728:             data_emissao,
+  729:             cliente,
+  730:             EMPRESA_MEDBOX_COTACAO["razao_social"],
+  731:             EMPRESA_MEDBOX_COTACAO["cnpj"],
+  732:             f'{EMPRESA_MEDBOX_COTACAO["endereco"]} - {EMPRESA_MEDBOX_COTACAO["bairro"]} - {EMPRESA_MEDBOX_COTACAO["cidade_uf"]} - CEP {EMPRESA_MEDBOX_COTACAO["cep"]}',
+  733:             EMPRESA_MEDBOX_COTACAO["email"],
+  734:             EMPRESA_MEDBOX_COTACAO["telefone"],
+  735:             7,
+  736:             total_geral,
+  737:         ))
+  738: 
+  739:         cotacao_id = cur.lastrowid
+  740: 
+  741:         for item in itens_final:
+  742:             cur.execute("""
+  743:                 INSERT INTO cotacoes_geradas_itens (
+  744:                     cotacao_id,
+  745:                     item_numero,
+  746:                     descricao_produto,
+  747:                     sku_master,
+  748:                     marca,
+  749:                     quantidade,
+  750:                     valor_unitario,
+  751:                     valor_total,
+  752:                     venceu_medbox,
+  753:                     status_lance
+  754:                 )
+  755:                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  756:             """, (
+  757:                 cotacao_id,
+  758:                 item["item_numero"],
+  759:                 item["descricao_produto"],
+  760:                 item["sku_master"],
+  761:                 item["marca"],
+  762:                 item["quantidade"],
+  763:                 item["valor_unitario"],
+  764:                 item["valor_total"],
+  765:                 item["venceu_medbox"],
+  766:                 item["status_lance"],
+  767:             ))
+  768: 
+  769:         conn.commit()
+  770:         conn.close()
+  771: 
+  772:         return jsonify({
+  773:             "ok": True,
+  774:             "numero_cotacao": numero,
+  775:             "url": url_for("abrir_cotacao_gerada", numero_cotacao=numero)
+  776:         })
+  777: 
+  778:     except Exception as exc:
+  779:         return jsonify({
+  780:             "ok": False,
+  781:             "erro": str(exc)
+  782:         }), 500
+  783: 
+  784: 
+  785: @app.route("/cotacoes/geradas")
+  786: def cotacoes_geradas():
+  787:     garantir_tabelas_cotacoes_geradas()
+  788: 
+  789:     busca = str(request.args.get("q") or "").strip().upper()
+  790: 
+  791:     conn = conectar()
+  792:     conn.row_factory = sqlite3.Row
+  793:     cur = conn.cursor()
+  794: 
+  795:     if busca:
+  796:         cur.execute("""
+  797:             SELECT *
+  798:             FROM cotacoes_geradas
+  799:             WHERE numero_cotacao LIKE ?
+  800:             ORDER BY id DESC
+  801:             LIMIT 50
+  802:         """, (f"%{busca}%",))
+  803:     else:
+  804:         cur.execute("""
+  805:             SELECT *
+  806:             FROM cotacoes_geradas
+  807:             ORDER BY id DESC
+  808:             LIMIT 50
+  809:         """)
+  810: 
+  811:     cotacoes = [dict(r) for r in cur.fetchall()]
+  812:     conn.close()
+  813: 
+  814:     if busca and len(cotacoes) == 1 and cotacoes[0]["numero_cotacao"] == busca:
+  815:         return redirect(url_for("abrir_cotacao_gerada", numero_cotacao=busca))
+  816: 
+  817:     return render_template(
+  818:         "cotacao_gerada.html",
+  819:         modo="lista",
+  820:         cotacoes=cotacoes,
+  821:         busca=busca,
+  822:         empresa=EMPRESA_MEDBOX_COTACAO,
+  823:         data_atual=DATA_ATUAL,
+  824:         resumo=resumo_dashboard(),
+  825:     )
+  826: 
+  827: 
+  828: @app.route("/cotacoes/geradas/<numero_cotacao>")
+  829: def abrir_cotacao_gerada(numero_cotacao):
+  830:     cotacao, itens = carregar_cotacao_gerada(numero_cotacao)
+  831: 
+  832:     if not cotacao:
+  833:         flash("CotaÃ§Ã£o nÃ£o encontrada.", "erro")
+  834:         return redirect(url_for("cotacoes_geradas"))
+  835: 
+  836:     total_formatado = moeda_br_lances(cotacao.get("total_geral", 0))
+  837: 
+  838:     for item in itens:
+  839:         item["valor_unitario_formatado"] = moeda_br_lances(item.get("valor_unitario", 0))
+  840:         item["valor_total_formatado"] = moeda_br_lances(item.get("valor_total", 0))
+  841: 
+  842:     return render_template(
+  843:         "cotacao_gerada.html",
+  844:         modo="detalhe",
+  845:         cotacao=cotacao,
+  846:         itens=itens,
+  847:         empresa=EMPRESA_MEDBOX_COTACAO,
+  848:         total_formatado=total_formatado,
+  849:         data_atual=DATA_ATUAL,
+  850:         resumo=resumo_dashboard(),
+  851:     )
+  852: 
+  853: 
+  854: @app.route("/cotacoes/lances/salvar-sku", methods=["POST"])
+  855: def cotacoes_lances_salvar_sku():
+  856:     data = request.get_json(force=True) or {}
+  857: 
+  858:     resultado = salvar_sku_rapido_lances(
+  859:         descricao_cotacao=data.get("descricao_cotacao", ""),
+  860:         sku_master=data.get("sku_master", ""),
+  861:         fornecedor=data.get("fornecedor", ""),
+  862:         fabricante=data.get("fabricante", ""),
+  863:         categoria=data.get("categoria", ""),
+  864:     )
+  865: 
+  866:     return resultado
+  867: 
+  868: @app.route("/cotacoes/importar", methods=["POST"])
+  869: def importar_cotacao_rota():
+  870:     arquivo = request.files.get("arquivo")
+  871:     fornecedor_id = request.form.get("fornecedor_id")
+  872:     if not arquivo or arquivo.filename == "":
+  873:         return "Nenhum arquivo selecionado."
+  874:     if not fornecedor_id:
+  875:         return "Selecione um fornecedor."
+  876:     caminho = PASTA_UPLOADS / arquivo.filename
+  877:     arquivo.save(caminho)
+  878:     try:
+  879:         from core.importador_cotacao import importar_cotacao
+  880:         importar_cotacao(caminho, int(fornecedor_id))
+  881:         return redirect(url_for("cotacoes"))
+  882:     except Exception as erro:
+  883:         return f"Erro ao importar cotaÃ§Ã£o: {erro}"
+  884: 
+  885: 
+  886: @app.route("/equivalencias")
+  887: def equivalencias():
+  888:     return render_template(
+  889:         "equivalencias.html",
+  890:         data_atual=DATA_ATUAL,
+  891:         resumo=resumo_dashboard(),
+  892:         equivalencias=listar_equivalencias(),
+  893:         produtos=listar_produtos_simples()
+  894:     )
+  895: 
+  896: 
+  897: @app.route("/equivalencias/adicionar", methods=["POST"])
+  898: def adicionar_equivalencia_rota():
+  899:     produto_id = request.form.get("produto_id")
+  900:     descricao = request.form.get("descricao", "").strip()
+  901:     if produto_id and descricao:
+  902:         adicionar_equivalencia(int(produto_id), descricao)
+  903:     return redirect(url_for("equivalencias"))
+  904: 
+  905: 
+  906: @app.route("/equivalencias/excluir/<int:equivalencia_id>", methods=["POST"])
+  907: def excluir_equivalencia_rota(equivalencia_id):
+  908:     excluir_equivalencia(equivalencia_id)
+  909:     return redirect(url_for("equivalencias"))
+  910: 
+  911: 
+  912: 
+  913: 
+  914: # ============================================================
+  915: # MAPA DE PREÃ‡OS CLIENTES
+  916: # ============================================================
+  917: 
+  918: @app.route("/mapa-precos-clientes")
+  919: def mapa_precos_clientes():
+  920:     from core.mapa_precos_clientes import dados_tela_mapa_precos_clientes
+  921: 
+  922:     dados = dados_tela_mapa_precos_clientes()
+  923: 
+  924:     return render_template(
+  925:         "mapa_precos_clientes.html",
+  926:         data_atual=DATA_ATUAL,
+  927:         resumo=resumo_dashboard(),
+  928:         dados=dados,
+  929:     )
+  930: 
+  931: 
+  932: @app.route("/mapa-precos-clientes/importar")
+  933: def mapa_precos_clientes_importar():
+  934:     from core.mapa_precos_clientes import listar_clientes_mapa_precos, listar_cotacoes_mapa_precos
+  935: 
+  936:     sucesso = request.args.get("sucesso", "").strip()
+  937:     erro = request.args.get("erro", "").strip()
+  938: 
+  939:     return render_template(
+  940:         "mapa_precos_clientes_importar.html",
+  941:         data_atual=DATA_ATUAL,
+  942:         resumo=resumo_dashboard(),
+  943:         clientes=listar_clientes_mapa_precos(),
+  944:         cotacoes=listar_cotacoes_mapa_precos(),
+  945:         sucesso=sucesso,
+  946:         erro=erro,
+  947:     )
+  948: 
+  949: 
+  950: 
+  951: 
+  952: @app.route("/mapa-precos-clientes/importar", methods=["POST"])
+  953: def mapa_precos_clientes_importar_post():
+  954:     arquivo = request.files.get("arquivo")
+  955:     cliente_id = request.form.get("cliente_id", "").strip()
+  956:     nome_cliente_novo = request.form.get("nome_cliente_novo", "").strip()
+  957:     meses_referencia = request.form.get("meses_referencia", "1").strip()
+  958:     data_referencia = request.form.get("data_referencia", "").strip()
+  959:     observacao = request.form.get("observacao", "").strip()
+  960: 
+  961:     if not arquivo or arquivo.filename == "":
+  962:         return redirect(url_for("mapa_precos_clientes_importar") + "?erro=Nenhum arquivo selecionado.")
+  963: 
+  964:     if not cliente_id and not nome_cliente_novo:
+  965:         return redirect(url_for("mapa_precos_clientes_importar") + "?erro=Selecione um cliente ou informe novo cliente.")
+  966: 
+  967:     caminho = PASTA_UPLOADS / secure_filename(arquivo.filename)
+  968:     arquivo.save(caminho)
+  969: 
+  970:     try:
+  971:         from core.mapa_precos_clientes import importar_cotacao_cliente_mapa
+  972: 
+  973:         resultado = importar_cotacao_cliente_mapa(
+  974:             caminho=caminho,
+  975:             cliente_id=cliente_id or None,
+  976:             nome_cliente_novo=nome_cliente_novo,
+  977:             meses_referencia=meses_referencia,
+  978:             data_referencia=data_referencia,
+  979:             observacao=observacao,
+  980:         )
+  981: 
+  982:         msg = (
+  983:             f"CotaÃ§Ã£o importada com sucesso. "
+  984:             f"Itens: {resultado['total_importado']} | "
+  985:             f"Sem SKU: {resultado['total_sem_sku']} | "
+  986:             f"Meses: {resultado['meses_referencia']}"
+  987:         )
+  988: 
+  989:         return redirect(url_for("mapa_precos_clientes_importar") + "?" + urlencode({"sucesso": msg}))
+  990: 
+  991:     except Exception as erro:
+  992:         return redirect(url_for("mapa_precos_clientes_importar") + "?" + urlencode({"erro": str(erro)}))
+  993: 
+  994: 
+  995: @app.route("/importacoes")
+  996: def importacoes():
+  997:     return render_template(
+  998:         "importacoes.html",
+  999:         data_atual=DATA_ATUAL,
+ 1000:         resumo=resumo_dashboard(),
+ 1001:         fornecedores=listar_fornecedores(),
+ 1002:         cotacoes=listar_cotacoes()
+ 1003:     )
+ 1004: 
+ 1005: 
+ 1006: @app.route("/importacoes/importar", methods=["POST"])
+ 1007: def importar_fornecedor_rota():
+ 1008:     arquivo = request.files.get("arquivo")
+ 1009:     nome_fornecedor = request.form.get("nome_fornecedor", "").strip()
+ 1010:     tipo_fornecedor = request.form.get("tipo_fornecedor", "Distribuidor").strip()
+ 1011:     fornecedor_id = request.form.get("fornecedor_id", "").strip()
+ 1012: 
+ 1013:     if not arquivo or arquivo.filename == "":
+ 1014:         return "Nenhum arquivo selecionado."
+ 1015:     if not nome_fornecedor and not fornecedor_id:
+ 1016:         return "Informe o fornecedor."
+ 1017: 
+ 1018:     caminho = PASTA_UPLOADS / arquivo.filename
+ 1019:     arquivo.save(caminho)
+ 1020: 
+ 1021:     try:
+ 1022:         if fornecedor_id:
+ 1023:             fid = int(fornecedor_id)
+ 1024:             conn = conectar()
+ 1025:             cursor = conn.cursor()
+ 1026:             cursor.execute("SELECT nome, tipo FROM fornecedores WHERE id = ?", (fid,))
+ 1027:             row = cursor.fetchone()
+ 1028:             conn.close()
+ 1029:             if not row:
+ 1030:                 return "Fornecedor nÃ£o encontrado."
+ 1031:             nome_fornecedor = row["nome"]
+ 1032:             tipo_fornecedor = row["tipo"]
+ 1033:         else:
+ 1034:             cadastrar_fornecedor(nome_fornecedor, tipo_fornecedor)
+ 1035:             conn = conectar()
+ 1036:             cursor = conn.cursor()
+ 1037:             cursor.execute("SELECT id FROM fornecedores ORDER BY id DESC LIMIT 1")
+ 1038:             row = cursor.fetchone()
+ 1039:             conn.close()
+ 1040:             if not row:
+ 1041:                 return "Erro ao localizar fornecedor cadastrado."
+ 1042:             fid = row["id"]
+ 1043: 
+ 1044:         from core.importador_universal import importar_arquivo_fornecedor
+ 1045:         total = importar_arquivo_fornecedor(caminho, fid, nome_fornecedor, tipo_fornecedor)
+ 1046:         return redirect(url_for("importacoes") + f"?sucesso={total}&nome={nome_fornecedor}")
+ 1047: 
+ 1048:     except Exception as erro:
+ 1049:         query = urlencode({"erro": str(erro)})
+ 1050:         return redirect(url_for("importacoes") + f"?{query}")
+ 1051: 
+ 1052: 
+ 1053: @app.route("/importacoes/importar_xml", methods=["POST"])
+ 1054: def importar_xml_nfe_rota():
+ 1055:     arquivo = request.files.get("arquivo_xml")
+ 1056:     if not arquivo or arquivo.filename == "":
+ 1057:         return "Nenhum arquivo XML selecionado."
+ 1058:     caminho = PASTA_UPLOADS / arquivo.filename
+ 1059:     arquivo.save(caminho)
+ 1060:     try:
+ 1061:         from core.importador_xml_nfe import importar_xml_nfe
+ 1062:         resultado = importar_xml_nfe(caminho)
+ 1063:         total = resultado.get("itens_importados", 0)
+ 1064:         fornecedor = resultado.get("fornecedor", "XML NF-e")
+ 1065:         return redirect(url_for("importacoes") + f"?sucesso={total}&nome={fornecedor}")
+ 1066:     except Exception as erro:
+ 1067:         return f"Erro ao importar XML NF-e: {erro}"
+ 1068: 
+ 1069: 
+ 1070: 
+ 1071: 
+ 1072: @app.route("/importacoes/manual", methods=["POST"])
+ 1073: def importar_itens_manuais_fornecedor():
+ 1074:     """
+ 1075:     LanÃ§amento manual de itens cotados por fornecedor.
+ 1076: 
+ 1077:     Objetivo:
+ 1078:     - cadastrar/localizar fornecedor;
+ 1079:     - cadastrar/localizar produto;
+ 1080:     - salvar SKU Master, fabricante e categoria;
+ 1081:     - registrar preÃ§o na base de fornecedores;
+ 1082:     - registrar o lanÃ§amento no histÃ³rico de importaÃ§Ãµes.
+ 1083:     """
+ 1084:     data = request.get_json(force=True) or {}
+ 1085: 
+ 1086:     fornecedor_id = str(data.get("fornecedor_id") or "").strip()
+ 1087:     nome_fornecedor = str(data.get("nome_fornecedor") or "").strip()
+ 1088:     tipo_fornecedor = str(data.get("tipo_fornecedor") or "Distribuidor").strip() or "Distribuidor"
+ 1089:     itens = data.get("itens") or []
+ 1090: 
+ 1091:     if not fornecedor_id and not nome_fornecedor:
+ 1092:         return jsonify({"ok": False, "erro": "Informe ou selecione um fornecedor."}), 400
+ 1093: 
+ 1094:     if not itens:
+ 1095:         return jsonify({"ok": False, "erro": "Informe ao menos um item."}), 400
+ 1096: 
+ 1097:     from core.banco import cadastrar_fornecedor, registrar_preco_fornecedor, registrar_cotacao, normalizar_texto, converter_float
+ 1098: 
+ 1099:     conn = conectar()
+ 1100:     conn.row_factory = sqlite3.Row
+ 1101:     cur = conn.cursor()
+ 1102: 
+ 1103:     try:
+ 1104:         if fornecedor_id:
+ 1105:             fid = int(fornecedor_id)
+ 1106:             cur.execute("SELECT id, nome, tipo FROM fornecedores WHERE id = ? AND ativo = 1", (fid,))
+ 1107:             fornecedor = cur.fetchone()
+ 1108: 
+ 1109:             if not fornecedor:
+ 1110:                 conn.close()
+ 1111:                 return jsonify({"ok": False, "erro": "Fornecedor selecionado nÃ£o encontrado."}), 404
+ 1112: 
+ 1113:             nome_fornecedor_final = fornecedor["nome"]
+ 1114:             tipo_fornecedor_final = fornecedor["tipo"] or tipo_fornecedor
+ 1115:         else:
+ 1116:             conn.close()
+ 1117:             fid = cadastrar_fornecedor(nome_fornecedor, tipo_fornecedor)
+ 1118:             conn = conectar()
+ 1119:             conn.row_factory = sqlite3.Row
+ 1120:             cur = conn.cursor()
+ 1121:             nome_fornecedor_final = normalizar_texto(nome_fornecedor)
+ 1122:             tipo_fornecedor_final = tipo_fornecedor
+ 1123: 
+ 1124:         total_salvo = 0
+ 1125:         erros = []
+ 1126: 
+ 1127:         for idx, item in enumerate(itens, start=1):
+ 1128:             descricao = normalizar_texto(item.get("descricao"))
+ 1129:             sku_master = normalizar_texto(item.get("sku_master") or descricao)
+ 1130:             fabricante = normalizar_texto(item.get("fabricante"))
+ 1131:             categoria = normalizar_texto(item.get("categoria"))
+ 1132:             codigo_fornecedor = str(item.get("codigo_fornecedor") or "").strip()
+ 1133:             preco = converter_float(item.get("preco_unitario"))
+ 1134:             observacao = str(item.get("observacao") or "").strip()
+ 1135: 
+ 1136:             if not descricao:
+ 1137:                 erros.append(f"Item {idx}: descriÃ§Ã£o vazia.")
+ 1138:                 continue
+ 1139: 
+ 1140:             if preco <= 0:
+ 1141:                 erros.append(f"Item {idx}: preÃ§o unitÃ¡rio invÃ¡lido.")
+ 1142:                 continue
+ 1143: 
+ 1144:             # Localiza produto por SKU Master ou produto padrÃ£o.
+ 1145:             cur.execute("""
+ 1146:                 SELECT id
+ 1147:                 FROM produtos
+ 1148:                 WHERE ativo = 1
+ 1149:                   AND (
+ 1150:                         UPPER(COALESCE(sku_master, '')) = UPPER(?)
+ 1151:                         OR UPPER(COALESCE(produto_padrao, '')) = UPPER(?)
+ 1152:                   )
+ 1153:                 ORDER BY id
+ 1154:                 LIMIT 1
+ 1155:             """, (sku_master, descricao))
+ 1156: 
+ 1157:             produto = cur.fetchone()
+ 1158: 
+ 1159:             if produto:
+ 1160:                 produto_id = produto["id"]
+ 1161: 
+ 1162:                 cur.execute("""
+ 1163:                     UPDATE produtos
+ 1164:                     SET sku_master = COALESCE(NULLIF(?, ''), sku_master),
+ 1165:                         fabricante = COALESCE(NULLIF(?, ''), fabricante),
+ 1166:                         categoria = COALESCE(NULLIF(?, ''), categoria),
+ 1167:                         observacoes = COALESCE(NULLIF(?, ''), observacoes),
+ 1168:                         ativo = 1
+ 1169:                     WHERE id = ?
+ 1170:                 """, (
+ 1171:                     sku_master,
+ 1172:                     fabricante,
+ 1173:                     categoria,
+ 1174:                     observacao,
+ 1175:                     produto_id,
+ 1176:                 ))
+ 1177:             else:
+ 1178:                 cur.execute("""
+ 1179:                     INSERT INTO produtos (
+ 1180:                         sku,
+ 1181:                         produto_padrao,
+ 1182:                         sku_master,
+ 1183:                         fabricante,
+ 1184:                         categoria,
+ 1185:                         ativo,
+ 1186:                         observacoes
+ 1187:                     )
+ 1188:                     VALUES (?, ?, ?, ?, ?, 1, ?)
+ 1189:                 """, (
+ 1190:                     sku_master,
+ 1191:                     descricao,
+ 1192:                     sku_master,
+ 1193:                     fabricante,
+ 1194:                     categoria,
+ 1195:                     observacao,
+ 1196:                 ))
+ 1197:                 produto_id = cur.lastrowid
+ 1198: 
+ 1199:             registrar_preco_fornecedor(
+ 1200:                 fornecedor_id=fid,
+ 1201:                 produto_id=produto_id,
+ 1202:                 descricao_original=descricao,
+ 1203:                 codigo_fornecedor=codigo_fornecedor,
+ 1204:                 marca=fabricante,
+ 1205:                 preco=preco,
+ 1206:                 arquivo_origem="LANCAMENTO MANUAL",
+ 1207:                 origem_importacao="MANUAL_FORNECEDOR",
+ 1208:                 conn_existente=conn,
+ 1209:             )
+ 1210: 
+ 1211:             total_salvo += 1
+ 1212: 
+ 1213:         conn.commit()
+ 1214:         conn.close()
+ 1215: 
+ 1216:         if total_salvo > 0:
+ 1217:             registrar_cotacao(
+ 1218:                 fornecedor_id=fid,
+ 1219:                 arquivo_origem="LANCAMENTO MANUAL",
+ 1220:                 total_itens=total_salvo,
+ 1221:             )
+ 1222: 
+ 1223:         return jsonify({
+ 1224:             "ok": True,
+ 1225:             "mensagem": f"{total_salvo} item(ns) manual(is) salvo(s) para {nome_fornecedor_final}.",
+ 1226:             "total": total_salvo,
+ 1227:             "fornecedor": nome_fornecedor_final,
+ 1228:             "erros": erros[:10],
+ 1229:             "url": url_for("importacoes") + f"?sucesso={total_salvo}&nome={nome_fornecedor_final}",
+ 1230:         })
+ 1231: 
+ 1232:     except Exception as erro:
+ 1233:         try:
+ 1234:             conn.rollback()
+ 1235:             conn.close()
+ 1236:         except Exception:
+ 1237:             pass
+ 1238: 
+ 1239:         return jsonify({"ok": False, "erro": str(erro)}), 500
+ 1240: 
+ 1241: 
+ 1242: @app.route("/historico")
+ 1243: def historico():
+ 1244:     return render_template(
+ 1245:         "placeholder.html",
+ 1246:         data_atual=DATA_ATUAL,
+ 1247:         resumo=resumo_dashboard(),
+ 1248:         titulo="HistÃ³rico de PreÃ§os",
+ 1249:         subtitulo="Consulta de evoluÃ§Ã£o de preÃ§os por produto e fornecedor."
+ 1250:     )
+ 1251: 
+ 1252: 
+ 1253: @app.route("/relatorios")
+ 1254: def relatorios():
+ 1255:     return render_template(
+ 1256:         "placeholder.html",
+ 1257:         data_atual=DATA_ATUAL,
+ 1258:         resumo=resumo_dashboard(),
+ 1259:         titulo="RelatÃ³rios",
+ 1260:         subtitulo="AnÃ¡lises de compras, economia, fornecedores e oportunidades."
+ 1261:     )
+ 1262: 
+ 1263: 
+ 1264: @app.route("/configuracoes")
+ 1265: def configuracoes():
+ 1266:     return render_template(
+ 1267:         "placeholder.html",
+ 1268:         data_atual=DATA_ATUAL,
+ 1269:         resumo=resumo_dashboard(),
+ 1270:         titulo="ConfiguraÃ§Ãµes",
+ 1271:         subtitulo="ParÃ¢metros do sistema MedBox V3."
+ 1272:     )
+ 1273: 
+ 1274: 
+ 1275: @app.route("/sku-master/marcas-json")
+ 1276: def sku_master_marcas_json():
+ 1277:     conn = conectar()
+ 1278:     cursor = conn.cursor()
+ 1279:     cursor.execute(
+ 1280:         """SELECT DISTINCT fabricante FROM produtos
+ 1281:            WHERE ativo = 1 AND fabricante IS NOT NULL AND TRIM(fabricante) != ''
+ 1282:            ORDER BY fabricante"""
+ 1283:     )
+ 1284:     marcas = [row["fabricante"] for row in cursor.fetchall()]
+ 1285:     conn.close()
+ 1286:     return Response(json.dumps(marcas, ensure_ascii=False), content_type="application/json")
+ 1287: 
+ 1288: 
+ 1289: @app.route("/sku-master/categorias-json")
+ 1290: def sku_master_categorias_json():
+ 1291:     conn = conectar()
+ 1292:     cursor = conn.cursor()
+ 1293:     cursor.execute(
+ 1294:         """SELECT DISTINCT categoria FROM produtos
+ 1295:            WHERE ativo = 1 AND categoria IS NOT NULL AND TRIM(categoria) != ''
+ 1296:            ORDER BY categoria"""
+ 1297:     )
+ 1298:     categorias = [row["categoria"] for row in cursor.fetchall()]
+ 1299:     conn.close()
+ 1300:     return Response(json.dumps(categorias, ensure_ascii=False), content_type="application/json")
+ 1301: 
+ 1302: 
+ 1303: @app.route("/sku-master/auditoria/preview-cascata", methods=["POST"])
+ 1304: def sku_master_auditoria_preview_cascata():
+ 1305:     data = request.get_json(force=True) or {}
+ 1306:     produto_id = data.get("produto_id")
+ 1307:     tipos = data.get("tipos", [])
+ 1308: 
+ 1309:     todos_afetados = []
+ 1310:     ids_vistos = set()
+ 1311: 
+ 1312:     for tipo in tipos:
+ 1313:         afetados = buscar_produtos_afetados_cascata(produto_id, tipo)
+ 1314:         for a in afetados:
+ 1315:             if a["id"] not in ids_vistos:
+ 1316:                 todos_afetados.append(a)
+ 1317:                 ids_vistos.add(a["id"])
+ 1318: 
+ 1319:     return Response(
+ 1320:         json.dumps({"total": len(todos_afetados), "itens": todos_afetados}, ensure_ascii=False),
+ 1321:         content_type="application/json",
+ 1322:     )
+ 1323: 
+ 1324: 
+ 1325: @app.route("/sku-master/auditoria/salvar-edicao", methods=["POST"])
+ 1326: def sku_master_auditoria_salvar_edicao():
+ 1327:     data = request.get_json(force=True) or {}
+ 1328:     produto_id = data.get("produto_id")
+ 1329:     dados = data.get("dados", {})
+ 1330:     opcoes_cascata = data.get("opcoes_cascata", [])
+ 1331:     ids_cascata_selecionados = data.get("ids_cascata_selecionados")
+ 1332: 
+ 1333:     try:
+ 1334:         resultado = salvar_edicao_manual_produto(
+ 1335:             produto_id=produto_id,
+ 1336:             dados_novos=dados,
+ 1337:             opcoes_cascata=opcoes_cascata,
+ 1338:             ids_cascata_selecionados=ids_cascata_selecionados,
+ 1339:             usuario="compras"
+ 1340:         )
+ 1341:         return Response(
+ 1342:             json.dumps(resultado, ensure_ascii=False),
+ 1343:             content_type="application/json",
+ 1344:         )
+ 1345:     except Exception as e:
+ 1346:         return Response(
+ 1347:             json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False),
+ 1348:             content_type="application/json",
+ 1349:         ), 400
+ 1350: 
+ 1351: 
+ 1352: @app.route("/sku-master/auditoria/excluir/<int:produto_id>", methods=["POST"])
+ 1353: def sku_master_auditoria_excluir(produto_id):
+ 1354:     try:
+ 1355:         resultado = excluir_produto_logico(
+ 1356:             produto_id=produto_id,
+ 1357:             usuario="compras"
+ 1358:         )
+ 1359:         return Response(
+ 1360:             json.dumps(resultado, ensure_ascii=False),
+ 1361:             content_type="application/json",
+ 1362:         )
+ 1363:     except Exception as e:
+ 1364:         return Response(
+ 1365:             json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False),
+ 1366:             content_type="application/json",
+ 1367:         ), 400
+ 1368: 
+ 1369: 
+ 1370: @app.route("/sku-master/auditoria/salvar-sku-ajax", methods=["POST"])
+ 1371: def sku_master_auditoria_salvar_sku_ajax():
+ 1372:     data = request.get_json(force=True) or {}
+ 1373:     produto_id = data.get("produto_id")
+ 1374:     sku_manual = str(data.get("sku_manual", "")).strip()
+ 1375:     try:
+ 1376:         resultado = aplicar_correcao_manual_sku_master(
+ 1377:             produto_origem_id=produto_id,
+ 1378:             sku_manual=sku_manual,
+ 1379:             usuario="compras",
+ 1380:         )
+ 1381:         acao = "criado" if resultado["destino_criado"] else "existente"
+ 1382:         return Response(
+ 1383:             json.dumps({
+ 1384:                 "ok": True,
+ 1385:                 "mensagem": (
+ 1386:                     f"SKU salvo: destino {acao}, "
+ 1387:                     f"{resultado['precos_migrados']} precos e "
+ 1388:                     f"{resultado['equivalencias_migradas']} equivalencias migrados."
+ 1389:                 ),
+ 1390:                 "sku_novo": sku_manual,
+ 1391:             }, ensure_ascii=False),
+ 1392:             content_type="application/json",
+ 1393:         )
+ 1394:     except Exception as e:
+ 1395:         return Response(
+ 1396:             json.dumps({"ok": False, "erro": str(e)}, ensure_ascii=False),
+ 1397:             content_type="application/json",
+ 1398:         )
+ 1399: 
+ 1400: 
+ 1401: @app.route("/sku-master/auditoria/corrigir-todos", methods=["POST"])
+ 1402: def sku_master_auditoria_corrigir_todos():
+ 1403:     itens_raw = request.form.get("itens", "[]")
+ 1404:     try:
+ 1405:         itens = json.loads(itens_raw)
+ 1406:         aplicados = 0
+ 1407:         erros = []
+ 1408:         for item in itens:
+ 1409:             pid = item.get("produto_id")
+ 1410:             sku = str(item.get("sku_manual", "")).strip()
+ 1411:             if not sku:
+ 1412:                 continue
+ 1413:             try:
+ 1414:                 aplicar_correcao_manual_sku_master(
+ 1415:                     produto_origem_id=pid,
+ 1416:                     sku_manual=sku,
+ 1417:                     usuario="compras",
+ 1418:                 )
+ 1419:                 aplicados += 1
+ 1420:             except Exception as e:
+ 1421:                 erros.append(f"id={pid}: {str(e)[:60]}")
+ 1422:         msg = f"Corrigir Todos: {aplicados} SKU(s) aplicado(s)."
+ 1423:         if erros:
+ 1424:             msg += f" {len(erros)} erro(s): " + "; ".join(erros[:3])
+ 1425:         flash(msg)
+ 1426:     except Exception as e:
+ 1427:         flash(f"Erro em Corrigir Todos: {e}")
+ 1428:     return redirect(url_for("sku_master_auditoria"))
+ 1429: 
+ 1430: 
+ 1431: @app.route("/sku-master/skus-json")
+ 1432: def sku_master_skus_json():
+ 1433:     conn = conectar()
+ 1434:     cursor = conn.cursor()
+ 1435:     # Use COALESCE to prioritize sku_master over produto_padrao in suggestions
+ 1436:     cursor.execute(
+ 1437:         """SELECT DISTINCT COALESCE(NULLIF(TRIM(sku_master), ''), produto_padrao) as sku
+ 1438:            FROM produtos
+ 1439:            WHERE ativo = 1
+ 1440:            ORDER BY sku"""
+ 1441:     )
+ 1442:     skus = [row["sku"] for row in cursor.fetchall() if row["sku"]]
+ 1443:     conn.close()
+ 1444:     return Response(json.dumps(skus, ensure_ascii=False), content_type="application/json")
+ 1445: 
+ 1446: 
+ 1447: @app.route("/sku-master/auditoria/salvar-sku", methods=["POST"])
+ 1448: def sku_master_auditoria_salvar_sku():
+ 1449:     produto_id = request.form.get("produto_id")
+ 1450:     sku_manual = request.form.get("sku_manual", "").strip()
+ 1451:     try:
+ 1452:         resultado = aplicar_correcao_manual_sku_master(
+ 1453:             produto_origem_id=produto_id,
+ 1454:             sku_manual=sku_manual,
+ 1455:             usuario="compras",
+ 1456:         )
+ 1457:         acao = "criado" if resultado["destino_criado"] else "existente"
+ 1458:         flash(
+ 1459:             f"SKU salvo: destino {acao}, "
+ 1460:             f"{resultado['precos_migrados']} precos e "
+ 1461:             f"{resultado['equivalencias_migradas']} equivalencias migrados."
+ 1462:         )
+ 1463:     except Exception as erro:
+ 1464:         flash(f"Erro ao salvar SKU: {erro}")
+ 1465:     return redirect(url_for("sku_master_auditoria"))
+ 1466: 
+ 1467: 
+ 1468: 
+ 1469: 
+ 1470: # ============================================================
+ 1471: # OVERRIDE FINAL - COTAÃ‡ÃƒO GERADA COM OSINFO x LANCE x MEDBOX
+ 1472: # ============================================================
+ 1473: 
+ 1474: def _medbox_float_cotacao_gerada(valor, padrao=0.0):
+ 1475:     try:
+ 1476:         if valor is None:
+ 1477:             return padrao
+ 1478: 
+ 1479:         if isinstance(valor, (int, float)):
+ 1480:             return float(valor)
+ 1481: 
+ 1482:         texto = str(valor).strip()
+ 1483:         texto = texto.replace("R$", "").replace("%", "").strip()
+ 1484: 
+ 1485:         if not texto:
+ 1486:             return padrao
+ 1487: 
+ 1488:         texto = texto.replace(".", "").replace(",", ".")
+ 1489: 
+ 1490:         return float(texto)
+ 1491:     except Exception:
+ 1492:         return padrao
+ 1493: 
+ 1494: 
+ 1495: def _medbox_moeda_cotacao_gerada(valor):
+ 1496:     valor = _medbox_float_cotacao_gerada(valor, 0.0)
+ 1497:     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+ 1498: 
+ 1499: 
+ 1500: def _medbox_calcular_disputa_cotacao(preco_osinfo=0, menor_lance=0, preco_medbox=0, empresa_melhor_lance=""):
+ 1501:     preco_osinfo = _medbox_float_cotacao_gerada(preco_osinfo)
+ 1502:     menor_lance = _medbox_float_cotacao_gerada(menor_lance)
+ 1503:     preco_medbox = _medbox_float_cotacao_gerada(preco_medbox)
+ 1504: 
+ 1505:     opcoes = []
+ 1506: 
+ 1507:     if preco_osinfo > 0:
+ 1508:         opcoes.append(("OSINFO", "OSINFO", preco_osinfo))
+ 1509: 
+ 1510:     if menor_lance > 0:
+ 1511:         opcoes.append(("LANCE", empresa_melhor_lance or "LANCE GANHADOR", menor_lance))
+ 1512: 
+ 1513:     if preco_medbox > 0:
+ 1514:         opcoes.append(("MEDBOX", "MEDBOX", preco_medbox))
+ 1515: 
+ 1516:     if not opcoes:
+ 1517:         return {
+ 1518:             "menor_origem": "-",
+ 1519:             "menor_empresa": "-",
+ 1520:             "menor_valor": 0.0,
+ 1521:             "medbox_vencedora": False,
+ 1522:         }
+ 1523: 
+ 1524:     opcoes.sort(key=lambda x: x[2])
+ 1525:     origem, empresa, valor = opcoes[0]
+ 1526: 
+ 1527:     return {
+ 1528:         "menor_origem": origem,
+ 1529:         "menor_empresa": empresa,
+ 1530:         "menor_valor": valor,
+ 1531:         "medbox_vencedora": origem == "MEDBOX",
+ 1532:     }
+ 1533: 
+ 1534: 
+ 1535: def _medbox_garantir_colunas_cotacao_gerada():
+ 1536:     try:
+ 1537:         garantir_tabelas_cotacoes_geradas()
+ 1538:     except Exception:
+ 1539:         pass
+ 1540: 
+ 1541:     conn = conectar()
+ 1542:     cur = conn.cursor()
+ 1543: 
+ 1544:     cur.execute("PRAGMA table_info(cotacoes_geradas_itens)")
+ 1545:     existentes = {row[1] for row in cur.fetchall()}
+ 1546: 
+ 1547:     novas_colunas = {
+ 1548:         "preco_osinfo": "REAL DEFAULT 0",
+ 1549:         "menor_lance": "REAL DEFAULT 0",
+ 1550:         "preco_medbox_original": "REAL DEFAULT 0",
+ 1551:         "empresa_melhor_lance": "TEXT",
+ 1552:         "menor_origem": "TEXT",
+ 1553:         "menor_empresa": "TEXT",
+ 1554:         "menor_valor_comparativo": "REAL DEFAULT 0",
+ 1555:         "medbox_vencedora": "INTEGER DEFAULT 0",
+ 1556:     }
+ 1557: 
+ 1558:     for coluna, tipo in novas_colunas.items():
+ 1559:         if coluna not in existentes:
+ 1560:             cur.execute(f"ALTER TABLE cotacoes_geradas_itens ADD COLUMN {coluna} {tipo}")
+ 1561: 
+ 1562:     conn.commit()
+ 1563:     conn.close()
+ 1564: 
+ 1565: 
+ 1566: def _medbox_enriquecer_cotacao_gerada(cotacao):
+ 1567:     if not cotacao:
+ 1568:         return cotacao
+ 1569: 
+ 1570:     itens = cotacao.get("itens", [])
+ 1571: 
+ 1572:     for item in itens:
+ 1573:         preco_osinfo = _medbox_float_cotacao_gerada(item.get("preco_osinfo", 0))
+ 1574:         menor_lance = _medbox_float_cotacao_gerada(item.get("menor_lance", 0))
+ 1575:         preco_medbox_original = _medbox_float_cotacao_gerada(
+ 1576:             item.get("preco_medbox_original", item.get("valor_unitario", 0))
+ 1577:         )
+ 1578:         menor_valor = _medbox_float_cotacao_gerada(item.get("menor_valor_comparativo", 0))
+ 1579: 
+ 1580:         item["preco_osinfo"] = preco_osinfo
+ 1581:         item["menor_lance"] = menor_lance
+ 1582:         item["preco_medbox_original"] = preco_medbox_original
+ 1583:         item["menor_valor_comparativo"] = menor_valor
+ 1584: 
+ 1585:         item["preco_osinfo_formatado"] = _medbox_moeda_cotacao_gerada(preco_osinfo)
+ 1586:         item["menor_lance_formatado"] = _medbox_moeda_cotacao_gerada(menor_lance)
+ 1587:         item["preco_medbox_original_formatado"] = _medbox_moeda_cotacao_gerada(preco_medbox_original)
+ 1588:         item["menor_valor_comparativo_formatado"] = _medbox_moeda_cotacao_gerada(menor_valor)
+ 1589: 
+ 1590:         if not item.get("menor_origem"):
+ 1591:             disputa = _medbox_calcular_disputa_cotacao(
+ 1592:                 preco_osinfo=preco_osinfo,
+ 1593:                 menor_lance=menor_lance,
+ 1594:                 preco_medbox=preco_medbox_original,
+ 1595:                 empresa_melhor_lance=item.get("empresa_melhor_lance", "")
+ 1596:             )
+ 1597:             item.update(disputa)
+ 1598: 
+ 1599:     return cotacao
+ 1600: 
+ 1601: 
+ 1602: def gerar_cotacao_lances_v2_comparativo():
+ 1603:     _medbox_garantir_colunas_cotacao_gerada()
+ 1604: 
+ 1605:     dados = request.get_json(silent=True) or {}
+ 1606: 
+ 1607:     itens = dados.get("itens", [])
+ 1608:     cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "").strip().upper()
+ 1609:     oas = str(dados.get("oas") or "").strip().upper()
+ 1610:     projeto = str(dados.get("projeto") or "").strip().upper()
+ 1611:     controle_cliente = str(dados.get("controle_cliente") or dados.get("controle") or "").strip().upper()
+ 1612: 
+ 1613:     if not cliente:
+ 1614:         cliente = "-"
+ 1615: 
+ 1616:     cliente_exibicao = cliente
+ 1617: 
+ 1618:     extras = []
+ 1619:     if oas:
+ 1620:         extras.append(f"OAS: {oas}")
+ 1621:     if projeto:
+ 1622:         extras.append(f"PROJETO: {projeto}")
+ 1623:     if controle_cliente:
+ 1624:         extras.append(f"CONTROLE CLIENTE: {controle_cliente}")
+ 1625: 
+ 1626:     if extras:
+ 1627:         cliente_exibicao = cliente + " | " + " | ".join(extras)
+ 1628: 
+ 1629:     if not itens:
+ 1630:         return jsonify({"ok": False, "erro": "Nenhum item encontrado para gerar cotaÃ§Ã£o."}), 400
+ 1631: 
+ 1632:     numero_cotacao = proximo_numero_cotacao()
+ 1633:     data_emissao = datetime.now().strftime("%d/%m/%Y")
+ 1634: 
+ 1635:     conn = conectar()
+ 1636:     cur = conn.cursor()
+ 1637: 
+ 1638:     total_geral = 0.0
+ 1639: 
+ 1640:     cur.execute("""
+ 1641:         INSERT INTO cotacoes_geradas (
+ 1642:             numero_cotacao,
+ 1643:             data_emissao,
+ 1644:             cliente,
+ 1645:             empresa_nome,
+ 1646:             empresa_cnpj,
+ 1647:             empresa_endereco,
+ 1648:             empresa_email,
+ 1649:             empresa_telefone,
+ 1650:             validade_dias,
+ 1651:             total_geral
+ 1652:         )
+ 1653:         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 1654:     """, (
+ 1655:         numero_cotacao,
+ 1656:         data_emissao,
+ 1657:         cliente_exibicao,
+ 1658:         EMPRESA_MEDBOX_COTACAO.get("nome"),
+ 1659:         EMPRESA_MEDBOX_COTACAO.get("cnpj"),
+ 1660:         EMPRESA_MEDBOX_COTACAO.get("endereco"),
+ 1661:         EMPRESA_MEDBOX_COTACAO.get("email"),
+ 1662:         EMPRESA_MEDBOX_COTACAO.get("telefone"),
+ 1663:         7,
+ 1664:         0.0,
+ 1665:     ))
+ 1666: 
+ 1667:     cotacao_id = cur.lastrowid
+ 1668: 
+ 1669:     for idx, item in enumerate(itens, start=1):
+ 1670:         descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+ 1671:         sku_master = str(item.get("sku_master") or "").strip().upper()
+ 1672:         marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+ 1673: 
+ 1674:         quantidade = _medbox_float_cotacao_gerada(item.get("quantidade"), 0.0)
+ 1675:         preco_osinfo = _medbox_float_cotacao_gerada(item.get("preco_osinfo"), 0.0)
+ 1676:         menor_lance = _medbox_float_cotacao_gerada(
+ 1677:             item.get("menor_preco_ofertado", item.get("menor_lance", 0.0)),
+ 1678:             0.0
+ 1679:         )
+ 1680:         preco_medbox = _medbox_float_cotacao_gerada(item.get("preco_medbox"), 0.0)
+ 1681: 
+ 1682:         empresa_melhor_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+ 1683: 
+ 1684:         disputa = _medbox_calcular_disputa_cotacao(
+ 1685:             preco_osinfo=preco_osinfo,
+ 1686:             menor_lance=menor_lance,
+ 1687:             preco_medbox=preco_medbox,
+ 1688:             empresa_melhor_lance=empresa_melhor_lance
+ 1689:         )
+ 1690: 
+ 1691:         medbox_vencedora = bool(disputa.get("medbox_vencedora"))
+ 1692: 
+ 1693:         # Regra aprovada:
+ 1694:         # SÃ³ entra valor unitÃ¡rio na proposta se a MedBox for a menor oferta.
+ 1695:         valor_unitario = preco_medbox if medbox_vencedora else 0.0
+ 1696:         valor_total = valor_unitario * quantidade
+ 1697: 
+ 1698:         total_geral += valor_total
+ 1699: 
+ 1700:         cur.execute("""
+ 1701:             INSERT INTO cotacoes_geradas_itens (
+ 1702:                 cotacao_id,
+ 1703:                 item_numero,
+ 1704:                 descricao_produto,
+ 1705:                 sku_master,
+ 1706:                 marca,
+ 1707:                 quantidade,
+ 1708:                 valor_unitario,
+ 1709:                 valor_total,
+ 1710:                 venceu_medbox,
+ 1711:                 status_lance,
+ 1712:                 preco_osinfo,
+ 1713:                 menor_lance,
+ 1714:                 preco_medbox_original,
+ 1715:                 empresa_melhor_lance,
+ 1716:                 menor_origem,
+ 1717:                 menor_empresa,
+ 1718:                 menor_valor_comparativo,
+ 1719:                 medbox_vencedora
+ 1720:             )
+ 1721:             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 1722:         """, (
+ 1723:             cotacao_id,
+ 1724:             idx,
+ 1725:             descricao,
+ 1726:             sku_master,
+ 1727:             marca,
+ 1728:             quantidade,
+ 1729:             valor_unitario,
+ 1730:             valor_total,
+ 1731:             1 if medbox_vencedora else 0,
+ 1732:             str(item.get("status") or "").strip().upper(),
+ 1733:             preco_osinfo,
+ 1734:             menor_lance,
+ 1735:             preco_medbox,
+ 1736:             empresa_melhor_lance,
+ 1737:             disputa.get("menor_origem"),
+ 1738:             disputa.get("menor_empresa"),
+ 1739:             disputa.get("menor_valor"),
+ 1740:             1 if medbox_vencedora else 0,
+ 1741:         ))
+ 1742: 
+ 1743:     cur.execute("""
+ 1744:         UPDATE cotacoes_geradas
+ 1745:         SET total_geral = ?
+ 1746:         WHERE id = ?
+ 1747:     """, (total_geral, cotacao_id))
+ 1748: 
+ 1749:     conn.commit()
+ 1750:     conn.close()
+ 1751: 
+ 1752:     return jsonify({
+ 1753:         "ok": True,
+ 1754:         "numero_cotacao": numero_cotacao,
+ 1755:         "url": f"/cotacoes/geradas/{numero_cotacao}"
+ 1756:     })
+ 1757: 
+ 1758: 
+ 1759: try:
+ 1760:     app.view_functions["gerar_cotacao_lances"] = gerar_cotacao_lances_v2_comparativo
+ 1761:     print("OK: rota gerar_cotacao_lances sobrescrita com comparativo OSINFO x LANCE x MEDBOX.")
+ 1762: except Exception as e:
+ 1763:     print("AVISO: nÃ£o consegui sobrescrever gerar_cotacao_lances:", e)
+ 1764: 
+ 1765: 
+ 1766: 
+ 1767: 
+ 1768: 
+ 1769: # ============================================================
+ 1770: # OVERRIDE FINAL CORRIGIDO - COTAÃ‡ÃƒO GERADA COM COMPARATIVO
+ 1771: # CompatÃ­vel com retorno: cotacao, itens
+ 1772: # ============================================================
+ 1773: 
+ 1774: try:
+ 1775:     _carregar_cotacao_gerada_original_tuple = carregar_cotacao_gerada
+ 1776: 
+ 1777:     def carregar_cotacao_gerada(numero_cotacao):
+ 1778:         _medbox_garantir_colunas_cotacao_gerada()
+ 1779: 
+ 1780:         resultado = _carregar_cotacao_gerada_original_tuple(numero_cotacao)
+ 1781: 
+ 1782:         if not resultado:
+ 1783:             return resultado
+ 1784: 
+ 1785:         # O app original usa: cotacao, itens = carregar_cotacao_gerada(...)
+ 1786:         if isinstance(resultado, tuple):
+ 1787:             cotacao, itens = resultado
+ 1788:         else:
+ 1789:             cotacao = resultado
+ 1790:             itens = resultado.get("itens", []) if isinstance(resultado, dict) else []
+ 1791: 
+ 1792:         conn = conectar()
+ 1793:         conn.row_factory = sqlite3.Row
+ 1794:         cur = conn.cursor()
+ 1795: 
+ 1796:         cur.execute("""
+ 1797:             SELECT i.*
+ 1798:             FROM cotacoes_geradas_itens i
+ 1799:             JOIN cotacoes_geradas c ON c.id = i.cotacao_id
+ 1800:             WHERE c.numero_cotacao = ?
+ 1801:             ORDER BY i.item_numero
+ 1802:         """, (numero_cotacao,))
+ 1803: 
+ 1804:         itens_db = [dict(row) for row in cur.fetchall()]
+ 1805:         conn.close()
+ 1806: 
+ 1807:         if itens_db:
+ 1808:             itens = itens_db
+ 1809: 
+ 1810:         itens_enriquecidos = []
+ 1811: 
+ 1812:         for item in itens:
+ 1813:             if not isinstance(item, dict):
+ 1814:                 try:
+ 1815:                     item = dict(item)
+ 1816:                 except Exception:
+ 1817:                     continue
+ 1818: 
+ 1819:             preco_osinfo = _medbox_float_cotacao_gerada(item.get("preco_osinfo", 0))
+ 1820:             menor_lance = _medbox_float_cotacao_gerada(item.get("menor_lance", 0))
+ 1821:             preco_medbox_original = _medbox_float_cotacao_gerada(
+ 1822:                 item.get("preco_medbox_original", item.get("valor_unitario", 0))
+ 1823:             )
+ 1824: 
+ 1825:             disputa = _medbox_calcular_disputa_cotacao(
+ 1826:                 preco_osinfo=preco_osinfo,
+ 1827:                 menor_lance=menor_lance,
+ 1828:                 preco_medbox=preco_medbox_original,
+ 1829:                 empresa_melhor_lance=item.get("empresa_melhor_lance", "")
+ 1830:             )
+ 1831: 
+ 1832:             item["preco_osinfo"] = preco_osinfo
+ 1833:             item["menor_lance"] = menor_lance
+ 1834:             item["preco_medbox_original"] = preco_medbox_original
+ 1835:             item["menor_origem"] = item.get("menor_origem") or disputa.get("menor_origem")
+ 1836:             item["menor_empresa"] = item.get("menor_empresa") or disputa.get("menor_empresa")
+ 1837:             item["menor_valor_comparativo"] = _medbox_float_cotacao_gerada(
+ 1838:                 item.get("menor_valor_comparativo", disputa.get("menor_valor", 0))
+ 1839:             )
+ 1840:             item["medbox_vencedora"] = bool(item.get("medbox_vencedora") or disputa.get("medbox_vencedora"))
+ 1841: 
+ 1842:             item["preco_osinfo_formatado"] = _medbox_moeda_cotacao_gerada(preco_osinfo)
+ 1843:             item["menor_lance_formatado"] = _medbox_moeda_cotacao_gerada(menor_lance)
+ 1844:             item["preco_medbox_original_formatado"] = _medbox_moeda_cotacao_gerada(preco_medbox_original)
+ 1845:             item["menor_valor_comparativo_formatado"] = _medbox_moeda_cotacao_gerada(item["menor_valor_comparativo"])
+ 1846: 
+ 1847:             # Garante formatos antigos tambÃ©m.
+ 1848:             item["valor_unitario_formatado"] = _medbox_moeda_cotacao_gerada(item.get("valor_unitario", 0))
+ 1849:             item["valor_total_formatado"] = _medbox_moeda_cotacao_gerada(item.get("valor_total", 0))
+ 1850: 
+ 1851:             itens_enriquecidos.append(item)
+ 1852: 
+ 1853:         return cotacao, itens_enriquecidos
+ 1854: 
+ 1855:     print("OK: carregar_cotacao_gerada corrigido para retorno tuple.")
+ 1856: 
+ 1857: except Exception as e:
+ 1858:     print("AVISO: nÃ£o consegui aplicar override corrigido de carregar_cotacao_gerada:", e)
+ 1859: 
+ 1860: 
+ 1861: 
+ 1862: 
+ 1863: 
+ 1864: # ============================================================
+ 1865: # OVERRIDE FINAL - TOTAL CONSIDERANDO LANCE VENCEDOR
+ 1866: # CompatÃ­vel com cotaÃ§Ã£o gerada com ou sem OSINFO
+ 1867: # ============================================================
+ 1868: 
+ 1869: try:
+ 1870:     _carregar_cotacao_gerada_original_total_vencedor = carregar_cotacao_gerada
+ 1871: 
+ 1872:     def carregar_cotacao_gerada(numero_cotacao):
+ 1873:         resultado = _carregar_cotacao_gerada_original_total_vencedor(numero_cotacao)
+ 1874: 
+ 1875:         if not resultado:
+ 1876:             return resultado
+ 1877: 
+ 1878:         if isinstance(resultado, tuple):
+ 1879:             cotacao, itens = resultado
+ 1880:         else:
+ 1881:             cotacao = resultado
+ 1882:             itens = resultado.get("itens", []) if isinstance(resultado, dict) else []
+ 1883: 
+ 1884:         itens_corrigidos = []
+ 1885: 
+ 1886:         for item in itens:
+ 1887:             if not isinstance(item, dict):
+ 1888:                 try:
+ 1889:                     item = dict(item)
+ 1890:                 except Exception:
+ 1891:                     continue
+ 1892: 
+ 1893:             quantidade = _medbox_float_cotacao_gerada(item.get("quantidade", 0))
+ 1894:             preco_osinfo = _medbox_float_cotacao_gerada(item.get("preco_osinfo", 0))
+ 1895:             menor_lance = _medbox_float_cotacao_gerada(item.get("menor_lance", 0))
+ 1896:             preco_medbox = _medbox_float_cotacao_gerada(
+ 1897:                 item.get("preco_medbox_original", item.get("valor_unitario", 0))
+ 1898:             )
+ 1899: 
+ 1900:             disputa = _medbox_calcular_disputa_cotacao(
+ 1901:                 preco_osinfo=preco_osinfo,
+ 1902:                 menor_lance=menor_lance,
+ 1903:                 preco_medbox=preco_medbox,
+ 1904:                 empresa_melhor_lance=item.get("empresa_melhor_lance", "")
+ 1905:             )
+ 1906: 
+ 1907:             menor_valor = _medbox_float_cotacao_gerada(
+ 1908:                 item.get("menor_valor_comparativo", disputa.get("menor_valor", 0))
+ 1909:             )
+ 1910: 
+ 1911:             total_vencedor = menor_valor * quantidade
+ 1912: 
+ 1913:             item["preco_osinfo"] = preco_osinfo
+ 1914:             item["menor_lance"] = menor_lance
+ 1915:             item["preco_medbox_original"] = preco_medbox
+ 1916:             item["menor_origem"] = item.get("menor_origem") or disputa.get("menor_origem")
+ 1917:             item["menor_empresa"] = item.get("menor_empresa") or disputa.get("menor_empresa")
+ 1918:             item["menor_valor_comparativo"] = menor_valor
+ 1919:             item["valor_total_vencedor"] = total_vencedor
+ 1920: 
+ 1921:             item["preco_osinfo_formatado"] = _medbox_moeda_cotacao_gerada(preco_osinfo)
+ 1922:             item["menor_lance_formatado"] = _medbox_moeda_cotacao_gerada(menor_lance)
+ 1923:             item["preco_medbox_original_formatado"] = _medbox_moeda_cotacao_gerada(preco_medbox)
+ 1924:             item["menor_valor_comparativo_formatado"] = _medbox_moeda_cotacao_gerada(menor_valor)
+ 1925:             item["valor_total_vencedor_formatado"] = _medbox_moeda_cotacao_gerada(total_vencedor)
+ 1926: 
+ 1927:             item["valor_unitario_formatado"] = _medbox_moeda_cotacao_gerada(item.get("valor_unitario", 0))
+ 1928:             item["valor_total_formatado"] = _medbox_moeda_cotacao_gerada(item.get("valor_total", 0))
+ 1929: 
+ 1930:             itens_corrigidos.append(item)
+ 1931: 
+ 1932:         return cotacao, itens_corrigidos
+ 1933: 
+ 1934:     print("OK: total considerando lance vencedor aplicado.")
+ 1935: 
+ 1936: except Exception as e:
+ 1937:     print("AVISO: nÃ£o consegui aplicar total considerando lance vencedor:", e)
+ 1938: 
+ 1939: 
+ 1940: 
+ 1941: 
+ 1942: 
+ 1943: # ============================================================
+ 1944: # OVERRIDE DEFINITIVO - GERAÃ‡ÃƒO DE COTAÃ‡ÃƒO OAS / LANCES
+ 1945: # Salva OSINFO, MedBox, Outra Empresa e total pelo menor lance.
+ 1946: # ============================================================
+ 1947: 
+ 1948: def _oas_float(valor, padrao=0.0):
+ 1949:     try:
+ 1950:         if valor is None:
+ 1951:             return padrao
+ 1952: 
+ 1953:         if isinstance(valor, (int, float)):
+ 1954:             return float(valor)
+ 1955: 
+ 1956:         txt = str(valor).strip()
+ 1957:         txt = txt.replace("R$", "").replace("%", "").strip()
+ 1958: 
+ 1959:         if not txt:
+ 1960:             return padrao
+ 1961: 
+ 1962:         txt = txt.replace(".", "").replace(",", ".")
+ 1963:         return float(txt)
+ 1964:     except Exception:
+ 1965:         return padrao
+ 1966: 
+ 1967: 
+ 1968: def _oas_moeda(valor):
+ 1969:     valor = _oas_float(valor, 0.0)
+ 1970:     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+ 1971: 
+ 1972: 
+ 1973: def _oas_garantir_colunas():
+ 1974:     try:
+ 1975:         garantir_tabelas_cotacoes_geradas()
+ 1976:     except Exception:
+ 1977:         pass
+ 1978: 
+ 1979:     conn = conectar()
+ 1980:     cur = conn.cursor()
+ 1981: 
+ 1982:     cur.execute("PRAGMA table_info(cotacoes_geradas_itens)")
+ 1983:     existentes = {row[1] for row in cur.fetchall()}
+ 1984: 
+ 1985:     colunas = {
+ 1986:         "preco_osinfo": "REAL DEFAULT 0",
+ 1987:         "menor_lance": "REAL DEFAULT 0",
+ 1988:         "preco_medbox_original": "REAL DEFAULT 0",
+ 1989:         "empresa_melhor_lance": "TEXT",
+ 1990:         "menor_origem": "TEXT",
+ 1991:         "menor_empresa": "TEXT",
+ 1992:         "menor_valor_comparativo": "REAL DEFAULT 0",
+ 1993:         "valor_total_vencedor": "REAL DEFAULT 0",
+ 1994:         "medbox_vencedora": "INTEGER DEFAULT 0",
+ 1995:     }
+ 1996: 
+ 1997:     for nome, tipo in colunas.items():
+ 1998:         if nome not in existentes:
+ 1999:             cur.execute(f"ALTER TABLE cotacoes_geradas_itens ADD COLUMN {nome} {tipo}")
+ 2000: 
+ 2001:     conn.commit()
+ 2002:     conn.close()
+ 2003: 
+ 2004: 
+ 2005: def _oas_disputa(preco_osinfo, preco_medbox, menor_lance, empresa_lance):
+ 2006:     preco_osinfo = _oas_float(preco_osinfo)
+ 2007:     preco_medbox = _oas_float(preco_medbox)
+ 2008:     menor_lance = _oas_float(menor_lance)
+ 2009: 
+ 2010:     opcoes = []
+ 2011: 
+ 2012:     if preco_osinfo > 0:
+ 2013:         opcoes.append(("OSINFO", "OSINFO", preco_osinfo))
+ 2014: 
+ 2015:     if preco_medbox > 0:
+ 2016:         opcoes.append(("MEDBOX", "MEDBOX", preco_medbox))
+ 2017: 
+ 2018:     if menor_lance > 0:
+ 2019:         opcoes.append(("OUTRA_EMPRESA", empresa_lance or "OUTRA EMPRESA", menor_lance))
+ 2020: 
+ 2021:     if not opcoes:
+ 2022:         return {
+ 2023:             "menor_origem": "-",
+ 2024:             "menor_empresa": "-",
+ 2025:             "menor_valor": 0.0,
+ 2026:             "medbox_vencedora": False,
+ 2027:         }
+ 2028: 
+ 2029:     opcoes.sort(key=lambda x: x[2])
+ 2030:     origem, empresa, valor = opcoes[0]
+ 2031: 
+ 2032:     return {
+ 2033:         "menor_origem": origem,
+ 2034:         "menor_empresa": empresa,
+ 2035:         "menor_valor": valor,
+ 2036:         "medbox_vencedora": origem == "MEDBOX",
+ 2037:     }
+ 2038: 
+ 2039: 
+ 2040: def gerar_cotacao_lances_oas_definitiva():
+ 2041:     _oas_garantir_colunas()
+ 2042: 
+ 2043:     dados = request.get_json(silent=True) or {}
+ 2044:     itens = dados.get("itens", [])
+ 2045: 
+ 2046:     cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "").strip().upper()
+ 2047:     oas = str(dados.get("oas") or "").strip().upper()
+ 2048:     projeto = str(dados.get("projeto") or "").strip().upper()
+ 2049:     controle_cliente = str(dados.get("controle_cliente") or "").strip().upper()
+ 2050: 
+ 2051:     if not cliente:
+ 2052:         cliente = "-"
+ 2053: 
+ 2054:     cliente_exibicao = cliente
+ 2055:     extras = []
+ 2056: 
+ 2057:     if oas:
+ 2058:         extras.append(f"OAS: {oas}")
+ 2059:     if projeto:
+ 2060:         extras.append(f"PROJETO: {projeto}")
+ 2061:     if controle_cliente:
+ 2062:         extras.append(f"CONTROLE CLIENTE: {controle_cliente}")
+ 2063: 
+ 2064:     if extras:
+ 2065:         cliente_exibicao = cliente + " | " + " | ".join(extras)
+ 2066: 
+ 2067:     if not itens:
+ 2068:         return jsonify({"ok": False, "erro": "Nenhum item encontrado para gerar cotaÃ§Ã£o."}), 400
+ 2069: 
+ 2070:     numero_cotacao = proximo_numero_cotacao()
+ 2071:     data_emissao = datetime.now().strftime("%d/%m/%Y")
+ 2072: 
+ 2073:     conn = conectar()
+ 2074:     cur = conn.cursor()
+ 2075: 
+ 2076:     cur.execute("""
+ 2077:         INSERT INTO cotacoes_geradas (
+ 2078:             numero_cotacao,
+ 2079:             data_emissao,
+ 2080:             cliente,
+ 2081:             empresa_nome,
+ 2082:             empresa_cnpj,
+ 2083:             empresa_endereco,
+ 2084:             empresa_email,
+ 2085:             empresa_telefone,
+ 2086:             validade_dias,
+ 2087:             total_geral
+ 2088:         )
+ 2089:         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 2090:     """, (
+ 2091:         numero_cotacao,
+ 2092:         data_emissao,
+ 2093:         cliente_exibicao,
+ 2094:         EMPRESA_MEDBOX_COTACAO.get("nome"),
+ 2095:         EMPRESA_MEDBOX_COTACAO.get("cnpj"),
+ 2096:         EMPRESA_MEDBOX_COTACAO.get("endereco"),
+ 2097:         EMPRESA_MEDBOX_COTACAO.get("email"),
+ 2098:         EMPRESA_MEDBOX_COTACAO.get("telefone"),
+ 2099:         7,
+ 2100:         0.0,
+ 2101:     ))
+ 2102: 
+ 2103:     cotacao_id = cur.lastrowid
+ 2104:     total_geral = 0.0
+ 2105: 
+ 2106:     for idx, item in enumerate(itens, start=1):
+ 2107:         descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+ 2108:         sku_master = str(item.get("sku_master") or "").strip().upper()
+ 2109:         marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+ 2110: 
+ 2111:         quantidade = _oas_float(item.get("quantidade"), 0.0)
+ 2112: 
+ 2113:         preco_osinfo = _oas_float(item.get("preco_osinfo"), 0.0)
+ 2114:         preco_medbox = _oas_float(item.get("preco_medbox"), 0.0)
+ 2115:         menor_lance = _oas_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0.0)), 0.0)
+ 2116: 
+ 2117:         empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+ 2118: 
+ 2119:         disputa = _oas_disputa(
+ 2120:             preco_osinfo=preco_osinfo,
+ 2121:             preco_medbox=preco_medbox,
+ 2122:             menor_lance=menor_lance,
+ 2123:             empresa_lance=empresa_lance
+ 2124:         )
+ 2125: 
+ 2126:         menor_valor = disputa["menor_valor"]
+ 2127:         total_vencedor = menor_valor * quantidade
+ 2128: 
+ 2129:         # Valor da proposta MedBox sÃ³ entra quando MedBox for vencedora.
+ 2130:         valor_unitario = preco_medbox if disputa["medbox_vencedora"] else 0.0
+ 2131:         valor_total = valor_unitario * quantidade
+ 2132: 
+ 2133:         total_geral += valor_total
+ 2134: 
+ 2135:         cur.execute("""
+ 2136:             INSERT INTO cotacoes_geradas_itens (
+ 2137:                 cotacao_id,
+ 2138:                 item_numero,
+ 2139:                 descricao_produto,
+ 2140:                 sku_master,
+ 2141:                 marca,
+ 2142:                 quantidade,
+ 2143:                 valor_unitario,
+ 2144:                 valor_total,
+ 2145:                 venceu_medbox,
+ 2146:                 status_lance,
+ 2147:                 preco_osinfo,
+ 2148:                 menor_lance,
+ 2149:                 preco_medbox_original,
+ 2150:                 empresa_melhor_lance,
+ 2151:                 menor_origem,
+ 2152:                 menor_empresa,
+ 2153:                 menor_valor_comparativo,
+ 2154:                 valor_total_vencedor,
+ 2155:                 medbox_vencedora
+ 2156:             )
+ 2157:             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 2158:         """, (
+ 2159:             cotacao_id,
+ 2160:             idx,
+ 2161:             descricao,
+ 2162:             sku_master,
+ 2163:             marca,
+ 2164:             quantidade,
+ 2165:             valor_unitario,
+ 2166:             valor_total,
+ 2167:             1 if disputa["medbox_vencedora"] else 0,
+ 2168:             str(item.get("status") or "").strip().upper(),
+ 2169:             preco_osinfo,
+ 2170:             menor_lance,
+ 2171:             preco_medbox,
+ 2172:             empresa_lance,
+ 2173:             disputa["menor_origem"],
+ 2174:             disputa["menor_empresa"],
+ 2175:             menor_valor,
+ 2176:             total_vencedor,
+ 2177:             1 if disputa["medbox_vencedora"] else 0,
+ 2178:         ))
+ 2179: 
+ 2180:     cur.execute("""
+ 2181:         UPDATE cotacoes_geradas
+ 2182:         SET total_geral = ?
+ 2183:         WHERE id = ?
+ 2184:     """, (total_geral, cotacao_id))
+ 2185: 
+ 2186:     conn.commit()
+ 2187:     conn.close()
+ 2188: 
+ 2189:     return jsonify({
+ 2190:         "ok": True,
+ 2191:         "numero_cotacao": numero_cotacao,
+ 2192:         "url": f"/cotacoes/geradas/{numero_cotacao}"
+ 2193:     })
+ 2194: 
+ 2195: 
+ 2196: try:
+ 2197:     app.view_functions["gerar_cotacao_lances"] = gerar_cotacao_lances_oas_definitiva
+ 2198:     print("OK: rota gerar_cotacao_lances sobrescrita para OAS definitiva.")
+ 2199: except Exception as e:
+ 2200:     print("AVISO: nÃ£o consegui sobrescrever rota gerar_cotacao_lances:", e)
+ 2201: 
+ 2202: 
+ 2203: # Enriquecimento de itens ao abrir cotaÃ§Ã£o
+ 2204: try:
+ 2205:     _carregar_cotacao_gerada_original_oas_final = carregar_cotacao_gerada
+ 2206: 
+ 2207:     def carregar_cotacao_gerada(numero_cotacao):
+ 2208:         _oas_garantir_colunas()
+ 2209: 
+ 2210:         resultado = _carregar_cotacao_gerada_original_oas_final(numero_cotacao)
+ 2211: 
+ 2212:         if not resultado:
+ 2213:             return resultado
+ 2214: 
+ 2215:         if isinstance(resultado, tuple):
+ 2216:             cotacao, itens = resultado
+ 2217:         else:
+ 2218:             cotacao = resultado
+ 2219:             itens = resultado.get("itens", []) if isinstance(resultado, dict) else []
+ 2220: 
+ 2221:         conn = conectar()
+ 2222:         conn.row_factory = sqlite3.Row
+ 2223:         cur = conn.cursor()
+ 2224: 
+ 2225:         cur.execute("""
+ 2226:             SELECT i.*
+ 2227:             FROM cotacoes_geradas_itens i
+ 2228:             JOIN cotacoes_geradas c ON c.id = i.cotacao_id
+ 2229:             WHERE c.numero_cotacao = ?
+ 2230:             ORDER BY i.item_numero
+ 2231:         """, (numero_cotacao,))
+ 2232: 
+ 2233:         itens_db = [dict(row) for row in cur.fetchall()]
+ 2234:         conn.close()
+ 2235: 
+ 2236:         if itens_db:
+ 2237:             itens = itens_db
+ 2238: 
+ 2239:         novos = []
+ 2240: 
+ 2241:         for item in itens:
+ 2242:             if not isinstance(item, dict):
+ 2243:                 try:
+ 2244:                     item = dict(item)
+ 2245:                 except Exception:
+ 2246:                     continue
+ 2247: 
+ 2248:             qtd = _oas_float(item.get("quantidade"), 0)
+ 2249:             osinfo = _oas_float(item.get("preco_osinfo"), 0)
+ 2250:             medbox = _oas_float(item.get("preco_medbox_original", item.get("valor_unitario", 0)), 0)
+ 2251:             outra = _oas_float(item.get("menor_lance"), 0)
+ 2252: 
+ 2253:             disputa = _oas_disputa(osinfo, medbox, outra, item.get("empresa_melhor_lance", ""))
+ 2254: 
+ 2255:             menor_valor = _oas_float(item.get("menor_valor_comparativo", disputa["menor_valor"]), 0)
+ 2256:             total_vencedor = _oas_float(item.get("valor_total_vencedor", menor_valor * qtd), 0)
+ 2257: 
+ 2258:             item["preco_osinfo"] = osinfo
+ 2259:             item["preco_medbox_original"] = medbox
+ 2260:             item["menor_lance"] = outra
+ 2261:             item["menor_origem"] = item.get("menor_origem") or disputa["menor_origem"]
+ 2262:             item["menor_empresa"] = item.get("menor_empresa") or disputa["menor_empresa"]
+ 2263:             item["menor_valor_comparativo"] = menor_valor
+ 2264:             item["valor_total_vencedor"] = total_vencedor
+ 2265: 
+ 2266:             item["preco_osinfo_formatado"] = _oas_moeda(osinfo)
+ 2267:             item["preco_medbox_original_formatado"] = _oas_moeda(medbox)
+ 2268:             item["menor_lance_formatado"] = _oas_moeda(outra)
+ 2269:             item["menor_valor_comparativo_formatado"] = _oas_moeda(menor_valor)
+ 2270:             item["valor_total_vencedor_formatado"] = _oas_moeda(total_vencedor)
+ 2271:             item["valor_unitario_formatado"] = _oas_moeda(item.get("valor_unitario", 0))
+ 2272:             item["valor_total_formatado"] = _oas_moeda(item.get("valor_total", 0))
+ 2273: 
+ 2274:             novos.append(item)
+ 2275: 
+ 2276:         return cotacao, novos
+ 2277: 
+ 2278:     print("OK: carregar_cotacao_gerada enriquecido para OAS definitiva.")
+ 2279: 
+ 2280: except Exception as e:
+ 2281:     print("AVISO: nÃ£o consegui enriquecer carregar_cotacao_gerada:", e)
+ 2282: 
+ 2283: 
+ 2284: 
+ 2285: 
+ 2286: 
+ 2287: # ============================================================
+ 2288: # OVERRIDE FINAL - REABRIR / EDITAR COTAÃ‡ÃƒO GERADA
+ 2289: # ============================================================
+ 2290: 
+ 2291: def _edit_float(valor, padrao=0.0):
+ 2292:     try:
+ 2293:         if valor is None:
+ 2294:             return padrao
+ 2295: 
+ 2296:         if isinstance(valor, (int, float)):
+ 2297:             return float(valor)
+ 2298: 
+ 2299:         txt = str(valor).strip()
+ 2300:         txt = txt.replace("R$", "").replace("%", "").strip()
+ 2301: 
+ 2302:         if not txt:
+ 2303:             return padrao
+ 2304: 
+ 2305:         if "," in txt:
+ 2306:             txt = txt.replace(".", "").replace(",", ".")
+ 2307: 
+ 2308:         return float(txt)
+ 2309:     except Exception:
+ 2310:         return padrao
+ 2311: 
+ 2312: 
+ 2313: def _edit_moeda(valor):
+ 2314:     valor = _edit_float(valor, 0.0)
+ 2315:     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+ 2316: 
+ 2317: 
+ 2318: def _edit_garantir_colunas():
+ 2319:     try:
+ 2320:         garantir_tabelas_cotacoes_geradas()
+ 2321:     except Exception:
+ 2322:         pass
+ 2323: 
+ 2324:     conn = conectar()
+ 2325:     cur = conn.cursor()
+ 2326: 
+ 2327:     cur.execute("PRAGMA table_info(cotacoes_geradas_itens)")
+ 2328:     existentes = {row[1] for row in cur.fetchall()}
+ 2329: 
+ 2330:     colunas = {
+ 2331:         "preco_osinfo": "REAL DEFAULT 0",
+ 2332:         "menor_lance": "REAL DEFAULT 0",
+ 2333:         "preco_medbox_original": "REAL DEFAULT 0",
+ 2334:         "empresa_melhor_lance": "TEXT",
+ 2335:         "menor_origem": "TEXT",
+ 2336:         "menor_empresa": "TEXT",
+ 2337:         "menor_valor_comparativo": "REAL DEFAULT 0",
+ 2338:         "valor_total_vencedor": "REAL DEFAULT 0",
+ 2339:         "medbox_vencedora": "INTEGER DEFAULT 0",
+ 2340:     }
+ 2341: 
+ 2342:     for coluna, tipo in colunas.items():
+ 2343:         if coluna not in existentes:
+ 2344:             cur.execute(f"ALTER TABLE cotacoes_geradas_itens ADD COLUMN {coluna} {tipo}")
+ 2345: 
+ 2346:     conn.commit()
+ 2347:     conn.close()
+ 2348: 
+ 2349: 
+ 2350: def _edit_calcular_disputa(preco_osinfo, preco_medbox, menor_lance, empresa_lance):
+ 2351:     preco_osinfo = _edit_float(preco_osinfo)
+ 2352:     preco_medbox = _edit_float(preco_medbox)
+ 2353:     menor_lance = _edit_float(menor_lance)
+ 2354: 
+ 2355:     opcoes = []
+ 2356: 
+ 2357:     if preco_osinfo > 0:
+ 2358:         opcoes.append(("OSINFO", "OSINFO", preco_osinfo))
+ 2359: 
+ 2360:     if preco_medbox > 0:
+ 2361:         opcoes.append(("MEDBOX", "MEDBOX", preco_medbox))
+ 2362: 
+ 2363:     if menor_lance > 0:
+ 2364:         opcoes.append(("OUTRA_EMPRESA", empresa_lance or "OUTRA EMPRESA", menor_lance))
+ 2365: 
+ 2366:     if not opcoes:
+ 2367:         return "-", "-", 0.0, False
+ 2368: 
+ 2369:     opcoes.sort(key=lambda x: x[2])
+ 2370:     origem, empresa, valor = opcoes[0]
+ 2371: 
+ 2372:     return origem, empresa, valor, origem == "MEDBOX"
+ 2373: 
+ 2374: 
+ 2375: def _edit_montar_item_lance(row, idx):
+ 2376:     item = dict(row)
+ 2377: 
+ 2378:     quantidade = _edit_float(item.get("quantidade"), 0)
+ 2379:     preco_osinfo = _edit_float(item.get("preco_osinfo"), 0)
+ 2380:     preco_medbox = _edit_float(item.get("preco_medbox_original", item.get("valor_unitario", 0)), 0)
+ 2381:     menor_lance = _edit_float(item.get("menor_lance"), 0)
+ 2382:     menor_custo = _edit_float(item.get("menor_custo_unitario", 0), 0)
+ 2383: 
+ 2384:     origem, empresa, menor_valor, medbox_vencedora = _edit_calcular_disputa(
+ 2385:         preco_osinfo,
+ 2386:         preco_medbox,
+ 2387:         menor_lance,
+ 2388:         item.get("empresa_melhor_lance", "")
+ 2389:     )
+ 2390: 
+ 2391:     return {
+ 2392:         "item": idx,
+ 2393:         "codigo_cliente": "",
+ 2394:         "descricao_produto": item.get("descricao_produto", ""),
+ 2395:         "descricao_cotacao": item.get("descricao_produto", ""),
+ 2396:         "unidade": "",
+ 2397:         "quantidade": quantidade,
+ 2398:         "sku_master": item.get("sku_master", ""),
+ 2399:         "sku_encontrado": bool(item.get("sku_master")),
+ 2400:         "score": 0,
+ 2401:         "sugestoes_sku": [],
+ 2402:         "categoria": item.get("categoria", ""),
+ 2403:         "descricao_fornecedor": "",
+ 2404:         "preco_osinfo": preco_osinfo,
+ 2405:         "ultima_compra": 0,
+ 2406:         "preco_medbox": preco_medbox,
+ 2407:         "markup_atual": 80,
+ 2408:         "menor_preco_ofertado": menor_lance,
+ 2409:         "empresa_melhor_lance": item.get("empresa_melhor_lance", ""),
+ 2410:         "menor_valor": menor_valor,
+ 2411:         "menor_valor_nome": empresa,
+ 2412:         "menor_origem": origem,
+ 2413:         "menor_custo_unitario": menor_custo if menor_custo else None,
+ 2414:         "fornecedor_menor_custo": item.get("fornecedor_menor_custo", ""),
+ 2415:         "marca_fabricante": item.get("marca", ""),
+ 2416:         "status": item.get("status_lance") or ("MEDBOX VENCE" if medbox_vencedora else "NEGOCIAR" if origem in ["OSINFO", "OUTRA_EMPRESA"] else "REVISAR SKU"),
+ 2417:         "tem_preco": bool(preco_medbox),
+ 2418:         "preco_osinfo_formatado": _edit_moeda(preco_osinfo),
+ 2419:         "ultima_compra_formatada": _edit_moeda(0),
+ 2420:         "preco_medbox_formatado": _edit_moeda(preco_medbox),
+ 2421:         "menor_preco_ofertado_formatado": _edit_moeda(menor_lance),
+ 2422:         "menor_valor_formatado": _edit_moeda(menor_valor),
+ 2423:         "menor_custo_unitario_formatado": _edit_moeda(menor_custo) if menor_custo else "-",
+ 2424:         "total_medbox": preco_medbox * quantidade,
+ 2425:         "total_osinfo": preco_osinfo * quantidade,
+ 2426:         "total_ultima_compra": 0,
+ 2427:         "total_menor_valor": menor_valor * quantidade,
+ 2428:     }
+ 2429: 
+ 2430: 
+ 2431: @app.route("/cotacoes/geradas/<numero_cotacao>/editar")
+ 2432: def editar_cotacao_gerada(numero_cotacao):
+ 2433:     _edit_garantir_colunas()
+ 2434: 
+ 2435:     conn = conectar()
+ 2436:     conn.row_factory = sqlite3.Row
+ 2437:     cur = conn.cursor()
+ 2438: 
+ 2439:     cur.execute("""
+ 2440:         SELECT *
+ 2441:         FROM cotacoes_geradas
+ 2442:         WHERE numero_cotacao = ?
+ 2443:     """, (numero_cotacao,))
+ 2444: 
+ 2445:     cotacao = cur.fetchone()
+ 2446: 
+ 2447:     if not cotacao:
+ 2448:         conn.close()
+ 2449:         return f"CotaÃ§Ã£o {numero_cotacao} nÃ£o encontrada.", 404
+ 2450: 
+ 2451:     cur.execute("""
+ 2452:         SELECT *
+ 2453:         FROM cotacoes_geradas_itens
+ 2454:         WHERE cotacao_id = ?
+ 2455:         ORDER BY item_numero
+ 2456:     """, (cotacao["id"],))
+ 2457: 
+ 2458:     itens_db = cur.fetchall()
+ 2459:     conn.close()
+ 2460: 
+ 2461:     itens = [
+ 2462:         _edit_montar_item_lance(row, idx)
+ 2463:         for idx, row in enumerate(itens_db, start=1)
+ 2464:     ]
+ 2465: 
+ 2466:     analise = {
+ 2467:         "arquivo": f"EDITANDO {numero_cotacao}",
+ 2468:         "itens_extraidos": len(itens),
+ 2469:         "markup_percentual": 80,
+ 2470:         "itens": itens,
+ 2471:         "resumo": montar_resumo_lances(itens) if "montar_resumo_lances" in globals() else {
+ 2472:             "total_itens": len(itens),
+ 2473:             "itens_com_sku": 0,
+ 2474:             "itens_revisar_sku": 0,
+ 2475:             "itens_com_preco_medbox": 0,
+ 2476:             "itens_sem_preco": 0,
+ 2477:             "itens_competitivos": 0,
+ 2478:             "itens_negociar": 0,
+ 2479:             "total_medbox": 0,
+ 2480:             "total_medbox_formatado": "R$ 0,00",
+ 2481:         }
+ 2482:     }
+ 2483: 
+ 2484:     return render_template(
+ 2485:         "cotacao_lances.html",
+ 2486:         data_atual=DATA_ATUAL,
+ 2487:         resumo=resumo_dashboard(),
+ 2488:         analise=analise,
+ 2489:         erro=None,
+ 2490:         arquivo_nome=f"EDITANDO {numero_cotacao}",
+ 2491:         markup_percentual=80,
+ 2492:         numero_cotacao_editando=numero_cotacao,
+ 2493:         modo_edicao_cotacao=True,
+ 2494:     )
+ 2495: 
+ 2496: 
+ 2497: @app.route("/cotacoes/lances/atualizar-cotacao/<numero_cotacao>", methods=["POST"])
+ 2498: def atualizar_cotacao_gerada(numero_cotacao):
+ 2499:     _edit_garantir_colunas()
+ 2500: 
+ 2501:     dados = request.get_json(silent=True) or {}
+ 2502:     itens = dados.get("itens", [])
+ 2503: 
+ 2504:     cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "").strip().upper()
+ 2505:     oas = str(dados.get("oas") or "").strip().upper()
+ 2506:     projeto = str(dados.get("projeto") or "").strip().upper()
+ 2507:     controle_cliente = str(dados.get("controle_cliente") or "").strip().upper()
+ 2508: 
+ 2509:     extras = []
+ 2510:     if oas:
+ 2511:         extras.append(f"OAS: {oas}")
+ 2512:     if projeto:
+ 2513:         extras.append(f"PROJETO: {projeto}")
+ 2514:     if controle_cliente:
+ 2515:         extras.append(f"CONTROLE CLIENTE: {controle_cliente}")
+ 2516: 
+ 2517:     cliente_exibicao = cliente or "-"
+ 2518:     if extras:
+ 2519:         cliente_exibicao = cliente_exibicao + " | " + " | ".join(extras)
+ 2520: 
+ 2521:     conn = conectar()
+ 2522:     cur = conn.cursor()
+ 2523: 
+ 2524:     cur.execute("""
+ 2525:         SELECT id
+ 2526:         FROM cotacoes_geradas
+ 2527:         WHERE numero_cotacao = ?
+ 2528:     """, (numero_cotacao,))
+ 2529: 
+ 2530:     row = cur.fetchone()
+ 2531: 
+ 2532:     if not row:
+ 2533:         conn.close()
+ 2534:         return jsonify({"ok": False, "erro": f"CotaÃ§Ã£o {numero_cotacao} nÃ£o encontrada."}), 404
+ 2535: 
+ 2536:     cotacao_id = row[0]
+ 2537: 
+ 2538:     cur.execute("DELETE FROM cotacoes_geradas_itens WHERE cotacao_id = ?", (cotacao_id,))
+ 2539: 
+ 2540:     total_geral = 0.0
+ 2541: 
+ 2542:     for idx, item in enumerate(itens, start=1):
+ 2543:         descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+ 2544:         sku_master = str(item.get("sku_master") or "").strip().upper()
+ 2545:         marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+ 2546:         quantidade = _edit_float(item.get("quantidade"), 0)
+ 2547: 
+ 2548:         preco_osinfo = _edit_float(item.get("preco_osinfo"), 0)
+ 2549:         preco_medbox = _edit_float(item.get("preco_medbox"), 0)
+ 2550:         menor_lance = _edit_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0)), 0)
+ 2551:         empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+ 2552: 
+ 2553:         menor_origem, menor_empresa, menor_valor, medbox_vencedora = _edit_calcular_disputa(
+ 2554:             preco_osinfo,
+ 2555:             preco_medbox,
+ 2556:             menor_lance,
+ 2557:             empresa_lance
+ 2558:         )
+ 2559: 
+ 2560:         valor_unitario = preco_medbox if medbox_vencedora else 0.0
+ 2561:         valor_total = valor_unitario * quantidade
+ 2562:         valor_total_vencedor = menor_valor * quantidade
+ 2563: 
+ 2564:         total_geral += valor_total
+ 2565: 
+ 2566:         cur.execute("""
+ 2567:             INSERT INTO cotacoes_geradas_itens (
+ 2568:                 cotacao_id,
+ 2569:                 item_numero,
+ 2570:                 descricao_produto,
+ 2571:                 sku_master,
+ 2572:                 marca,
+ 2573:                 quantidade,
+ 2574:                 valor_unitario,
+ 2575:                 valor_total,
+ 2576:                 venceu_medbox,
+ 2577:                 status_lance,
+ 2578:                 preco_osinfo,
+ 2579:                 menor_lance,
+ 2580:                 preco_medbox_original,
+ 2581:                 empresa_melhor_lance,
+ 2582:                 menor_origem,
+ 2583:                 menor_empresa,
+ 2584:                 menor_valor_comparativo,
+ 2585:                 valor_total_vencedor,
+ 2586:                 medbox_vencedora
+ 2587:             )
+ 2588:             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 2589:         """, (
+ 2590:             cotacao_id,
+ 2591:             idx,
+ 2592:             descricao,
+ 2593:             sku_master,
+ 2594:             marca,
+ 2595:             quantidade,
+ 2596:             valor_unitario,
+ 2597:             valor_total,
+ 2598:             1 if medbox_vencedora else 0,
+ 2599:             str(item.get("status") or "").strip().upper(),
+ 2600:             preco_osinfo,
+ 2601:             menor_lance,
+ 2602:             preco_medbox,
+ 2603:             empresa_lance,
+ 2604:             menor_origem,
+ 2605:             menor_empresa,
+ 2606:             menor_valor,
+ 2607:             valor_total_vencedor,
+ 2608:             1 if medbox_vencedora else 0,
+ 2609:         ))
+ 2610: 
+ 2611:     cur.execute("""
+ 2612:         UPDATE cotacoes_geradas
+ 2613:         SET cliente = ?,
+ 2614:             total_geral = ?
+ 2615:         WHERE id = ?
+ 2616:     """, (cliente_exibicao, total_geral, cotacao_id))
+ 2617: 
+ 2618:     conn.commit()
+ 2619:     conn.close()
+ 2620: 
+ 2621:     return jsonify({
+ 2622:         "ok": True,
+ 2623:         "numero_cotacao": numero_cotacao,
+ 2624:         "url": f"/cotacoes/geradas/{numero_cotacao}"
+ 2625:     })
+ 2626: 
+ 2627: 
+ 2628: 
+ 2629: 
+ 2630: 
+ 2631: # ============================================================
+ 2632: # OVERRIDE FINAL - MODELO OAS NA COTAÃ‡ÃƒO GERADA
+ 2633: # Regra:
+ 2634: # - Se houver preÃ§o OSINFO em qualquer item, usa modelo OAS.
+ 2635: # - Mostra OSINFO, MedBox, Outra Empresa.
+ 2636: # - Destaca o menor preÃ§o.
+ 2637: # - Total do item = quantidade x menor preÃ§o.
+ 2638: # ============================================================
+ 2639: 
+ 2640: def _oas_final_float(valor, padrao=0.0):
+ 2641:     try:
+ 2642:         if valor is None:
+ 2643:             return padrao
+ 2644: 
+ 2645:         if isinstance(valor, (int, float)):
+ 2646:             return float(valor)
+ 2647: 
+ 2648:         texto = str(valor).strip()
+ 2649:         texto = texto.replace("R$", "").replace("%", "").strip()
+ 2650: 
+ 2651:         if not texto:
+ 2652:             return padrao
+ 2653: 
+ 2654:         texto = texto.replace(" ", "")
+ 2655: 
+ 2656:         # Formato BR: 1.234,56
+ 2657:         if "," in texto:
+ 2658:             texto = texto.replace(".", "").replace(",", ".")
+ 2659: 
+ 2660:         return float(texto)
+ 2661:     except Exception:
+ 2662:         return padrao
+ 2663: 
+ 2664: 
+ 2665: def _oas_final_moeda(valor):
+ 2666:     valor = _oas_final_float(valor, 0.0)
+ 2667:     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+ 2668: 
+ 2669: 
+ 2670: def _oas_final_garantir_colunas():
+ 2671:     try:
+ 2672:         garantir_tabelas_cotacoes_geradas()
+ 2673:     except Exception:
+ 2674:         pass
+ 2675: 
+ 2676:     conn = conectar()
+ 2677:     cur = conn.cursor()
+ 2678: 
+ 2679:     cur.execute("PRAGMA table_info(cotacoes_geradas_itens)")
+ 2680:     existentes = {row[1] for row in cur.fetchall()}
+ 2681: 
+ 2682:     colunas = {
+ 2683:         "preco_osinfo": "REAL DEFAULT 0",
+ 2684:         "menor_lance": "REAL DEFAULT 0",
+ 2685:         "preco_medbox_original": "REAL DEFAULT 0",
+ 2686:         "empresa_melhor_lance": "TEXT",
+ 2687:         "menor_origem": "TEXT",
+ 2688:         "menor_empresa": "TEXT",
+ 2689:         "menor_valor_comparativo": "REAL DEFAULT 0",
+ 2690:         "valor_total_vencedor": "REAL DEFAULT 0",
+ 2691:         "medbox_vencedora": "INTEGER DEFAULT 0",
+ 2692:     }
+ 2693: 
+ 2694:     for coluna, tipo in colunas.items():
+ 2695:         if coluna not in existentes:
+ 2696:             cur.execute(f"ALTER TABLE cotacoes_geradas_itens ADD COLUMN {coluna} {tipo}")
+ 2697: 
+ 2698:     conn.commit()
+ 2699:     conn.close()
+ 2700: 
+ 2701: 
+ 2702: def _oas_final_calcular_menor(preco_osinfo, preco_medbox, preco_outra_empresa, empresa_outra):
+ 2703:     opcoes = []
+ 2704: 
+ 2705:     preco_osinfo = _oas_final_float(preco_osinfo, 0.0)
+ 2706:     preco_medbox = _oas_final_float(preco_medbox, 0.0)
+ 2707:     preco_outra_empresa = _oas_final_float(preco_outra_empresa, 0.0)
+ 2708: 
+ 2709:     if preco_osinfo > 0:
+ 2710:         opcoes.append(("OSINFO", "OSINFO", preco_osinfo))
+ 2711: 
+ 2712:     if preco_medbox > 0:
+ 2713:         opcoes.append(("MEDBOX", "MEDBOX", preco_medbox))
+ 2714: 
+ 2715:     if preco_outra_empresa > 0:
+ 2716:         opcoes.append(("OUTRA_EMPRESA", empresa_outra or "OUTRA EMPRESA", preco_outra_empresa))
+ 2717: 
+ 2718:     if not opcoes:
+ 2719:         return "-", "-", 0.0
+ 2720: 
+ 2721:     opcoes.sort(key=lambda x: x[2])
+ 2722:     return opcoes[0]
+ 2723: 
+ 2724: 
+ 2725: try:
+ 2726:     _carregar_cotacao_gerada_original_oas_modelo_final = carregar_cotacao_gerada
+ 2727: 
+ 2728:     def carregar_cotacao_gerada(numero_cotacao):
+ 2729:         _oas_final_garantir_colunas()
+ 2730: 
+ 2731:         resultado = _carregar_cotacao_gerada_original_oas_modelo_final(numero_cotacao)
+ 2732: 
+ 2733:         if not resultado:
+ 2734:             return resultado
+ 2735: 
+ 2736:         if isinstance(resultado, tuple):
+ 2737:             cotacao, itens = resultado
+ 2738:         else:
+ 2739:             cotacao = resultado
+ 2740:             itens = resultado.get("itens", []) if isinstance(resultado, dict) else []
+ 2741: 
+ 2742:         conn = conectar()
+ 2743:         conn.row_factory = sqlite3.Row
+ 2744:         cur = conn.cursor()
+ 2745: 
+ 2746:         cur.execute("""
+ 2747:             SELECT i.*
+ 2748:             FROM cotacoes_geradas_itens i
+ 2749:             JOIN cotacoes_geradas c ON c.id = i.cotacao_id
+ 2750:             WHERE c.numero_cotacao = ?
+ 2751:             ORDER BY i.item_numero
+ 2752:         """, (numero_cotacao,))
+ 2753: 
+ 2754:         itens_db = [dict(row) for row in cur.fetchall()]
+ 2755:         conn.close()
+ 2756: 
+ 2757:         if itens_db:
+ 2758:             itens = itens_db
+ 2759: 
+ 2760:         itens_corrigidos = []
+ 2761:         tem_osinfo = False
+ 2762: 
+ 2763:         for item in itens:
+ 2764:             if not isinstance(item, dict):
+ 2765:                 try:
+ 2766:                     item = dict(item)
+ 2767:                 except Exception:
+ 2768:                     continue
+ 2769: 
+ 2770:             quantidade = _oas_final_float(item.get("quantidade"), 0.0)
+ 2771: 
+ 2772:             preco_osinfo = _oas_final_float(item.get("preco_osinfo"), 0.0)
+ 2773:             preco_medbox = _oas_final_float(
+ 2774:                 item.get("preco_medbox_original", item.get("valor_unitario", 0.0)),
+ 2775:                 0.0
+ 2776:             )
+ 2777:             preco_outra_empresa = _oas_final_float(item.get("menor_lance"), 0.0)
+ 2778:             empresa_outra = str(item.get("empresa_melhor_lance") or "").strip().upper()
+ 2779: 
+ 2780:             if preco_osinfo > 0:
+ 2781:                 tem_osinfo = True
+ 2782: 
+ 2783:             menor_origem, menor_empresa, menor_valor = _oas_final_calcular_menor(
+ 2784:                 preco_osinfo,
+ 2785:                 preco_medbox,
+ 2786:                 preco_outra_empresa,
+ 2787:                 empresa_outra
+ 2788:             )
+ 2789: 
+ 2790:             valor_total_vencedor = quantidade * menor_valor
+ 2791: 
+ 2792:             item["preco_osinfo"] = preco_osinfo
+ 2793:             item["preco_medbox_original"] = preco_medbox
+ 2794:             item["preco_outra_empresa"] = preco_outra_empresa
+ 2795:             item["menor_lance"] = preco_outra_empresa
+ 2796:             item["empresa_melhor_lance"] = empresa_outra
+ 2797: 
+ 2798:             item["menor_origem"] = menor_origem
+ 2799:             item["menor_empresa"] = menor_empresa
+ 2800:             item["menor_valor_comparativo"] = menor_valor
+ 2801:             item["valor_total_vencedor"] = valor_total_vencedor
+ 2802: 
+ 2803:             item["destaque_osinfo"] = menor_origem == "OSINFO"
+ 2804:             item["destaque_medbox"] = menor_origem == "MEDBOX"
+ 2805:             item["destaque_outra"] = menor_origem == "OUTRA_EMPRESA"
+ 2806: 
+ 2807:             item["preco_osinfo_formatado"] = _oas_final_moeda(preco_osinfo)
+ 2808:             item["preco_medbox_formatado"] = _oas_final_moeda(preco_medbox)
+ 2809:             item["preco_medbox_original_formatado"] = _oas_final_moeda(preco_medbox)
+ 2810:             item["preco_outra_empresa_formatado"] = _oas_final_moeda(preco_outra_empresa)
+ 2811:             item["menor_lance_formatado"] = _oas_final_moeda(preco_outra_empresa)
+ 2812:             item["menor_valor_comparativo_formatado"] = _oas_final_moeda(menor_valor)
+ 2813:             item["valor_total_vencedor_formatado"] = _oas_final_moeda(valor_total_vencedor)
+ 2814: 
+ 2815:             item["valor_unitario_formatado"] = _oas_final_moeda(item.get("valor_unitario", 0.0))
+ 2816:             item["valor_total_formatado"] = _oas_final_moeda(item.get("valor_total", 0.0))
+ 2817: 
+ 2818:             itens_corrigidos.append(item)
+ 2819: 
+ 2820:         # CompatÃ­vel com dict e sqlite Row convertido.
+ 2821:         try:
+ 2822:             cotacao = dict(cotacao)
+ 2823:         except Exception:
+ 2824:             pass
+ 2825: 
+ 2826:         try:
+ 2827:             cotacao["tem_osinfo"] = tem_osinfo
+ 2828:         except Exception:
+ 2829:             pass
+ 2830: 
+ 2831:         return cotacao, itens_corrigidos
+ 2832: 
+ 2833:     print("OK: carregar_cotacao_gerada aplicado com modelo OAS final.")
+ 2834: 
+ 2835: except Exception as e:
+ 2836:     print("AVISO: nÃ£o consegui aplicar modelo OAS final:", e)
+ 2837: 
+ 2838: 
+ 2839: 
+ 2840: 
+ 2841: 
+ 2842: # ============================================================
+ 2843: # OVERRIDE DEFINITIVO - ATUALIZAR COTAÃ‡ÃƒO OAS EXISTENTE
+ 2844: # Corrige:
+ 2845: # - Quantidade multiplicando por 100
+ 2846: # - OSINFO salvando 0
+ 2847: # - Lance outra empresa salvando 0
+ 2848: # - Empresa melhor lance vazia
+ 2849: # ============================================================
+ 2850: 
+ 2851: def _upd_oas_float(valor, padrao=0.0):
+ 2852:     try:
+ 2853:         if valor is None:
+ 2854:             return padrao
+ 2855: 
+ 2856:         if isinstance(valor, (int, float)):
+ 2857:             return float(valor)
+ 2858: 
+ 2859:         txt = str(valor).strip()
+ 2860:         txt = txt.replace("R$", "").replace("%", "").strip()
+ 2861:         txt = txt.replace(" ", "")
+ 2862: 
+ 2863:         if not txt:
+ 2864:             return padrao
+ 2865: 
+ 2866:         # Formato BR: 1.234,56 ou 2,10
+ 2867:         if "," in txt:
+ 2868:             txt = txt.replace(".", "").replace(",", ".")
+ 2869:             return float(txt)
+ 2870: 
+ 2871:         # Formato decimal normal: 9000.0 ou 2.41
+ 2872:         return float(txt)
+ 2873:     except Exception:
+ 2874:         return padrao
+ 2875: 
+ 2876: 
+ 2877: def _upd_oas_garantir_colunas():
+ 2878:     try:
+ 2879:         garantir_tabelas_cotacoes_geradas()
+ 2880:     except Exception:
+ 2881:         pass
+ 2882: 
+ 2883:     conn = conectar()
+ 2884:     cur = conn.cursor()
+ 2885: 
+ 2886:     cur.execute("PRAGMA table_info(cotacoes_geradas_itens)")
+ 2887:     existentes = {row[1] for row in cur.fetchall()}
+ 2888: 
+ 2889:     colunas = {
+ 2890:         "preco_osinfo": "REAL DEFAULT 0",
+ 2891:         "menor_lance": "REAL DEFAULT 0",
+ 2892:         "preco_medbox_original": "REAL DEFAULT 0",
+ 2893:         "empresa_melhor_lance": "TEXT",
+ 2894:         "menor_origem": "TEXT",
+ 2895:         "menor_empresa": "TEXT",
+ 2896:         "menor_valor_comparativo": "REAL DEFAULT 0",
+ 2897:         "valor_total_vencedor": "REAL DEFAULT 0",
+ 2898:         "medbox_vencedora": "INTEGER DEFAULT 0",
+ 2899:     }
+ 2900: 
+ 2901:     for coluna, tipo in colunas.items():
+ 2902:         if coluna not in existentes:
+ 2903:             cur.execute(f"ALTER TABLE cotacoes_geradas_itens ADD COLUMN {coluna} {tipo}")
+ 2904: 
+ 2905:     conn.commit()
+ 2906:     conn.close()
+ 2907: 
+ 2908: 
+ 2909: def _upd_oas_disputa(preco_osinfo, preco_medbox, menor_lance, empresa_lance):
+ 2910:     opcoes = []
+ 2911: 
+ 2912:     if preco_osinfo > 0:
+ 2913:         opcoes.append(("OSINFO", "OSINFO", preco_osinfo))
+ 2914: 
+ 2915:     if preco_medbox > 0:
+ 2916:         opcoes.append(("MEDBOX", "MEDBOX", preco_medbox))
+ 2917: 
+ 2918:     if menor_lance > 0:
+ 2919:         opcoes.append(("OUTRA_EMPRESA", empresa_lance or "OUTRA EMPRESA", menor_lance))
+ 2920: 
+ 2921:     if not opcoes:
+ 2922:         return "-", "-", 0.0, False
+ 2923: 
+ 2924:     opcoes.sort(key=lambda x: x[2])
+ 2925:     origem, empresa, valor = opcoes[0]
+ 2926: 
+ 2927:     return origem, empresa, valor, origem == "MEDBOX"
+ 2928: 
+ 2929: 
+ 2930: def atualizar_cotacao_gerada_oas_final(numero_cotacao):
+ 2931:     _upd_oas_garantir_colunas()
+ 2932: 
+ 2933:     dados = request.get_json(silent=True) or {}
+ 2934:     itens = dados.get("itens", [])
+ 2935: 
+ 2936:     if not itens:
+ 2937:         return jsonify({"ok": False, "erro": "Nenhum item recebido para atualizar."}), 400
+ 2938: 
+ 2939:     cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "").strip().upper()
+ 2940:     oas = str(dados.get("oas") or "").strip().upper()
+ 2941:     projeto = str(dados.get("projeto") or "").strip().upper()
+ 2942:     controle_cliente = str(dados.get("controle_cliente") or "").strip().upper()
+ 2943: 
+ 2944:     extras = []
+ 2945:     if oas:
+ 2946:         extras.append(f"OAS: {oas}")
+ 2947:     if projeto:
+ 2948:         extras.append(f"PROJETO: {projeto}")
+ 2949:     if controle_cliente:
+ 2950:         extras.append(f"CONTROLE CLIENTE: {controle_cliente}")
+ 2951: 
+ 2952:     cliente_exibicao = cliente or "-"
+ 2953:     if extras:
+ 2954:         cliente_exibicao = cliente_exibicao + " | " + " | ".join(extras)
+ 2955: 
+ 2956:     conn = conectar()
+ 2957:     cur = conn.cursor()
+ 2958: 
+ 2959:     cur.execute("SELECT id FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+ 2960:     row = cur.fetchone()
+ 2961: 
+ 2962:     if not row:
+ 2963:         conn.close()
+ 2964:         return jsonify({"ok": False, "erro": f"CotaÃ§Ã£o {numero_cotacao} nÃ£o encontrada."}), 404
+ 2965: 
+ 2966:     cotacao_id = row[0]
+ 2967: 
+ 2968:     cur.execute("DELETE FROM cotacoes_geradas_itens WHERE cotacao_id = ?", (cotacao_id,))
+ 2969: 
+ 2970:     total_medbox = 0.0
+ 2971: 
+ 2972:     for idx, item in enumerate(itens, start=1):
+ 2973:         descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+ 2974:         sku_master = str(item.get("sku_master") or "").strip().upper()
+ 2975:         marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+ 2976: 
+ 2977:         quantidade = _upd_oas_float(item.get("quantidade"), 0.0)
+ 2978:         preco_osinfo = _upd_oas_float(item.get("preco_osinfo"), 0.0)
+ 2979:         preco_medbox = _upd_oas_float(item.get("preco_medbox"), 0.0)
+ 2980:         menor_lance = _upd_oas_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0.0)), 0.0)
+ 2981:         empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+ 2982: 
+ 2983:         menor_origem, menor_empresa, menor_valor, medbox_vencedora = _upd_oas_disputa(
+ 2984:             preco_osinfo,
+ 2985:             preco_medbox,
+ 2986:             menor_lance,
+ 2987:             empresa_lance
+ 2988:         )
+ 2989: 
+ 2990:         valor_total_vencedor = quantidade * menor_valor
+ 2991: 
+ 2992:         # Proposta MedBox sÃ³ contabiliza no total MedBox se for vencedora.
+ 2993:         valor_unitario = preco_medbox if medbox_vencedora else 0.0
+ 2994:         valor_total = quantidade * valor_unitario
+ 2995: 
+ 2996:         total_medbox += valor_total
+ 2997: 
+ 2998:         cur.execute("""
+ 2999:             INSERT INTO cotacoes_geradas_itens (
+ 3000:                 cotacao_id,
+ 3001:                 item_numero,
+ 3002:                 descricao_produto,
+ 3003:                 sku_master,
+ 3004:                 marca,
+ 3005:                 quantidade,
+ 3006:                 valor_unitario,
+ 3007:                 valor_total,
+ 3008:                 venceu_medbox,
+ 3009:                 status_lance,
+ 3010:                 preco_osinfo,
+ 3011:                 menor_lance,
+ 3012:                 preco_medbox_original,
+ 3013:                 empresa_melhor_lance,
+ 3014:                 menor_origem,
+ 3015:                 menor_empresa,
+ 3016:                 menor_valor_comparativo,
+ 3017:                 valor_total_vencedor,
+ 3018:                 medbox_vencedora
+ 3019:             )
+ 3020:             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 3021:         """, (
+ 3022:             cotacao_id,
+ 3023:             idx,
+ 3024:             descricao,
+ 3025:             sku_master,
+ 3026:             marca,
+ 3027:             quantidade,
+ 3028:             valor_unitario,
+ 3029:             valor_total,
+ 3030:             1 if medbox_vencedora else 0,
+ 3031:             str(item.get("status") or "").strip().upper(),
+ 3032:             preco_osinfo,
+ 3033:             menor_lance,
+ 3034:             preco_medbox,
+ 3035:             empresa_lance,
+ 3036:             menor_origem,
+ 3037:             menor_empresa,
+ 3038:             menor_valor,
+ 3039:             valor_total_vencedor,
+ 3040:             1 if medbox_vencedora else 0,
+ 3041:         ))
+ 3042: 
+ 3043:     cur.execute("""
+ 3044:         UPDATE cotacoes_geradas
+ 3045:         SET cliente = ?,
+ 3046:             total_geral = ?
+ 3047:         WHERE id = ?
+ 3048:     """, (cliente_exibicao, total_medbox, cotacao_id))
+ 3049: 
+ 3050:     conn.commit()
+ 3051:     conn.close()
+ 3052: 
+ 3053:     return jsonify({
+ 3054:         "ok": True,
+ 3055:         "numero_cotacao": numero_cotacao,
+ 3056:         "url": f"/cotacoes/geradas/{numero_cotacao}"
+ 3057:     })
+ 3058: 
+ 3059: 
+ 3060: try:
+ 3061:     app.view_functions["atualizar_cotacao_gerada"] = atualizar_cotacao_gerada_oas_final
+ 3062:     print("OK: rota atualizar_cotacao_gerada substituÃ­da pela versÃ£o OAS final.")
+ 3063: except Exception as e:
+ 3064:     print("AVISO: nÃ£o consegui substituir atualizar_cotacao_gerada:", e)
+ 3065: 
+ 3066: 
+ 3067: 
+ 3068: 
+ 3069: 
+ 3070: # ============================================================
+ 3071: # OVERRIDE FINAL - CORRIGE QUANTIDADE E REABERTURA DA COTAÃ‡ÃƒO
+ 3072: # ============================================================
+ 3073: 
+ 3074: def _qtd_corrigir_quantidade(valor):
+ 3075:     """
+ 3076:     Corrige quantidades que foram gravadas erradas multiplicadas por 10.000.
+ 3077:     Exemplo:
+ 3078:     900000 -> 90
+ 3079:     10000000 -> 1000
+ 3080:     60000000 -> 6000
+ 3081: 
+ 3082:     Regra de seguranÃ§a:
+ 3083:     SÃ³ divide por 10.000 quando o nÃºmero Ã© muito alto e mÃºltiplo claro.
+ 3084:     """
+ 3085:     try:
+ 3086:         qtd = float(valor or 0)
+ 3087:     except Exception:
+ 3088:         return 0.0
+ 3089: 
+ 3090:     if qtd >= 100000 and qtd % 10000 == 0:
+ 3091:         return qtd / 10000
+ 3092: 
+ 3093:     return qtd
+ 3094: 
+ 3095: 
+ 3096: def _qtd_float(valor, padrao=0.0):
+ 3097:     try:
+ 3098:         if valor is None:
+ 3099:             return padrao
+ 3100: 
+ 3101:         if isinstance(valor, (int, float)):
+ 3102:             return float(valor)
+ 3103: 
+ 3104:         txt = str(valor).strip()
+ 3105:         txt = txt.replace("R$", "").replace("%", "").strip()
+ 3106:         txt = txt.replace(" ", "")
+ 3107: 
+ 3108:         if not txt:
+ 3109:             return padrao
+ 3110: 
+ 3111:         if "," in txt:
+ 3112:             txt = txt.replace(".", "").replace(",", ".")
+ 3113: 
+ 3114:         return float(txt)
+ 3115:     except Exception:
+ 3116:         return padrao
+ 3117: 
+ 3118: 
+ 3119: def _qtd_moeda(valor):
+ 3120:     valor = _qtd_float(valor, 0.0)
+ 3121:     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+ 3122: 
+ 3123: 
+ 3124: def _qtd_disputa(preco_osinfo, preco_medbox, menor_lance, empresa_lance):
+ 3125:     preco_osinfo = _qtd_float(preco_osinfo, 0)
+ 3126:     preco_medbox = _qtd_float(preco_medbox, 0)
+ 3127:     menor_lance = _qtd_float(menor_lance, 0)
+ 3128: 
+ 3129:     opcoes = []
+ 3130: 
+ 3131:     if preco_osinfo > 0:
+ 3132:         opcoes.append(("OSINFO", "OSINFO", preco_osinfo))
+ 3133: 
+ 3134:     if preco_medbox > 0:
+ 3135:         opcoes.append(("MEDBOX", "MEDBOX", preco_medbox))
+ 3136: 
+ 3137:     if menor_lance > 0:
+ 3138:         opcoes.append(("OUTRA_EMPRESA", empresa_lance or "OUTRA EMPRESA", menor_lance))
+ 3139: 
+ 3140:     if not opcoes:
+ 3141:         return "-", "-", 0.0, False
+ 3142: 
+ 3143:     opcoes.sort(key=lambda x: x[2])
+ 3144:     origem, empresa, valor = opcoes[0]
+ 3145: 
+ 3146:     return origem, empresa, valor, origem == "MEDBOX"
+ 3147: 
+ 3148: 
+ 3149: def _qtd_garantir_colunas():
+ 3150:     try:
+ 3151:         garantir_tabelas_cotacoes_geradas()
+ 3152:     except Exception:
+ 3153:         pass
+ 3154: 
+ 3155:     conn = conectar()
+ 3156:     cur = conn.cursor()
+ 3157: 
+ 3158:     cur.execute("PRAGMA table_info(cotacoes_geradas_itens)")
+ 3159:     existentes = {row[1] for row in cur.fetchall()}
+ 3160: 
+ 3161:     colunas = {
+ 3162:         "preco_osinfo": "REAL DEFAULT 0",
+ 3163:         "menor_lance": "REAL DEFAULT 0",
+ 3164:         "preco_medbox_original": "REAL DEFAULT 0",
+ 3165:         "empresa_melhor_lance": "TEXT",
+ 3166:         "menor_origem": "TEXT",
+ 3167:         "menor_empresa": "TEXT",
+ 3168:         "menor_valor_comparativo": "REAL DEFAULT 0",
+ 3169:         "valor_total_vencedor": "REAL DEFAULT 0",
+ 3170:         "medbox_vencedora": "INTEGER DEFAULT 0",
+ 3171:     }
+ 3172: 
+ 3173:     for coluna, tipo in colunas.items():
+ 3174:         if coluna not in existentes:
+ 3175:             cur.execute(f"ALTER TABLE cotacoes_geradas_itens ADD COLUMN {coluna} {tipo}")
+ 3176: 
+ 3177:     conn.commit()
+ 3178:     conn.close()
+ 3179: 
+ 3180: 
+ 3181: # Reabre a cotaÃ§Ã£o corrigindo quantidades exageradas e mantendo preÃ§os salvos.
+ 3182: def _qtd_montar_item_lance_edicao(row, idx):
+ 3183:     item = dict(row)
+ 3184: 
+ 3185:     quantidade = _qtd_corrigir_quantidade(item.get("quantidade", 0))
+ 3186: 
+ 3187:     preco_osinfo = _qtd_float(item.get("preco_osinfo"), 0)
+ 3188:     preco_medbox = _qtd_float(item.get("preco_medbox_original", item.get("valor_unitario", 0)), 0)
+ 3189:     menor_lance = _qtd_float(item.get("menor_lance"), 0)
+ 3190:     empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+ 3191: 
+ 3192:     menor_origem, menor_empresa, menor_valor, medbox_vencedora = _qtd_disputa(
+ 3193:         preco_osinfo,
+ 3194:         preco_medbox,
+ 3195:         menor_lance,
+ 3196:         empresa_lance
+ 3197:     )
+ 3198: 
+ 3199:     return {
+ 3200:         "item": idx,
+ 3201:         "codigo_cliente": "",
+ 3202:         "descricao_produto": item.get("descricao_produto", ""),
+ 3203:         "descricao_cotacao": item.get("descricao_produto", ""),
+ 3204:         "unidade": "",
+ 3205:         "quantidade": quantidade,
+ 3206:         "sku_master": item.get("sku_master", ""),
+ 3207:         "sku_encontrado": bool(item.get("sku_master")),
+ 3208:         "score": 0,
+ 3209:         "sugestoes_sku": [],
+ 3210:         "categoria": item.get("categoria", ""),
+ 3211:         "descricao_fornecedor": "",
+ 3212:         "preco_osinfo": preco_osinfo,
+ 3213:         "ultima_compra": 0,
+ 3214:         "preco_medbox": preco_medbox,
+ 3215:         "markup_atual": 80,
+ 3216:         "menor_preco_ofertado": menor_lance,
+ 3217:         "empresa_melhor_lance": empresa_lance,
+ 3218:         "menor_valor": menor_valor,
+ 3219:         "menor_valor_nome": menor_empresa,
+ 3220:         "menor_origem": menor_origem,
+ 3221:         "menor_custo_unitario": None,
+ 3222:         "fornecedor_menor_custo": item.get("fornecedor_menor_custo", ""),
+ 3223:         "marca_fabricante": item.get("marca", ""),
+ 3224:         "status": item.get("status_lance") or ("MEDBOX VENCE" if medbox_vencedora else "NEGOCIAR" if menor_origem in ["OSINFO", "OUTRA_EMPRESA"] else "SEM PREÃ‡O"),
+ 3225:         "tem_preco": bool(preco_medbox),
+ 3226:         "preco_osinfo_formatado": _qtd_moeda(preco_osinfo),
+ 3227:         "ultima_compra_formatada": _qtd_moeda(0),
+ 3228:         "preco_medbox_formatado": _qtd_moeda(preco_medbox),
+ 3229:         "menor_preco_ofertado_formatado": _qtd_moeda(menor_lance),
+ 3230:         "menor_valor_formatado": _qtd_moeda(menor_valor),
+ 3231:         "menor_custo_unitario_formatado": "-",
+ 3232:         "total_medbox": preco_medbox * quantidade,
+ 3233:         "total_osinfo": preco_osinfo * quantidade,
+ 3234:         "total_ultima_compra": 0,
+ 3235:         "total_menor_valor": menor_valor * quantidade,
+ 3236:     }
+ 3237: 
+ 3238: 
+ 3239: def editar_cotacao_gerada_corrigida(numero_cotacao):
+ 3240:     _qtd_garantir_colunas()
+ 3241: 
+ 3242:     conn = conectar()
+ 3243:     conn.row_factory = sqlite3.Row
+ 3244:     cur = conn.cursor()
+ 3245: 
+ 3246:     cur.execute("SELECT * FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+ 3247:     cotacao = cur.fetchone()
+ 3248: 
+ 3249:     if not cotacao:
+ 3250:         conn.close()
+ 3251:         return f"CotaÃ§Ã£o {numero_cotacao} nÃ£o encontrada.", 404
+ 3252: 
+ 3253:     cur.execute("""
+ 3254:         SELECT *
+ 3255:         FROM cotacoes_geradas_itens
+ 3256:         WHERE cotacao_id = ?
+ 3257:         ORDER BY item_numero
+ 3258:     """, (cotacao["id"],))
+ 3259: 
+ 3260:     itens_db = cur.fetchall()
+ 3261:     conn.close()
+ 3262: 
+ 3263:     itens = [
+ 3264:         _qtd_montar_item_lance_edicao(row, idx)
+ 3265:         for idx, row in enumerate(itens_db, start=1)
+ 3266:     ]
+ 3267: 
+ 3268:     try:
+ 3269:         resumo_lances = montar_resumo_lances(itens)
+ 3270:     except Exception:
+ 3271:         resumo_lances = {
+ 3272:             "total_itens": len(itens),
+ 3273:             "itens_com_sku": 0,
+ 3274:             "itens_revisar_sku": 0,
+ 3275:             "itens_com_preco_medbox": 0,
+ 3276:             "itens_sem_preco": 0,
+ 3277:             "itens_competitivos": 0,
+ 3278:             "itens_negociar": 0,
+ 3279:             "total_medbox": 0,
+ 3280:             "total_medbox_formatado": "R$ 0,00",
+ 3281:         }
+ 3282: 
+ 3283:     analise = {
+ 3284:         "arquivo": f"EDITANDO {numero_cotacao}",
+ 3285:         "itens_extraidos": len(itens),
+ 3286:         "markup_percentual": 80,
+ 3287:         "itens": itens,
+ 3288:         "resumo": resumo_lances,
+ 3289:     }
+ 3290: 
+ 3291:     return render_template(
+ 3292:         "cotacao_lances.html",
+ 3293:         data_atual=DATA_ATUAL,
+ 3294:         resumo=resumo_dashboard(),
+ 3295:         analise=analise,
+ 3296:         erro=None,
+ 3297:         arquivo_nome=f"EDITANDO {numero_cotacao}",
+ 3298:         markup_percentual=80,
+ 3299:         numero_cotacao_editando=numero_cotacao,
+ 3300:         modo_edicao_cotacao=True,
+ 3301:     )
+ 3302: 
+ 3303: 
+ 3304: def atualizar_cotacao_gerada_corrigida(numero_cotacao):
+ 3305:     _qtd_garantir_colunas()
+ 3306: 
+ 3307:     dados = request.get_json(silent=True) or {}
+ 3308:     itens = dados.get("itens", [])
+ 3309: 
+ 3310:     if not itens:
+ 3311:         return jsonify({"ok": False, "erro": "Nenhum item recebido para atualizar."}), 400
+ 3312: 
+ 3313:     cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "").strip().upper()
+ 3314:     cliente_exibicao = cliente or "-"
+ 3315: 
+ 3316:     conn = conectar()
+ 3317:     cur = conn.cursor()
+ 3318: 
+ 3319:     cur.execute("SELECT id FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+ 3320:     row = cur.fetchone()
+ 3321: 
+ 3322:     if not row:
+ 3323:         conn.close()
+ 3324:         return jsonify({"ok": False, "erro": f"CotaÃ§Ã£o {numero_cotacao} nÃ£o encontrada."}), 404
+ 3325: 
+ 3326:     cotacao_id = row[0]
+ 3327: 
+ 3328:     cur.execute("DELETE FROM cotacoes_geradas_itens WHERE cotacao_id = ?", (cotacao_id,))
+ 3329: 
+ 3330:     total_medbox = 0.0
+ 3331: 
+ 3332:     for idx, item in enumerate(itens, start=1):
+ 3333:         descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+ 3334:         sku_master = str(item.get("sku_master") or "").strip().upper()
+ 3335:         marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+ 3336: 
+ 3337:         # Aqui NÃƒO multiplicamos. Apenas lemos o nÃºmero recebido.
+ 3338:         quantidade = _qtd_float(item.get("quantidade"), 0)
+ 3339:         preco_osinfo = _qtd_float(item.get("preco_osinfo"), 0)
+ 3340:         preco_medbox = _qtd_float(item.get("preco_medbox"), 0)
+ 3341:         menor_lance = _qtd_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0)), 0)
+ 3342:         empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+ 3343: 
+ 3344:         menor_origem, menor_empresa, menor_valor, medbox_vencedora = _qtd_disputa(
+ 3345:             preco_osinfo,
+ 3346:             preco_medbox,
+ 3347:             menor_lance,
+ 3348:             empresa_lance
+ 3349:         )
+ 3350: 
+ 3351:         valor_total_vencedor = quantidade * menor_valor
+ 3352:         valor_unitario = preco_medbox if medbox_vencedora else 0.0
+ 3353:         valor_total = quantidade * valor_unitario
+ 3354: 
+ 3355:         total_medbox += valor_total
+ 3356: 
+ 3357:         cur.execute("""
+ 3358:             INSERT INTO cotacoes_geradas_itens (
+ 3359:                 cotacao_id,
+ 3360:                 item_numero,
+ 3361:                 descricao_produto,
+ 3362:                 sku_master,
+ 3363:                 marca,
+ 3364:                 quantidade,
+ 3365:                 valor_unitario,
+ 3366:                 valor_total,
+ 3367:                 venceu_medbox,
+ 3368:                 status_lance,
+ 3369:                 preco_osinfo,
+ 3370:                 menor_lance,
+ 3371:                 preco_medbox_original,
+ 3372:                 empresa_melhor_lance,
+ 3373:                 menor_origem,
+ 3374:                 menor_empresa,
+ 3375:                 menor_valor_comparativo,
+ 3376:                 valor_total_vencedor,
+ 3377:                 medbox_vencedora
+ 3378:             )
+ 3379:             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 3380:         """, (
+ 3381:             cotacao_id,
+ 3382:             idx,
+ 3383:             descricao,
+ 3384:             sku_master,
+ 3385:             marca,
+ 3386:             quantidade,
+ 3387:             valor_unitario,
+ 3388:             valor_total,
+ 3389:             1 if medbox_vencedora else 0,
+ 3390:             str(item.get("status") or "").strip().upper(),
+ 3391:             preco_osinfo,
+ 3392:             menor_lance,
+ 3393:             preco_medbox,
+ 3394:             empresa_lance,
+ 3395:             menor_origem,
+ 3396:             menor_empresa,
+ 3397:             menor_valor,
+ 3398:             valor_total_vencedor,
+ 3399:             1 if medbox_vencedora else 0,
+ 3400:         ))
+ 3401: 
+ 3402:     cur.execute("""
+ 3403:         UPDATE cotacoes_geradas
+ 3404:         SET cliente = ?,
+ 3405:             total_geral = ?
+ 3406:         WHERE id = ?
+ 3407:     """, (cliente_exibicao, total_medbox, cotacao_id))
+ 3408: 
+ 3409:     conn.commit()
+ 3410:     conn.close()
+ 3411: 
+ 3412:     return jsonify({
+ 3413:         "ok": True,
+ 3414:         "numero_cotacao": numero_cotacao,
+ 3415:         "url": f"/cotacoes/geradas/{numero_cotacao}"
+ 3416:     })
+ 3417: 
+ 3418: 
+ 3419: try:
+ 3420:     app.view_functions["editar_cotacao_gerada"] = editar_cotacao_gerada_corrigida
+ 3421:     print("OK: rota editar_cotacao_gerada corrigida.")
+ 3422: except Exception as e:
+ 3423:     print("AVISO editar:", e)
+ 3424: 
+ 3425: try:
+ 3426:     app.view_functions["atualizar_cotacao_gerada"] = atualizar_cotacao_gerada_corrigida
+ 3427:     print("OK: rota atualizar_cotacao_gerada corrigida.")
+ 3428: except Exception as e:
+ 3429:     print("AVISO atualizar:", e)
+ 3430: 
+ 3431: 
+ 3432: 
+ 3433: 
+ 3434: 
+ 3435: # ============================================================
+ 3436: # OVERRIDE FINAL - NORMALIZAR QUANTIDADE DE COTAÃ‡ÃƒO REABERTA
+ 3437: # Corrige cotaÃ§Ãµes salvas com quantidade x10 e remove .0 visual.
+ 3438: # ============================================================
+ 3439: 
+ 3440: def _normalizar_qtd_reaberta(valor):
+ 3441:     try:
+ 3442:         qtd = float(valor or 0)
+ 3443:     except Exception:
+ 3444:         return 0.0
+ 3445: 
+ 3446:     # CorreÃ§Ã£o de bug anterior:
+ 3447:     # 900 -> 90
+ 3448:     # 10000 -> 1000
+ 3449:     # 20000 -> 2000
+ 3450:     # 60000 -> 6000
+ 3451:     #
+ 3452:     # SÃ³ aplica em nÃºmeros inteiros mÃºltiplos de 10.
+ 3453:     if qtd >= 100 and qtd % 10 == 0:
+ 3454:         return qtd / 10
+ 3455: 
+ 3456:     return qtd
+ 3457: 
+ 3458: 
+ 3459: def _formatar_qtd_visual(valor):
+ 3460:     try:
+ 3461:         qtd = float(valor or 0)
+ 3462:     except Exception:
+ 3463:         return valor
+ 3464: 
+ 3465:     if qtd.is_integer():
+ 3466:         return str(int(qtd))
+ 3467: 
+ 3468:     return str(qtd).replace(".", ",")
+ 3469: 
+ 3470: 
+ 3471: try:
+ 3472:     _editar_cotacao_gerada_original_qtd_final = editar_cotacao_gerada
+ 3473: 
+ 3474:     def editar_cotacao_gerada(numero_cotacao):
+ 3475:         resposta = _editar_cotacao_gerada_original_qtd_final(numero_cotacao)
+ 3476:         return resposta
+ 3477: 
+ 3478:     print("OK: hook de ediÃ§Ã£o preservado.")
+ 3479: 
+ 3480: except Exception as e:
+ 3481:     print("AVISO hook ediÃ§Ã£o:", e)
+ 3482: 
+ 3483: 
+ 3484: 
+ 3485: 
+ 3486: 
+ 3487: # ============================================================
+ 3488: # MEDBOX - FIX DEFINITIVO PERSISTÃŠNCIA LANCES / SKU / MARKUP
+ 3489: # MantÃ©m rota existente e substitui endpoint com cÃ¡lculo autoritativo.
+ 3490: # ============================================================
+ 3491: 
+ 3492: def _fix_lance_float(valor, padrao=0.0):
+ 3493:     try:
+ 3494:         if valor is None:
+ 3495:             return padrao
+ 3496: 
+ 3497:         if isinstance(valor, (int, float)):
+ 3498:             return float(valor)
+ 3499: 
+ 3500:         txt = str(valor).strip()
+ 3501:         txt = txt.replace("R$", "").replace("%", "").strip()
+ 3502:         txt = "".join(ch for ch in txt if ch.isdigit() or ch in ",.-")
+ 3503: 
+ 3504:         if not txt:
+ 3505:             return padrao
+ 3506: 
+ 3507:         if "," in txt:
+ 3508:             txt = txt.replace(".", "").replace(",", ".")
+ 3509: 
+ 3510:         return float(txt)
+ 3511:     except Exception:
+ 3512:         return padrao
+ 3513: 
+ 3514: 
+ 3515: def _fix_lance_moeda(valor):
+ 3516:     valor = _fix_lance_float(valor, 0)
+ 3517:     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+ 3518: 
+ 3519: 
+ 3520: def _fix_lance_garantir_colunas():
+ 3521:     conn = conectar()
+ 3522:     cur = conn.cursor()
+ 3523: 
+ 3524:     try:
+ 3525:         garantir_tabelas_cotacoes_geradas()
+ 3526:     except Exception:
+ 3527:         pass
+ 3528: 
+ 3529:     cur.execute("PRAGMA table_info(cotacoes_geradas_itens)")
+ 3530:     existentes = {row[1] for row in cur.fetchall()}
+ 3531: 
+ 3532:     colunas = {
+ 3533:         "categoria": "TEXT",
+ 3534:         "fornecedor_menor_custo": "TEXT",
+ 3535:         "menor_custo_unitario": "REAL DEFAULT 0",
+ 3536:         "markup_atual": "REAL DEFAULT 80",
+ 3537:         "ultima_compra": "REAL DEFAULT 0",
+ 3538:         "preco_osinfo": "REAL DEFAULT 0",
+ 3539:         "menor_lance": "REAL DEFAULT 0",
+ 3540:         "preco_medbox_original": "REAL DEFAULT 0",
+ 3541:         "empresa_melhor_lance": "TEXT",
+ 3542:         "menor_origem": "TEXT",
+ 3543:         "menor_empresa": "TEXT",
+ 3544:         "menor_valor_comparativo": "REAL DEFAULT 0",
+ 3545:         "valor_total_vencedor": "REAL DEFAULT 0",
+ 3546:         "medbox_vencedora": "INTEGER DEFAULT 0",
+ 3547:     }
+ 3548: 
+ 3549:     for nome, tipo in colunas.items():
+ 3550:         if nome not in existentes:
+ 3551:             cur.execute(f"ALTER TABLE cotacoes_geradas_itens ADD COLUMN {nome} {tipo}")
+ 3552: 
+ 3553:     conn.commit()
+ 3554:     conn.close()
+ 3555: 
+ 3556: 
+ 3557: def _fix_lance_disputa(preco_osinfo, preco_medbox, menor_lance, empresa_lance):
+ 3558:     opcoes = []
+ 3559: 
+ 3560:     if preco_osinfo > 0:
+ 3561:         opcoes.append(("OSINFO", "OSINFO", preco_osinfo))
+ 3562: 
+ 3563:     if preco_medbox > 0:
+ 3564:         opcoes.append(("MEDBOX", "MEDBOX", preco_medbox))
+ 3565: 
+ 3566:     if menor_lance > 0:
+ 3567:         opcoes.append(("OUTRA_EMPRESA", empresa_lance or "OUTRA EMPRESA", menor_lance))
+ 3568: 
+ 3569:     if not opcoes:
+ 3570:         return "-", "-", 0.0, False
+ 3571: 
+ 3572:     opcoes.sort(key=lambda x: x[2])
+ 3573:     origem, empresa, valor = opcoes[0]
+ 3574: 
+ 3575:     return origem, empresa, valor, origem == "MEDBOX"
+ 3576: 
+ 3577: 
+ 3578: def _fix_lance_montar_item_edicao(row, idx):
+ 3579:     def g(nome, padrao=None):
+ 3580:         try:
+ 3581:             return row[nome]
+ 3582:         except Exception:
+ 3583:             return padrao
+ 3584: 
+ 3585:     quantidade = _fix_lance_float(g("quantidade"), 0)
+ 3586:     preco_osinfo = _fix_lance_float(g("preco_osinfo"), 0)
+ 3587:     ultima_compra = _fix_lance_float(g("ultima_compra"), 0)
+ 3588:     menor_lance = _fix_lance_float(g("menor_lance"), 0)
+ 3589:     preco_medbox = _fix_lance_float(g("preco_medbox_original", g("valor_unitario", 0)), 0)
+ 3590:     menor_custo = _fix_lance_float(g("menor_custo_unitario"), 0)
+ 3591:     markup = _fix_lance_float(g("markup_atual"), 80)
+ 3592: 
+ 3593:     # Se existe custo salvo e preÃ§o MedBox nÃ£o existe, reconstrÃ³i.
+ 3594:     if menor_custo > 0 and preco_medbox <= 0:
+ 3595:         preco_medbox = menor_custo * (1 + markup / 100)
+ 3596: 
+ 3597:     menor_origem, menor_empresa, menor_valor, medbox_vencedora = _fix_lance_disputa(
+ 3598:         preco_osinfo,
+ 3599:         preco_medbox,
+ 3600:         menor_lance,
+ 3601:         g("empresa_melhor_lance", "")
+ 3602:     )
+ 3603: 
+ 3604:     return {
+ 3605:         "item": idx,
+ 3606:         "item_numero": g("item_numero", idx),
+ 3607:         "descricao_produto": g("descricao_produto", ""),
+ 3608:         "sku_master": g("sku_master", ""),
+ 3609:         "categoria": g("categoria", ""),
+ 3610:         "quantidade": quantidade,
+ 3611:         "preco_osinfo": preco_osinfo,
+ 3612:         "preco_osinfo_formatado": _fix_lance_moeda(preco_osinfo),
+ 3613:         "ultima_compra": ultima_compra,
+ 3614:         "ultima_compra_formatada": _fix_lance_moeda(ultima_compra),
+ 3615:         "preco_medbox": preco_medbox,
+ 3616:         "preco_medbox_formatado": _fix_lance_moeda(preco_medbox),
+ 3617:         "markup_atual": markup,
+ 3618:         "menor_preco_ofertado": menor_lance,
+ 3619:         "menor_preco_ofertado_formatado": _fix_lance_moeda(menor_lance),
+ 3620:         "empresa_melhor_lance": g("empresa_melhor_lance", ""),
+ 3621:         "menor_valor": menor_valor,
+ 3622:         "menor_valor_formatado": _fix_lance_moeda(menor_valor),
+ 3623:         "menor_valor_nome": menor_empresa,
+ 3624:         "menor_custo_unitario": menor_custo,
+ 3625:         "menor_custo_unitario_formatado": _fix_lance_moeda(menor_custo) if menor_custo > 0 else "",
+ 3626:         "fornecedor_menor_custo": g("fornecedor_menor_custo", ""),
+ 3627:         "marca_fabricante": g("marca", ""),
+ 3628:         "marca": g("marca", ""),
+ 3629:         "sku_encontrado": bool(g("sku_master", "")),
+ 3630:         "tem_preco": preco_medbox > 0,
+ 3631:         "status": "SKU SELECIONADO" if g("sku_master", "") else "REVISAR SKU",
+ 3632:         "score": 0,
+ 3633:         "sugestoes_sku": [],
+ 3634:     }
+ 3635: 
+ 3636: 
+ 3637: def editar_cotacao_gerada_fix_persistencia(numero_cotacao):
+ 3638:     _fix_lance_garantir_colunas()
+ 3639: 
+ 3640:     conn = conectar()
+ 3641:     conn.row_factory = sqlite3.Row
+ 3642:     cur = conn.cursor()
+ 3643: 
+ 3644:     cur.execute("SELECT * FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+ 3645:     cotacao = cur.fetchone()
+ 3646: 
+ 3647:     if not cotacao:
+ 3648:         conn.close()
+ 3649:         flash(f"CotaÃ§Ã£o {numero_cotacao} nÃ£o encontrada.")
+ 3650:         return redirect(url_for("listar_cotacoes_geradas"))
+ 3651: 
+ 3652:     cur.execute("""
+ 3653:         SELECT *
+ 3654:         FROM cotacoes_geradas_itens
+ 3655:         WHERE cotacao_id = ?
+ 3656:         ORDER BY item_numero
+ 3657:     """, (cotacao["id"],))
+ 3658: 
+ 3659:     rows = cur.fetchall()
+ 3660:     conn.close()
+ 3661: 
+ 3662:     itens = [_fix_lance_montar_item_edicao(row, idx) for idx, row in enumerate(rows, start=1)]
+ 3663: 
+ 3664:     try:
+ 3665:         resumo_lances = montar_resumo_lances(itens)
+ 3666:     except Exception:
+ 3667:         resumo_lances = {
+ 3668:             "total_itens": len(itens),
+ 3669:             "itens_com_sku": sum(1 for i in itens if i.get("sku_master")),
+ 3670:             "itens_revisar_sku": sum(1 for i in itens if not i.get("sku_master")),
+ 3671:             "itens_com_preco_medbox": sum(1 for i in itens if _fix_lance_float(i.get("preco_medbox")) > 0),
+ 3672:             "itens_sem_preco": sum(1 for i in itens if _fix_lance_float(i.get("preco_medbox")) <= 0),
+ 3673:             "itens_competitivos": 0,
+ 3674:             "itens_negociar": 0,
+ 3675:             "total_medbox": 0,
+ 3676:             "total_medbox_formatado": "R$ 0,00",
+ 3677:         }
+ 3678: 
+ 3679:     analise = {
+ 3680:         "arquivo": f"EDITANDO {numero_cotacao}",
+ 3681:         "itens_extraidos": len(itens),
+ 3682:         "markup_percentual": 80,
+ 3683:         "itens": itens,
+ 3684:         "resumo": resumo_lances,
+ 3685:     }
+ 3686: 
+ 3687:     return render_template(
+ 3688:         "cotacao_lances.html",
+ 3689:         data_atual=DATA_ATUAL,
+ 3690:         resumo=resumo_dashboard(),
+ 3691:         analise=analise,
+ 3692:         erro=None,
+ 3693:         arquivo_nome=f"EDITANDO {numero_cotacao}",
+ 3694:         markup_percentual=80,
+ 3695:         numero_cotacao_editando=numero_cotacao,
+ 3696:         modo_edicao_cotacao=True,
+ 3697:     )
+ 3698: 
+ 3699: 
+ 3700: def atualizar_cotacao_gerada_fix_persistencia(numero_cotacao):
+ 3701:     _fix_lance_garantir_colunas()
+ 3702: 
+ 3703:     dados = request.get_json(silent=True) or {}
+ 3704:     itens = dados.get("itens", [])
+ 3705: 
+ 3706:     if not itens:
+ 3707:         return jsonify({"ok": False, "erro": "Nenhum item recebido para atualizar."}), 400
+ 3708: 
+ 3709:     cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "").strip().upper()
+ 3710:     cliente_exibicao = cliente or "-"
+ 3711: 
+ 3712:     conn = conectar()
+ 3713:     cur = conn.cursor()
+ 3714: 
+ 3715:     cur.execute("SELECT id FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+ 3716:     row = cur.fetchone()
+ 3717: 
+ 3718:     if not row:
+ 3719:         conn.close()
+ 3720:         return jsonify({"ok": False, "erro": f"CotaÃ§Ã£o {numero_cotacao} nÃ£o encontrada."}), 404
+ 3721: 
+ 3722:     cotacao_id = row[0]
+ 3723:     cur.execute("DELETE FROM cotacoes_geradas_itens WHERE cotacao_id = ?", (cotacao_id,))
+ 3724: 
+ 3725:     total_medbox = 0.0
+ 3726: 
+ 3727:     for idx, item in enumerate(itens, start=1):
+ 3728:         descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+ 3729:         sku_master = str(item.get("sku_master") or "").strip().upper()
+ 3730:         categoria = str(item.get("categoria") or "").strip().upper()
+ 3731:         marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+ 3732:         fornecedor = str(item.get("fornecedor_menor_custo") or "").strip().upper()
+ 3733: 
+ 3734:         quantidade = _fix_lance_float(item.get("quantidade"), 0)
+ 3735:         preco_osinfo = _fix_lance_float(item.get("preco_osinfo"), 0)
+ 3736:         ultima_compra = _fix_lance_float(item.get("ultima_compra"), 0)
+ 3737:         menor_lance = _fix_lance_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0)), 0)
+ 3738:         menor_custo = _fix_lance_float(item.get("menor_custo_unitario"), 0)
+ 3739:         markup = _fix_lance_float(item.get("markup_atual"), 80)
+ 3740: 
+ 3741:         preco_medbox = _fix_lance_float(item.get("preco_medbox"), 0)
+ 3742:         if menor_custo > 0:
+ 3743:             preco_medbox = menor_custo * (1 + markup / 100)
+ 3744: 
+ 3745:         empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+ 3746: 
+ 3747:         menor_origem, menor_empresa, menor_valor, medbox_vencedora = _fix_lance_disputa(
+ 3748:             preco_osinfo,
+ 3749:             preco_medbox,
+ 3750:             menor_lance,
+ 3751:             empresa_lance
+ 3752:         )
+ 3753: 
+ 3754:         valor_total_vencedor = quantidade * menor_valor
+ 3755:         valor_unitario = preco_medbox if medbox_vencedora else 0.0
+ 3756:         valor_total = quantidade * valor_unitario
+ 3757:         total_medbox += valor_total
+ 3758: 
+ 3759:         cur.execute("""
+ 3760:             INSERT INTO cotacoes_geradas_itens (
+ 3761:                 cotacao_id,
+ 3762:                 item_numero,
+ 3763:                 descricao_produto,
+ 3764:                 sku_master,
+ 3765:                 marca,
+ 3766:                 quantidade,
+ 3767:                 valor_unitario,
+ 3768:                 valor_total,
+ 3769:                 venceu_medbox,
+ 3770:                 status_lance,
+ 3771:                 categoria,
+ 3772:                 fornecedor_menor_custo,
+ 3773:                 menor_custo_unitario,
+ 3774:                 markup_atual,
+ 3775:                 ultima_compra,
+ 3776:                 preco_osinfo,
+ 3777:                 menor_lance,
+ 3778:                 preco_medbox_original,
+ 3779:                 empresa_melhor_lance,
+ 3780:                 menor_origem,
+ 3781:                 menor_empresa,
+ 3782:                 menor_valor_comparativo,
+ 3783:                 valor_total_vencedor,
+ 3784:                 medbox_vencedora
+ 3785:             )
+ 3786:             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ 3787:         """, (
+ 3788:             cotacao_id,
+ 3789:             idx,
+ 3790:             descricao,
+ 3791:             sku_master,
+ 3792:             marca,
+ 3793:             quantidade,
+ 3794:             valor_unitario,
+ 3795:             valor_total,
+ 3796:             1 if medbox_vencedora else 0,
+ 3797:             "SKU SELECIONADO" if sku_master else "REVISAR SKU",
+ 3798:             categoria,
+ 3799:             fornecedor,
+ 3800:             menor_custo,
+ 3801:             markup,
+ 3802:             ultima_compra,
+ 3803:             preco_osinfo,
+ 3804:             menor_lance,
+ 3805:             preco_medbox,
+ 3806:             empresa_lance,
+ 3807:             menor_origem,
+ 3808:             menor_empresa,
+ 3809:             menor_valor,
+ 3810:             valor_total_vencedor,
+ 3811:             1 if medbox_vencedora else 0,
+ 3812:         ))
+ 3813: 
+ 3814:     cur.execute("""
+ 3815:         UPDATE cotacoes_geradas
+ 3816:         SET cliente = ?, total_geral = ?
+ 3817:         WHERE id = ?
+ 3818:     """, (cliente_exibicao, total_medbox, cotacao_id))
+ 3819: 
+ 3820:     conn.commit()
+ 3821:     conn.close()
+ 3822: 
+ 3823:     return jsonify({
+ 3824:         "ok": True,
+ 3825:         "numero_cotacao": numero_cotacao,
+ 3826:         "url": f"/cotacoes/geradas/{numero_cotacao}"
+ 3827:     })
+ 3828: 
+ 3829: 
+ 3830: # Substitui os endpoints jÃ¡ registrados sem recriar rotas.
+ 3831: try:
+ 3832:     for _rule in list(app.url_map.iter_rules()):
+ 3833:         if str(_rule.rule) == "/cotacoes/geradas/<numero_cotacao>/editar":
+ 3834:             app.view_functions[_rule.endpoint] = editar_cotacao_gerada_fix_persistencia
+ 3835: 
+ 3836:         if str(_rule.rule) == "/cotacoes/lances/atualizar-cotacao/<numero_cotacao>":
+ 3837:             app.view_functions[_rule.endpoint] = atualizar_cotacao_gerada_fix_persistencia
+ 3838: 
+ 3839:     print("OK: endpoints de ediÃ§Ã£o/salvamento de cotaÃ§Ã£o substituÃ­dos pelo fix definitivo.")
+ 3840: except Exception as _exc:
+ 3841:     print("AVISO: nÃ£o foi possÃ­vel substituir endpoints de lances:", _exc)
+ 3842: 
+ 3843: 
+ 3844: 
+ 3845: if __name__ == "__main__":
+ 3846:     print("MEDBOX V3 rodando em http://127.0.0.1:5000")
+ 3847:     app.run(debug=True)
+ 3848: 
+ 3849: # ============================================================
+ 3850: # LANCES DE COTAÃ‡ÃƒO
+ 3851: # ============================================================
+ 3852: 
+ 3853: @app.route("/lances-cotacao")
+ 3854: def lances_cotacao():
+ 3855:     return render_template("lances_cotacao.html", resultado=None, erro=None)
+ 3856: 
+ 3857: 
+ 3858: @app.route("/lances-cotacao/importar", methods=["POST"])
+ 3859: def lances_cotacao_importar():
+ 3860:     from pathlib import Path
+ 3861:     from flask import request
+ 3862:     import os
+ 3863:     from werkzeug.utils import secure_filename
+ 3864: 
+ 3865:     arquivo = request.files.get("arquivo")
+ 3866:     markup = request.form.get("markup", "1.50")
+ 3867: 
+ 3868:     if not arquivo or not arquivo.filename:
+ 3869:         return render_template("lances_cotacao.html", resultado=None, erro="Nenhum arquivo enviado.")
+ 3870: 
+ 3871:     uploads_dir = Path("uploads/lances_cotacao")
+ 3872:     uploads_dir.mkdir(parents=True, exist_ok=True)
+ 3873: 
+ 3874:     nome = secure_filename(arquivo.filename)
+ 3875:     caminho = uploads_dir / nome
+ 3876:     arquivo.save(caminho)
+ 3877: 
+ 3878:     try:
+ 3879:         resultado = importar_lances_cotacao(caminho, markup_padrao=markup)
+ 3880:         return render_template("lances_cotacao.html", resultado=resultado, erro=None)
+ 3881:     except Exception as exc:
+ 3882:         return render_template("lances_cotacao.html", resultado=None, erro=f"Erro ao importar cotaÃ§Ã£o: {exc}")

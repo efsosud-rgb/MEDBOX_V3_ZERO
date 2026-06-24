@@ -1,0 +1,774 @@
+﻿    1: 
+    2: <style>
+    3: /* ============================================================
+    4:    DESTAQUE DE MENOR OFERTA - OSINFO x LANCE x MEDBOX
+    5:    ============================================================ */
+    6: 
+    7: .menor-oferta,
+    8: input.menor-oferta,
+    9: td.menor-oferta,
+   10: .campo-menor-oferta {
+   11:     background: #e8fff3 !important;
+   12:     border: 2px solid #00a65a !important;
+   13:     color: #005c32 !important;
+   14:     font-weight: 900 !important;
+   15: }
+   16: 
+   17: .vencedor-medbox {
+   18:     background: #e8fff3 !important;
+   19: }
+   20: 
+   21: .vencedor-concorrente {
+   22:     background: #fff3e8 !important;
+   23: }
+   24: 
+   25: .badge-vencedor {
+   26:     display: inline-block;
+   27:     padding: 3px 7px;
+   28:     border-radius: 999px;
+   29:     font-size: 10px;
+   30:     font-weight: 900;
+   31:     background: #e8fff3;
+   32:     color: #005c32;
+   33:     border: 1px solid #00a65a;
+   34: }
+   35: 
+   36: .badge-negociar {
+   37:     display: inline-block;
+   38:     padding: 3px 7px;
+   39:     border-radius: 999px;
+   40:     font-size: 10px;
+   41:     font-weight: 900;
+   42:     background: #fff3e8;
+   43:     color: #9a4a00;
+   44:     border: 1px solid #ff9f43;
+   45: }
+   46: </style>
+   47: 
+   48: 
+   49: <style>
+   50: /* ============================================================
+   51:    CORREÃ‡ÃƒO DEFINITIVA - LANCES DE COTAÃ‡ÃƒO
+   52:    Remove coluna vazia lateral e coloca aÃ§Ãµes no topo direito
+   53:    ============================================================ */
+   54: 
+   55: .medbox-lances-top-actions {
+   56:     position: fixed !important;
+   57:     top: 14px !important;
+   58:     right: 24px !important;
+   59:     z-index: 9999 !important;
+   60:     display: flex !important;
+   61:     align-items: flex-end !important;
+   62:     justify-content: flex-end !important;
+   63:     gap: 8px !important;
+   64:     background: #ffffff !important;
+   65:     border: 1px solid #dbe3ef !important;
+   66:     border-radius: 10px !important;
+   67:     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+   68:     padding: 8px 10px !important;
+   69: }
+   70: 
+   71: .medbox-lances-top-actions .meta-field {
+   72:     display: flex !important;
+   73:     flex-direction: column !important;
+   74:     gap: 3px !important;
+   75: }
+   76: 
+   77: .medbox-lances-top-actions label {
+   78:     font-size: 9px !important;
+   79:     font-weight: 900 !important;
+   80:     color: #0b2c4d !important;
+   81:     text-transform: uppercase !important;
+   82:     margin: 0 !important;
+   83: }
+   84: 
+   85: .medbox-lances-top-actions input {
+   86:     width: 150px !important;
+   87:     height: 28px !important;
+   88:     border: 1px solid #c9d7e8 !important;
+   89:     border-radius: 6px !important;
+   90:     padding: 5px 7px !important;
+   91:     font-size: 10px !important;
+   92:     font-weight: 800 !important;
+   93:     text-transform: uppercase !important;
+   94:     box-sizing: border-box !important;
+   95: }
+   96: 
+   97: .medbox-lances-top-actions button,
+   98: .medbox-lances-top-actions a,
+   99: #btnGerarCotacaoMedbox,
+  100: #btnPesquisarCotacoes {
+  101:     height: 38px !important;
+  102:     min-width: 78px !important;
+  103:     padding: 6px 10px !important;
+  104:     border-radius: 7px !important;
+  105:     font-size: 11px !important;
+  106:     font-weight: 900 !important;
+  107:     white-space: nowrap !important;
+  108: }
+  109: 
+  110: /* Esconde barras antigas que espremiam a grade */
+  111: .lances-meta-bar:not(.medbox-lances-top-actions),
+  112: .lances-meta-bar-topo-direita,
+  113: .cotacao-meta-bar,
+  114: .grade-meta-bar,
+  115: .cotacao-gerada-bar,
+  116: .lances-cotacao-bar {
+  117:     display: none !important;
+  118: }
+  119: 
+  120: /* ForÃ§a a Ã¡rea da grade a ocupar largura total */
+  121: .grade-lances-wrapper,
+  122: .lances-grade-wrapper,
+  123: .grade-lances-container,
+  124: .tabela-lances-wrapper,
+  125: .table-lances-wrapper,
+  126: .lances-table-wrapper,
+  127: .table-responsive,
+  128: .table-container {
+  129:     display: block !important;
+  130:     width: 100% !important;
+  131:     max-width: 100% !important;
+  132:     margin-left: 0 !important;
+  133:     margin-right: 0 !important;
+  134:     padding-left: 0 !important;
+  135:     padding-right: 0 !important;
+  136:     clear: both !important;
+  137:     box-sizing: border-box !important;
+  138:     float: none !important;
+  139: }
+  140: 
+  141: /* Mata o layout flex que criou a margem lateral */
+  142: div:has(> table),
+  143: div:has(table) {
+  144:     max-width: 100% !important;
+  145:     box-sizing: border-box !important;
+  146: }
+  147: 
+  148: /* Qualquer container direto da tabela vira bloco */
+  149: table {
+  150:     width: max-content !important;
+  151:     min-width: 100% !important;
+  152:     margin-left: 0 !important;
+  153:     clear: both !important;
+  154: }
+  155: 
+  156: /* Remove coluna/tÃ­tulo lateral "Grade de Lances" quando ele vira coluna */
+  157: .grade-lances-title,
+  158: .titulo-grade-lances {
+  159:     display: block !important;
+  160:     width: 100% !important;
+  161:     margin: 8px 0 !important;
+  162:     padding: 0 !important;
+  163:     clear: both !important;
+  164: }
+  165: 
+  166: /* Corrige casos onde o template usa grid/flex em volta da grade */
+  167: .row:has(table),
+  168: .card:has(table),
+  169: section:has(table),
+  170: article:has(table) {
+  171:     display: block !important;
+  172:     width: 100% !important;
+  173:     max-width: 100% !important;
+  174:     margin-left: 0 !important;
+  175:     padding-left: 0 !important;
+  176: }
+  177: 
+  178: /* Ajuda visual do SKU */
+  179: .lances-sku-ajuda {
+  180:     display: block !important;
+  181:     margin-top: 3px !important;
+  182:     font-size: 9px !important;
+  183:     color: #52647a !important;
+  184:     font-weight: 800 !important;
+  185: }
+  186: 
+  187: .btn-sugestao-sku-linha {
+  188:     display: inline-block !important;
+  189:     margin-top: 4px !important;
+  190:     border: none !important;
+  191:     background: #00486c !important;
+  192:     color: #fff !important;
+  193:     border-radius: 5px !important;
+  194:     font-size: 9px !important;
+  195:     font-weight: 900 !important;
+  196:     padding: 4px 7px !important;
+  197:     cursor: pointer !important;
+  198: }
+  199: 
+  200: .btn-sugestao-sku-linha:hover {
+  201:     background: #003652 !important;
+  202: }
+  203: 
+  204: input[placeholder*="SKU"],
+  205: .sku-master-input {
+  206:     min-width: 170px !important;
+  207: }
+  208: 
+  209: @media (max-width: 1400px) {
+  210:     .medbox-lances-top-actions {
+  211:         position: static !important;
+  212:         margin: 8px 16px 10px auto !important;
+  213:         width: fit-content !important;
+  214:     }
+  215: }
+  216: </style>
+  217: 
+  218: 
+  219: <style>
+  220: /* ============================================================
+  221:    AJUSTE ERP - CLIENTE / OAS / PROJETO NO TOPO DIREITO
+  222:    ============================================================ */
+  223: 
+  224: .lances-meta-bar,
+  225: .cotacao-meta-bar,
+  226: .grade-meta-bar,
+  227: .cotacao-gerada-bar,
+  228: .lances-cotacao-bar {
+  229:     display: flex !important;
+  230:     justify-content: flex-end !important;
+  231:     align-items: flex-end !important;
+  232:     flex-wrap: wrap !important;
+  233:     gap: 10px !important;
+  234:     width: 100% !important;
+  235:     max-width: 100% !important;
+  236:     margin: 0 0 12px 0 !important;
+  237:     padding: 10px 16px !important;
+  238:     background: #ffffff !important;
+  239:     border-bottom: 1px solid #dbe3ef !important;
+  240:     box-sizing: border-box !important;
+  241:     clear: both !important;
+  242: }
+  243: 
+  244: .lances-meta-field {
+  245:     display: flex !important;
+  246:     flex-direction: column !important;
+  247:     gap: 4px !important;
+  248:     min-width: 170px !important;
+  249: }
+  250: 
+  251: .lances-meta-field label {
+  252:     font-size: 10px !important;
+  253:     font-weight: 900 !important;
+  254:     color: #0b2c4d !important;
+  255:     text-transform: uppercase !important;
+  256: }
+  257: 
+  258: #clienteCotacaoGerada,
+  259: #oasCotacaoGerada,
+  260: #projetoCotacaoGerada,
+  261: #controleClienteCotacaoGerada {
+  262:     width: 180px !important;
+  263:     height: 32px !important;
+  264:     border: 1px solid #c9d7e8 !important;
+  265:     border-radius: 6px !important;
+  266:     padding: 6px 8px !important;
+  267:     font-weight: 700 !important;
+  268:     font-size: 11px !important;
+  269:     text-transform: uppercase !important;
+  270:     background: #fff !important;
+  271:     box-sizing: border-box !important;
+  272: }
+  273: 
+  274: .lances-meta-actions {
+  275:     display: flex !important;
+  276:     gap: 8px !important;
+  277:     align-items: flex-end !important;
+  278: }
+  279: 
+  280: .lances-meta-actions .btn,
+  281: .lances-meta-actions button,
+  282: #btnGerarCotacaoMedbox,
+  283: #btnPesquisarCotacoes {
+  284:     height: 44px !important;
+  285:     min-width: 92px !important;
+  286:     padding: 8px 14px !important;
+  287:     white-space: nowrap !important;
+  288: }
+  289: 
+  290: /* A grade nunca fica ao lado dos campos */
+  291: .grade-lances-wrapper,
+  292: .lances-grade-wrapper,
+  293: .grade-lances-container,
+  294: .tabela-lances-wrapper,
+  295: .table-lances-wrapper,
+  296: .lances-table-wrapper,
+  297: table {
+  298:     clear: both !important;
+  299:     width: 100% !important;
+  300:     max-width: 100% !important;
+  301:     margin-left: 0 !important;
+  302:     padding-left: 0 !important;
+  303: }
+  304: 
+  305: /* Em telas menores, joga para esquerda para nÃ£o quebrar */
+  306: @media (max-width: 1200px) {
+  307:     .lances-meta-bar,
+  308:     .cotacao-meta-bar,
+  309:     .grade-meta-bar,
+  310:     .cotacao-gerada-bar,
+  311:     .lances-cotacao-bar {
+  312:         justify-content: flex-start !important;
+  313:     }
+  314: }
+  315: </style>
+  316: 
+  317: {% extends "base.html" %}
+  318: {% block title %}CotaÃ§Ã£o - Lances{% endblock %}
+  319: 
+  320: {% block content %}
+  321: <style>
+  322:     .lances-toolbar {
+  323:         display: grid;
+  324:         grid-template-columns: 1fr 160px 140px;
+  325:         gap: 12px;
+  326:         align-items: end;
+  327:     }
+  328: 
+  329:     .lances-upload-box label,
+  330:     .markup-box label {
+  331:         display:block;
+  332:         font-size:.76rem;
+  333:         font-weight:800;
+  334:         color:var(--text2);
+  335:         margin-bottom:6px;
+  336:         text-transform:uppercase;
+  337:     }
+  338: 
+  339:     .lances-upload-box input,
+  340:     .markup-box input,
+  341:     .sku-quick-input,
+  342:     .lance-input {
+  343:         width:100%;
+  344:         border:1px solid #dbe3ef;
+  345:         border-radius:7px;
+  346:         padding:8px;
+  347:         font-size:.76rem;
+  348:     }
+  349: 
+  350:     .lances-summary {
+  351:         display:grid;
+  352:         grid-template-columns:repeat(8, minmax(120px, 1fr));
+  353:         gap:10px;
+  354:         margin-top:14px;
+  355:     }
+  356: 
+  357:     .lances-kpi {
+  358:         border:1px solid #dbe3ef;
+  359:         border-radius:8px;
+  360:         padding:10px;
+  361:         background:#fff;
+  362:     }
+  363: 
+  364:     .lances-kpi span {
+  365:         display:block;
+  366:         color:var(--muted);
+  367:         font-size:.68rem;
+  368:         text-transform:uppercase;
+  369:         font-weight:800;
+  370:     }
+  371: 
+  372:     .lances-kpi strong {
+  373:         font-size:1rem;
+  374:         color:var(--text);
+  375:     }
+  376: 
+  377:     .lances-table-wrap {
+  378:         overflow-x:auto;
+  379:     }
+  380: 
+  381:     .lances-table {
+  382:         min-width:2200px;
+  383:         width:100%;
+  384:         border-collapse:collapse;
+  385:     }
+  386: 
+  387:     .lances-table th,
+  388:     .lances-table td {
+  389:         padding:8px 7px;
+  390:         border-bottom:1px solid #e5edf6;
+  391:         font-size:.72rem;
+  392:         vertical-align:middle;
+  393:     }
+  394: 
+  395:     .lances-table th {
+  396:         background:#f8fafc;
+  397:         color:#1f3654;
+  398:         font-weight:900;
+  399:         text-transform:uppercase;
+  400:         font-size:.64rem;
+  401:     }
+  402: 
+  403:     .linha-ok {
+  404:         background:#ecfdf3;
+  405:     }
+  406: 
+  407:     .linha-revisar {
+  408:         background:#fff7ed;
+  409:     }
+  410: 
+  411:     .linha-sem-preco {
+  412:         background:#fff1f2;
+  413:     }
+  414: 
+  415:     .status-badge {
+  416:         display:inline-block;
+  417:         border-radius:999px;
+  418:         padding:5px 8px;
+  419:         font-weight:900;
+  420:         font-size:.64rem;
+  421:         white-space:nowrap;
+  422:     }
+  423: 
+  424:     .status-competitivo {
+  425:         background:#dcfce7;
+  426:         color:#166534;
+  427:     }
+  428: 
+  429:     .status-negociar {
+  430:         background:#fef3c7;
+  431:         color:#92400e;
+  432:     }
+  433: 
+  434:     .status-sem-preco,
+  435:     .status-revisar-sku {
+  436:         background:#fee2e2;
+  437:         color:#991b1b;
+  438:     }
+  439: 
+  440:     .btn-salvar-sku {
+  441:         background:#00486C;
+  442:         color:#fff;
+  443:         border:none;
+  444:         border-radius:7px;
+  445:         padding:7px 9px;
+  446:         font-size:.68rem;
+  447:         font-weight:900;
+  448:         cursor:pointer;
+  449:     }
+  450: 
+  451:     .btn-salvar-sku:disabled {
+  452:         opacity:.55;
+  453:         cursor:not-allowed;
+  454:     }
+  455: 
+  456:     .medbox-readonly {
+  457:         background:#f3f4f6 !important;
+  458:         cursor:not-allowed;
+  459:     }
+  460: 
+  461:     .erro-lances {
+  462:         background:#fee2e2;
+  463:         color:#991b1b;
+  464:         padding:12px;
+  465:         border-radius:8px;
+  466:         font-weight:800;
+  467:         margin-top:12px;
+  468:     }
+  469: 
+  470:     .btn-excluir-item {
+  471:         background:#7a0018;
+  472:         color:#fff;
+  473:         border:none;
+  474:         border-radius:7px;
+  475:         padding:7px 10px;
+  476:         font-weight:700;
+  477:         font-size:11px;
+  478:         cursor:pointer;
+  479:         margin-top:5px;
+  480:         width:100%;
+  481:     }
+  482: 
+  483:     .sku-quick-input,
+  484:     .empresa-input,
+  485:     textarea {
+  486:         text-transform: uppercase;
+  487:     }
+  488: 
+  489: 
+  490:     .custo-manual-input[readonly] {
+  491:         background:#f3f6fa;
+  492:         color:#4b5b6b;
+  493:         cursor:not-allowed;
+  494:     }
+  495: 
+  496:     .custo-manual-input:not([readonly]) {
+  497:         background:#fff7e6;
+  498:         border-color:#f59e0b;
+  499:         font-weight:700;
+  500:     }
+  501: 
+  502: 
+  503:     .sku-sugestao-select {
+  504:         margin-top:5px;
+  505:         width:100%;
+  506:         border:1px solid #dbe3ef;
+  507:         border-radius:7px;
+  508:         padding:6px;
+  509:         font-size:11px;
+  510:         background:#fff;
+  511:         color:#0b2545;
+  512:         font-weight:700;
+  513:     }
+  514: 
+  515: 
+  516:     .sku-autocomplete-box {
+  517:         position: absolute;
+  518:         z-index: 9999;
+  519:         background: #fff;
+  520:         border: 1px solid #dbe3ef;
+  521:         border-radius: 8px;
+  522:         box-shadow: 0 8px 22px rgba(15, 23, 42, .16);
+  523:         max-height: 260px;
+  524:         overflow-y: auto;
+  525:         min-width: 320px;
+  526:         font-size: 11px;
+  527:     }
+  528: 
+  529:     .sku-autocomplete-item {
+  530:         padding: 8px 10px;
+  531:         cursor: pointer;
+  532:         border-bottom: 1px solid #eef3f8;
+  533:         color: #0b2545;
+  534:     }
+  535: 
+  536:     .sku-autocomplete-item:hover {
+  537:         background: #eef6ff;
+  538:     }
+  539: 
+  540:     .sku-autocomplete-item strong {
+  541:         display: block;
+  542:         font-size: 12px;
+  543:         color: #002b45;
+  544:     }
+  545: 
+  546:     .sku-autocomplete-item small {
+  547:         display: block;
+  548:         margin-top: 3px;
+  549:         color: #64748b;
+  550:     }
+  551: 
+  552: </style>
+  553: 
+  554: <div class="page-header">
+  555:     <div>
+  556:         <h1>COTAÃ‡ÃƒO - LANCES</h1>
+  557:         <p>CrÃ­tica operacional item a item. A descriÃ§Ã£o da cotaÃ§Ã£o Ã© preservada; o SKU Master MedBox Ã© encontrado pela base.</p>
+  558:     </div>
+  559: </div>
+  560: 
+  561: <div class="card">
+  562:     <h3>Importar CotaÃ§Ã£o OAS / Lances</h3>
+  563: 
+  564:     <form action="/cotacoes/lances/importar" method="POST" enctype="multipart/form-data" class="lances-toolbar">
+  565:         <div class="lances-upload-box">
+  566:             <label>Arquivo da cotaÃ§Ã£o</label>
+  567:             <input type="file" name="arquivo" accept=".xlsx,.xlsm,.csv,.txt" required>
+  568:             {% if arquivo_nome %}
+  569:             <small>Arquivo analisado: {{ arquivo_nome }}</small>
+  570:             {% endif %}
+  571:         </div>
+  572: 
+  573:         <div class="markup-box">
+  574:             <label>Markup geral (%)</label>
+  575:             <input type="number" step="0.01" min="0" name="markup_percentual" id="markupGeral" value="{{ markup_percentual or 80 }}">
+  576:         </div>
+  577: 
+  578:         <button class="btn-primary" type="submit">Importar CotaÃ§Ã£o</button>
+  579:     </form>
+  580: 
+  581:     <div class="lances-upload-box" style="margin-top:14px;">
+  582:         <label>Adicionar itens manualmente</label>
+  583:         <textarea id="textoItensManuais" rows="5" placeholder="Cole ou digite vÃ¡rios itens, um por linha. Ex.:&#10;AGUA DESTILADA ESTERIL 10ML - 3000&#10;CEFAZOLINA SODICA 1G - 700" style="width:100%;border:1px solid #dbe3ef;border-radius:7px;padding:10px;"></textarea>
+  584:         <small style="display:block;color:var(--muted);margin-top:6px;">
+  585:             Cada linha serÃ¡ analisada pela base MedBox. Se encontrar SKU Master, os campos serÃ£o preenchidos. Se nÃ£o encontrar, ficarÃ¡ como REVISAR SKU.
+  586:         </small>
+  587:         <button class="btn-primary" type="button" id="btnAdicionarItensManuais" style="margin-top:10px;">Adicionar itens Ã  grade</button>
+  588:     </div>
+  589: 
+  590: 
+  591:     {% if erro %}
+  592:     <div class="erro-lances">{{ erro }}</div>
+  593:     {% endif %}
+  594: </div>
+  595: 
+  596: {% if analise %}
+  597: <div class="card">
+  598:     <h3>Resumo da CrÃ­tica</h3>
+  599: 
+  600:     <div class="lances-summary" id="lancesResumo">
+  601:         <div class="lances-kpi"><span>Total de itens</span><strong data-kpi="total_itens">{{ analise.resumo.total_itens }}</strong></div>
+  602:         <div class="lances-kpi"><span>SKU encontrado</span><strong data-kpi="itens_com_sku">{{ analise.resumo.itens_com_sku }}</strong></div>
+  603:         <div class="lances-kpi"><span>Revisar SKU</span><strong data-kpi="itens_revisar_sku">{{ analise.resumo.itens_revisar_sku }}</strong></div>
+  604:         <div class="lances-kpi"><span>Com preÃ§o MedBox</span><strong data-kpi="itens_com_preco_medbox">{{ analise.resumo.itens_com_preco_medbox }}</strong></div>
+  605:         <div class="lances-kpi"><span>Sem preÃ§o</span><strong data-kpi="itens_sem_preco">{{ analise.resumo.itens_sem_preco }}</strong></div>
+  606:         <div class="lances-kpi"><span>Competitivos</span><strong data-kpi="itens_competitivos">{{ analise.resumo.itens_competitivos }}</strong></div>
+  607:         <div class="lances-kpi"><span>Negociar</span><strong data-kpi="itens_negociar">{{ analise.resumo.itens_negociar }}</strong></div>
+  608:         <div class="lances-kpi"><span>Total MedBox</span><strong data-kpi="total_medbox">{{ analise.resumo.total_medbox_formatado }}</strong></div>
+  609:     </div>
+  610: </div>
+  611: 
+  612: <div class="card">
+  613:     
+  614:     <div style="margin-top:12px;display:flex;gap:10px;align-items:end;" class="no-print">
+  615:         <div>
+  616:             <label style="font-size:11px;font-weight:800;text-transform:uppercase;">Cliente / Ã“rgÃ£o</label><br>
+  617:             <input id="clienteCotacaoGerada" class="sku-quick-input" placeholder="Informe o cliente/Ã³rgÃ£o" style="min-width:280px;">
+  618:         </div>
+  619:         <button type="button" class="btn-primary" id="btnGerarCotacaoMedbox">Gerar CotaÃ§Ã£o</button>
+  620:         <a href="/cotacoes/geradas" class="btn-primary" style="text-decoration:none;display:inline-block;">Pesquisar CotaÃ§Ãµes</a>
+  621:     </div>
+  622: 
+  623:     <h3>Grade de Lances</h3>
+  624: 
+  625:     <div class="lances-table-wrap">
+  626:         <table class="lances-table" id="tabelaLances">
+  627:             <thead>
+  628:                 <tr>
+  629:                     <th>Item</th>
+  630:                     <th>DescriÃ§Ã£o do Produto<br><small>CotaÃ§Ã£o original</small></th>
+  631:                     <th>SKU Master MedBox</th>
+  632:                     <th>Categoria</th>
+  633:                     <th>Quantidade</th>
+  634:                     <th>PreÃ§o OSINFO</th>
+  635:                     <th>Ãšlt. Compra da CotaÃ§Ã£o</th>
+  636:                     <th>PreÃ§o MedBox</th>
+  637:                     <th>Markup Atual</th>
+  638:                     <th>Menor PreÃ§o Ofertado</th>
+  639:                     <th>Empresa Melhor Lance</th>
+  640:                     <th>Menor Valor / Vencedor</th>
+  641:                     <th>Menor Custo Encontrado</th>
+  642:                     <th>Fornecedor Menor Custo</th>
+  643:                     <th>Marca/Fabricante</th>
+  644:                     <th>Status</th>
+  645:                     <th>AÃ§Ã£o SKU</th>
+  646:                 </tr>
+  647:             </thead>
+  648: 
+  649:             <tbody>
+  650:                 {% for item in analise.itens %}
+  651:                 <tr
+  652:                     class="{% if item.status == 'REVISAR SKU' %}linha-revisar{% elif item.status == 'SEM PREÃ‡O' %}linha-sem-preco{% else %}linha-ok{% endif %}"
+  653:                     data-custo="{{ item.menor_custo_unitario or 0 }}"
+  654:                     data-tem-preco="{{ 1 if item.tem_preco else 0 }}"
+  655:                     data-sku-encontrado="{{ 1 if item.sku_encontrado else 0 }}"
+  656:                 >
+  657:                     <td>{{ item.item }}</td>
+  658: 
+  659:                     <td style="min-width:260px;">
+  660:                         <strong>{{ item.descricao_produto }}</strong>
+  661:                         {% if item.codigo_cliente %}
+  662:                         <small style="display:block;color:var(--muted);">CÃ³digo: {{ item.codigo_cliente }}</small>
+  663:                         {% endif %}
+  664:                     </td>
+  665: 
+  666:                     <td style="min-width:230px;">
+  667:                         <input class="sku-quick-input sku-master-input" value="{{ item.sku_master if item.sku_master != 'REVISAR SKU' else '' }}" placeholder="Informe o SKU Master">
+  668:                         <small style="display:block;color:var(--muted);">Score: {{ "%.1f"|format(item.score or 0) }}</small>
+  669:                         {% if item.sugestoes_sku %}
+  670:                         <select class="sku-sugestao-select">
+  671:                             <option value="">Escolher SKU...</option>
+  672:                             {% for s in item.sugestoes_sku %}
+  673:                             <option
+  674:                                 value="{{ s.sku_master }}"
+  675:                                 data-categoria="{{ s.categoria }}"
+  676:                                 data-fornecedor="{{ s.fornecedor_menor_custo }}"
+  677:                                 data-fabricante="{{ s.marca_fabricante }}"
+  678:                                 data-custo="{{ s.menor_custo_unitario }}"
+  679:                                 data-custo-formatado="{{ s.menor_custo_unitario_formatado }}"
+  680:                                 data-score="{{ s.score }}"
+  681:                             >
+  682:                                 {{ s.sku_master }} | {{ s.marca_fabricante }} | {{ s.menor_custo_unitario_formatado }}
+  683:                             </option>
+  684:                             {% endfor %}
+  685:                         </select>
+  686:                         {% endif %}
+  687:                     </td>
+  688: 
+  689:                     <td style="min-width:140px;">
+  690:                         <input class="sku-quick-input categoria-input" value="{{ item.categoria if item.categoria != '-' else '' }}" placeholder="Categoria">
+  691:                     </td>
+  692: 
+  693:                     <td><input class="lance-input qtd-input" value="{{ item.quantidade }}"></td>
+  694: 
+  695:                     <td><input class="lance-input money-input osinfo-input" value="{{ item.preco_osinfo_formatado }}"></td>
+  696: 
+  697:                     <td><input class="lance-input money-input ultima-input" value="{{ item.ultima_compra_formatada }}"></td>
+  698: 
+  699:                     <td><input class="lance-input money-input medbox-input medbox-readonly" readonly value="{{ item.preco_medbox_formatado }}"></td>
+  700: 
+  701:                     <td><input class="lance-input markup-atual-input" type="number" step="0.01" min="0" value="{{ "%.2f"|format(item.markup_atual or 80) }}"></td>
+  702: 
+  703:                     <td><input class="lance-input money-input concorrente-input" value="{{ item.menor_preco_ofertado_formatado }}"></td>
+  704: 
+  705:                     <td><input class="lance-input empresa-input" value="{{ item.empresa_melhor_lance or '' }}" placeholder="Empresa"></td>
+  706: 
+  707:                     <td class="menor-valor-cell">
+  708:                         <strong>{{ item.menor_valor_formatado }}</strong>
+  709:                         <small style="display:block;">{{ item.menor_valor_nome }}</small>
+  710:                     </td>
+  711: 
+  712:                     <td>
+  713:                         <input
+  714:                             class="lance-input money-input custo-manual-input"
+  715:                             value="{{ item.menor_custo_unitario_formatado if item.menor_custo_unitario else '' }}"
+  716:                             placeholder="R$ 0,00"
+  717:                             {% if item.sku_encontrado and item.tem_preco %}readonly{% endif %}
+  718:                         >
+  719:                     </td>
+  720: 
+  721:                     <td>
+  722:                         <input class="sku-quick-input fornecedor-input" value="{{ item.fornecedor_menor_custo if item.fornecedor_menor_custo != '-' else '' }}" placeholder="Fornecedor">
+  723:                     </td>
+  724: 
+  725:                     <td>
+  726:                         <input class="sku-quick-input fabricante-input" value="{{ item.marca_fabricante if item.marca_fabricante != '-' else '' }}" placeholder="Fabricante">
+  727:                     </td>
+  728: 
+  729:                     <td class="status-cell">
+  730:                         <span class="status-badge status-{{ item.status|lower|replace(' ', '-')|replace('Ã§','c') }}">{{ item.status }}</span>
+  731:                     </td>
+  732: 
+  733:                     <td>
+  734:                         <button type="button" class="btn-salvar-sku">Salvar SKU</button>
+  735:                         <button type="button" class="btn-excluir-item">Excluir</button>
+  736:                     </td>
+  737:                 </tr>
+  738:                 {% endfor %}
+  739:             </tbody>
+  740:         </table>
+  741:     </div>
+  742: </div>
+  743: {% endif %}
+  744: 
+  745: 
+  746: 
+  747: 
+  748: 
+  749: 
+  750: 
+  751: 
+  752: 
+  753: 
+  754: 
+  755: 
+  756: 
+  757: 
+  758: 
+  759: 
+  760: 
+  761: 
+  762: 
+  763: 
+  764: 
+  765: 
+  766: <script>
+  767: window.MEDBOX_NUMERO_COTACAO_EDITANDO = "{{ numero_cotacao_editando|default('', true) }}";
+  768: </script>
+  769: <script src="{{ url_for('static', filename='js/cotacao_lances.js') }}"></script>
+  770: 
+  771: {% endblock %}
+  772: 
+  773: 
+  774: 

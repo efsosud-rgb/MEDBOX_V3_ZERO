@@ -1,0 +1,833 @@
+﻿    1: from datetime import datetime
+    2: from pathlib import Path
+    3: import sqlite3
+    4: import re
+    5: 
+    6: from core.banco import conectar
+    7: 
+    8: 
+    9: CLIENTES_FIXOS_MAPA = [
+   10:     ("VIVA RIO", 1),
+   11:     ("AFNE", 2),
+   12:     ("HD CID ADEMAR", 3),
+   13:     ("HD SANTO AMARO", 4),
+   14:     ("HOSP GUARAPIRANGA", 5),
+   15:     ("UPA SANTO AMARO", 6),
+   16:     ("INTS", 7),
+   17:     ("SOLAR", 8),
+   18:     ("IGEDES", 9),
+   19: ]
+   20: 
+   21: 
+   22: def moeda_br(valor):
+   23:     try:
+   24:         valor = float(valor or 0)
+   25:     except Exception:
+   26:         valor = 0.0
+   27:     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+   28: 
+   29: 
+   30: def criar_tabelas_mapa_precos_clientes():
+   31:     conn = conectar()
+   32:     cur = conn.cursor()
+   33: 
+   34:     cur.execute("""
+   35:         CREATE TABLE IF NOT EXISTS clientes_mapa_precos (
+   36:             id INTEGER PRIMARY KEY AUTOINCREMENT,
+   37:             nome TEXT NOT NULL UNIQUE,
+   38:             fixo_mapa INTEGER DEFAULT 0,
+   39:             ordem_mapa INTEGER DEFAULT 999,
+   40:             ativo INTEGER DEFAULT 1,
+   41:             criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+   42:         )
+   43:     """)
+   44: 
+   45:     cur.execute("""
+   46:         CREATE TABLE IF NOT EXISTS cotacoes_clientes_mapa (
+   47:             id INTEGER PRIMARY KEY AUTOINCREMENT,
+   48:             cliente_id INTEGER NOT NULL,
+   49:             data_referencia TEXT,
+   50:             meses_referencia REAL DEFAULT 1,
+   51:             arquivo_origem TEXT,
+   52:             observacao TEXT,
+   53:             criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+   54:             FOREIGN KEY(cliente_id) REFERENCES clientes_mapa_precos(id)
+   55:         )
+   56:     """)
+   57: 
+   58:     cur.execute("""
+   59:         CREATE TABLE IF NOT EXISTS cotacoes_clientes_mapa_itens (
+   60:             id INTEGER PRIMARY KEY AUTOINCREMENT,
+   61:             cotacao_id INTEGER NOT NULL,
+   62:             cliente_id INTEGER NOT NULL,
+   63:             produto_id INTEGER,
+   64:             descricao_original TEXT,
+   65:             sku_master TEXT,
+   66:             categoria TEXT,
+   67:             quantidade_total REAL DEFAULT 0,
+   68:             meses_referencia REAL DEFAULT 1,
+   69:             quantidade_mensal REAL DEFAULT 0,
+   70:             valor_unitario REAL DEFAULT 0,
+   71:             valor_total REAL DEFAULT 0,
+   72:             arquivo_origem TEXT,
+   73:             criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+   74:             FOREIGN KEY(cotacao_id) REFERENCES cotacoes_clientes_mapa(id),
+   75:             FOREIGN KEY(cliente_id) REFERENCES clientes_mapa_precos(id),
+   76:             FOREIGN KEY(produto_id) REFERENCES produtos(id)
+   77:         )
+   78:     """)
+   79: 
+   80:     conn.commit()
+   81:     conn.close()
+   82: 
+   83: 
+   84: def garantir_clientes_fixos_mapa():
+   85:     criar_tabelas_mapa_precos_clientes()
+   86: 
+   87:     conn = conectar()
+   88:     cur = conn.cursor()
+   89: 
+   90:     for nome, ordem in CLIENTES_FIXOS_MAPA:
+   91:         cur.execute("""
+   92:             INSERT INTO clientes_mapa_precos (nome, fixo_mapa, ordem_mapa, ativo)
+   93:             VALUES (?, 1, ?, 1)
+   94:             ON CONFLICT(nome) DO UPDATE SET
+   95:                 fixo_mapa = 1,
+   96:                 ordem_mapa = excluded.ordem_mapa,
+   97:                 ativo = 1
+   98:         """, (nome, ordem))
+   99: 
+  100:     conn.commit()
+  101:     conn.close()
+  102: 
+  103: 
+  104: def listar_clientes_mapa_precos():
+  105:     garantir_clientes_fixos_mapa()
+  106: 
+  107:     conn = conectar()
+  108:     conn.row_factory = sqlite3.Row
+  109:     cur = conn.cursor()
+  110: 
+  111:     cur.execute("""
+  112:         SELECT id, nome, fixo_mapa, ordem_mapa, ativo
+  113:         FROM clientes_mapa_precos
+  114:         WHERE ativo = 1
+  115:         ORDER BY fixo_mapa DESC, ordem_mapa ASC, nome ASC
+  116:     """)
+  117: 
+  118:     clientes = [dict(row) for row in cur.fetchall()]
+  119:     conn.close()
+  120:     return clientes
+  121: 
+  122: 
+  123: def clientes_colunas_mapa():
+  124:     """
+  125:     Retorna exatamente 15 posiÃ§Ãµes:
+  126:     - 9 clientes fixos
+  127:     - 6 variÃ¡veis por maior volume mensal importado
+  128:     """
+  129:     garantir_clientes_fixos_mapa()
+  130: 
+  131:     conn = conectar()
+  132:     conn.row_factory = sqlite3.Row
+  133:     cur = conn.cursor()
+  134: 
+  135:     cur.execute("""
+  136:         SELECT id, nome, 1 AS fixo, ordem_mapa
+  137:         FROM clientes_mapa_precos
+  138:         WHERE ativo = 1 AND fixo_mapa = 1
+  139:         ORDER BY ordem_mapa ASC
+  140:     """)
+  141:     fixos = [dict(row) for row in cur.fetchall()]
+  142: 
+  143:     cur.execute("""
+  144:         SELECT 
+  145:             c.id,
+  146:             c.nome,
+  147:             0 AS fixo,
+  148:             999 AS ordem_mapa,
+  149:             COALESCE(SUM(i.quantidade_mensal), 0) AS volume_mensal
+  150:         FROM clientes_mapa_precos c
+  151:         LEFT JOIN cotacoes_clientes_mapa_itens i ON i.cliente_id = c.id
+  152:         WHERE c.ativo = 1
+  153:           AND COALESCE(c.fixo_mapa, 0) = 0
+  154:         GROUP BY c.id, c.nome
+  155:         ORDER BY volume_mensal DESC, c.nome ASC
+  156:         LIMIT 6
+  157:     """)
+  158:     variaveis = [dict(row) for row in cur.fetchall()]
+  159: 
+  160:     conn.close()
+  161: 
+  162:     colunas = fixos[:9] + variaveis[:6]
+  163: 
+  164:     while len(colunas) < 15:
+  165:         colunas.append({
+  166:             "id": None,
+  167:             "nome": f"CLIENTE VARIÃVEL {len(colunas) - 8}",
+  168:             "fixo": 0,
+  169:             "ordem_mapa": 999,
+  170:             "placeholder": True,
+  171:         })
+  172: 
+  173:     return colunas[:15]
+  174: 
+  175: 
+  176: def resumo_mapa_precos_clientes():
+  177:     garantir_clientes_fixos_mapa()
+  178: 
+  179:     conn = conectar()
+  180:     conn.row_factory = sqlite3.Row
+  181:     cur = conn.cursor()
+  182: 
+  183:     cur.execute("SELECT COUNT(*) AS total FROM clientes_mapa_precos WHERE ativo = 1")
+  184:     total_clientes = cur.fetchone()["total"]
+  185: 
+  186:     cur.execute("SELECT COUNT(*) AS total FROM cotacoes_clientes_mapa")
+  187:     total_cotacoes = cur.fetchone()["total"]
+  188: 
+  189:     cur.execute("SELECT COUNT(*) AS total FROM cotacoes_clientes_mapa_itens")
+  190:     total_itens = cur.fetchone()["total"]
+  191: 
+  192:     cur.execute("SELECT COALESCE(SUM(quantidade_mensal), 0) AS total FROM cotacoes_clientes_mapa_itens")
+  193:     demanda_mensal_total = float(cur.fetchone()["total"] or 0)
+  194: 
+  195:     cur.execute("SELECT COALESCE(SUM(quantidade_mensal * valor_unitario), 0) AS total FROM cotacoes_clientes_mapa_itens")
+  196:     faturamento_estimado = float(cur.fetchone()["total"] or 0)
+  197: 
+  198:     conn.close()
+  199: 
+  200:     return {
+  201:         "total_clientes": total_clientes,
+  202:         "total_cotacoes": total_cotacoes,
+  203:         "total_itens": total_itens,
+  204:         "demanda_mensal_total": demanda_mensal_total,
+  205:         "faturamento_estimado": faturamento_estimado,
+  206:         "faturamento_estimado_formatado": moeda_br(faturamento_estimado),
+  207:     }
+  208: 
+  209: 
+  210: def mapa_consolidado_vazio():
+  211:     """
+  212:     Fase 1: estrutura pronta.
+  213:     Fase 2: serÃ¡ preenchido com importaÃ§Ã£o e cruzamento com SKU Master.
+  214:     """
+  215:     return []
+  216: 
+  217: 
+  218: def dados_tela_mapa_precos_clientes():
+  219:     garantir_clientes_fixos_mapa()
+  220: 
+  221:     return {
+  222:         "resumo_mapa": resumo_mapa_precos_clientes(),
+  223:         "clientes": listar_clientes_mapa_precos(),
+  224:         "clientes_colunas": clientes_colunas_mapa(),
+  225:         "itens": mapa_consolidado_vazio(),
+  226:         "markup_percentual": 80,
+  227:     }
+  228: 
+  229: 
+  230: # ============================================================
+  231: # FASE 2 - IMPORTAÃ‡ÃƒO E CONSOLIDAÃ‡ÃƒO DO MAPA
+  232: # ============================================================
+  233: 
+  234: def normalizar_texto_mapa(valor):
+  235:     import unicodedata
+  236:     texto = str(valor or "").strip().upper()
+  237:     texto = unicodedata.normalize("NFD", texto)
+  238:     texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+  239:     texto = texto.replace("Ã‡", "C")
+  240:     texto = re.sub(r"\s+", " ", texto)
+  241:     return texto.strip()
+  242: 
+  243: 
+  244: def converter_float_mapa(valor):
+  245:     if valor is None:
+  246:         return 0.0
+  247: 
+  248:     if isinstance(valor, (int, float)):
+  249:         return float(valor)
+  250: 
+  251:     texto = str(valor).strip()
+  252:     texto = texto.replace("R$", "").replace(" ", "")
+  253: 
+  254:     if not texto:
+  255:         return 0.0
+  256: 
+  257:     # Ex.: 1.234,56
+  258:     if "," in texto and "." in texto:
+  259:         texto = texto.replace(".", "").replace(",", ".")
+  260:     else:
+  261:         texto = texto.replace(",", ".")
+  262: 
+  263:     texto = re.sub(r"[^0-9.\-]", "", texto)
+  264: 
+  265:     try:
+  266:         return float(texto)
+  267:     except Exception:
+  268:         return 0.0
+  269: 
+  270: 
+  271: def formatar_quantidade_mapa(valor):
+  272:     try:
+  273:         valor = float(valor or 0)
+  274:     except Exception:
+  275:         valor = 0.0
+  276: 
+  277:     if valor == int(valor):
+  278:         return f"{int(valor):,}".replace(",", ".")
+  279:     return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+  280: 
+  281: 
+  282: def obter_ou_criar_cliente_mapa(nome):
+  283:     nome = normalizar_texto_mapa(nome)
+  284: 
+  285:     if not nome:
+  286:         raise ValueError("Nome do cliente nÃ£o pode ficar vazio.")
+  287: 
+  288:     garantir_clientes_fixos_mapa()
+  289: 
+  290:     conn = conectar()
+  291:     conn.row_factory = sqlite3.Row
+  292:     cur = conn.cursor()
+  293: 
+  294:     cur.execute("""
+  295:         SELECT id, nome
+  296:         FROM clientes_mapa_precos
+  297:         WHERE UPPER(TRIM(nome)) = UPPER(TRIM(?))
+  298:         LIMIT 1
+  299:     """, (nome,))
+  300:     row = cur.fetchone()
+  301: 
+  302:     if row:
+  303:         cliente_id = row["id"]
+  304:     else:
+  305:         cur.execute("""
+  306:             INSERT INTO clientes_mapa_precos (nome, fixo_mapa, ordem_mapa, ativo)
+  307:             VALUES (?, 0, 999, 1)
+  308:         """, (nome,))
+  309:         cliente_id = cur.lastrowid
+  310: 
+  311:     conn.commit()
+  312:     conn.close()
+  313:     return cliente_id
+  314: 
+  315: 
+  316: def _detectar_colunas_cotacao_cliente(cabecalhos):
+  317:     normalizados = [normalizar_texto_mapa(c) for c in cabecalhos]
+  318: 
+  319:     def achar(possiveis):
+  320:         for termo in possiveis:
+  321:             termo_n = normalizar_texto_mapa(termo)
+  322:             for idx, cab in enumerate(normalizados):
+  323:                 if termo_n in cab:
+  324:                     return idx
+  325:         return None
+  326: 
+  327:     col_desc = achar([
+  328:         "PRODUTO",
+  329:         "DESCRICAO",
+  330:         "DESCRICAO DO PRODUTO",
+  331:         "ITEM",
+  332:         "MATERIAL",
+  333:         "COTACAO MEDICAMENTO",
+  334:         "COTACAO",
+  335:     ])
+  336: 
+  337:     col_qtd = achar([
+  338:         "QUANTIDADE",
+  339:         "QUANT",
+  340:         "QTDE",
+  341:         "QTD",
+  342:         "QTD TOTAL",
+  343:         "DEMANDA",
+  344:         "CONSUMO",
+  345:     ])
+  346: 
+  347:     col_valor = achar([
+  348:         "VALOR UNITARIO",
+  349:         "VALOR UNIT",
+  350:         "VALOR",
+  351:         "PRECO UNITARIO",
+  352:         "PRECO UNIT",
+  353:         "PRECO",
+  354:         "VL UNIT",
+  355:         "UNITARIO",
+  356:     ])
+  357: 
+  358:     col_categoria = achar([
+  359:         "CATEGORIA",
+  360:         "GRUPO",
+  361:         "CLASSE",
+  362:     ])
+  363: 
+  364:     col_sku = achar([
+  365:         "SKU MASTER",
+  366:         "SKU_MASTER",
+  367:         "SKU",
+  368:         "PRODUTO PADRONIZADO",
+  369:     ])
+  370: 
+  371:     return {
+  372:         "descricao": col_desc,
+  373:         "quantidade": col_qtd,
+  374:         "valor_unitario": col_valor,
+  375:         "categoria": col_categoria,
+  376:         "sku_master": col_sku,
+  377:     }
+  378: 
+  379: 
+  380: def _linha_util_mapa(row):
+  381:     preenchidos = [c for c in row if str(c or "").strip()]
+  382:     return len(preenchidos) >= 2
+  383: 
+  384: 
+  385: def _localizar_produto_mapa(cursor, descricao, sku_master=""):
+  386:     descricao_n = normalizar_texto_mapa(descricao)
+  387:     sku_n = normalizar_texto_mapa(sku_master)
+  388: 
+  389:     if not descricao_n and not sku_n:
+  390:         return None
+  391: 
+  392:     # 1) SKU Master exato
+  393:     if sku_n:
+  394:         cursor.execute("""
+  395:             SELECT id, produto_padrao, sku_master, fabricante, categoria
+  396:             FROM produtos
+  397:             WHERE ativo = 1
+  398:               AND UPPER(TRIM(COALESCE(sku_master, ''))) = UPPER(TRIM(?))
+  399:             ORDER BY id
+  400:             LIMIT 1
+  401:         """, (sku_n,))
+  402:         row = cursor.fetchone()
+  403:         if row:
+  404:             return dict(row)
+  405: 
+  406:     # 2) Produto padrÃ£o exato
+  407:     cursor.execute("""
+  408:         SELECT id, produto_padrao, sku_master, fabricante, categoria
+  409:         FROM produtos
+  410:         WHERE ativo = 1
+  411:           AND UPPER(TRIM(COALESCE(produto_padrao, ''))) = UPPER(TRIM(?))
+  412:         ORDER BY id
+  413:         LIMIT 1
+  414:     """, (descricao_n,))
+  415:     row = cursor.fetchone()
+  416:     if row:
+  417:         return dict(row)
+  418: 
+  419:     # 3) DescriÃ§Ã£o original jÃ¡ vinculada em preÃ§o de fornecedor
+  420:     cursor.execute("""
+  421:         SELECT p.id, p.produto_padrao, p.sku_master, p.fabricante, p.categoria
+  422:         FROM precos_fornecedores pf
+  423:         JOIN produtos p ON p.id = pf.produto_id
+  424:         WHERE p.ativo = 1
+  425:           AND UPPER(TRIM(COALESCE(pf.descricao_original, ''))) = UPPER(TRIM(?))
+  426:         ORDER BY p.id
+  427:         LIMIT 1
+  428:     """, (descricao_n,))
+  429:     row = cursor.fetchone()
+  430:     if row:
+  431:         return dict(row)
+  432: 
+  433:     return None
+  434: 
+  435: 
+  436: def _menor_preco_medbox(cursor, produto_id):
+  437:     if not produto_id:
+  438:         return {
+  439:             "menor_preco": 0,
+  440:             "fornecedor": "",
+  441:             "fabricante": "",
+  442:         }
+  443: 
+  444:     cursor.execute("""
+  445:         SELECT 
+  446:             pf.preco,
+  447:             pf.marca,
+  448:             f.nome AS fornecedor
+  449:         FROM precos_fornecedores pf
+  450:         LEFT JOIN fornecedores f ON f.id = pf.fornecedor_id
+  451:         WHERE pf.produto_id = ?
+  452:           AND COALESCE(pf.preco, 0) > 0
+  453:         ORDER BY pf.preco ASC
+  454:         LIMIT 1
+  455:     """, (produto_id,))
+  456:     row = cursor.fetchone()
+  457: 
+  458:     if not row:
+  459:         return {
+  460:             "menor_preco": 0,
+  461:             "fornecedor": "",
+  462:             "fabricante": "",
+  463:         }
+  464: 
+  465:     return {
+  466:         "menor_preco": float(row["preco"] or 0),
+  467:         "fornecedor": row["fornecedor"] or "",
+  468:         "fabricante": row["marca"] or "",
+  469:     }
+  470: 
+  471: 
+  472: def importar_cotacao_cliente_mapa(
+  473:     caminho,
+  474:     cliente_id=None,
+  475:     nome_cliente_novo="",
+  476:     meses_referencia=1,
+  477:     data_referencia="",
+  478:     observacao="",
+  479: ):
+  480:     from openpyxl import load_workbook
+  481:     from werkzeug.utils import secure_filename
+  482: 
+  483:     criar_tabelas_mapa_precos_clientes()
+  484:     garantir_clientes_fixos_mapa()
+  485: 
+  486:     meses_referencia = converter_float_mapa(meses_referencia)
+  487:     if meses_referencia <= 0:
+  488:         meses_referencia = 1
+  489: 
+  490:     if nome_cliente_novo:
+  491:         cliente_id = obter_ou_criar_cliente_mapa(nome_cliente_novo)
+  492:     elif cliente_id:
+  493:         cliente_id = int(cliente_id)
+  494:     else:
+  495:         raise ValueError("Selecione um cliente ou informe um novo cliente.")
+  496: 
+  497:     caminho = Path(caminho)
+  498:     arquivo_origem = secure_filename(caminho.name)
+  499: 
+  500:     wb = load_workbook(caminho, data_only=True, read_only=True)
+  501:     ws = wb.active
+  502: 
+  503:     linhas = list(ws.iter_rows(values_only=True))
+  504:     wb.close()
+  505: 
+  506:     if not linhas:
+  507:         raise ValueError("A planilha estÃ¡ vazia.")
+  508: 
+  509:     melhor_linha_header = None
+  510:     melhor_colunas = None
+  511:     melhor_score = -1
+  512: 
+  513:     for idx, row in enumerate(linhas[:25]):
+  514:         cabecalhos = [str(c or "").strip() for c in row]
+  515:         colunas = _detectar_colunas_cotacao_cliente(cabecalhos)
+  516: 
+  517:         score = 0
+  518:         if colunas["descricao"] is not None:
+  519:             score += 3
+  520:         if colunas["quantidade"] is not None:
+  521:             score += 2
+  522:         if colunas["valor_unitario"] is not None:
+  523:             score += 1
+  524: 
+  525:         if score > melhor_score:
+  526:             melhor_score = score
+  527:             melhor_linha_header = idx
+  528:             melhor_colunas = colunas
+  529: 
+  530:     if not melhor_colunas or melhor_colunas["descricao"] is None or melhor_colunas["quantidade"] is None:
+  531:         raise ValueError(
+  532:             "NÃ£o consegui identificar as colunas de Produto/DescriÃ§Ã£o e Quantidade. "
+  533:             "A planilha precisa ter pelo menos essas duas colunas."
+  534:         )
+  535: 
+  536:     conn = conectar()
+  537:     conn.row_factory = sqlite3.Row
+  538:     cur = conn.cursor()
+  539: 
+  540:     cur.execute("""
+  541:         INSERT INTO cotacoes_clientes_mapa (
+  542:             cliente_id,
+  543:             data_referencia,
+  544:             meses_referencia,
+  545:             arquivo_origem,
+  546:             observacao
+  547:         )
+  548:         VALUES (?, ?, ?, ?, ?)
+  549:     """, (
+  550:         cliente_id,
+  551:         str(data_referencia or "").strip(),
+  552:         meses_referencia,
+  553:         arquivo_origem,
+  554:         str(observacao or "").strip(),
+  555:     ))
+  556: 
+  557:     cotacao_id = cur.lastrowid
+  558: 
+  559:     total_linhas = 0
+  560:     total_importado = 0
+  561:     total_sem_sku = 0
+  562:     erros = []
+  563: 
+  564:     inicio = melhor_linha_header + 1
+  565: 
+  566:     for pos, row in enumerate(linhas[inicio:], start=inicio + 1):
+  567:         if not _linha_util_mapa(row):
+  568:             continue
+  569: 
+  570:         total_linhas += 1
+  571: 
+  572:         def valor_coluna(nome):
+  573:             idx = melhor_colunas.get(nome)
+  574:             if idx is None:
+  575:                 return ""
+  576:             if idx >= len(row):
+  577:                 return ""
+  578:             return row[idx]
+  579: 
+  580:         descricao = normalizar_texto_mapa(valor_coluna("descricao"))
+  581:         sku_master_informado = normalizar_texto_mapa(valor_coluna("sku_master"))
+  582:         categoria_informada = normalizar_texto_mapa(valor_coluna("categoria"))
+  583: 
+  584:         quantidade_total = converter_float_mapa(valor_coluna("quantidade"))
+  585:         valor_unitario = converter_float_mapa(valor_coluna("valor_unitario"))
+  586: 
+  587:         if not descricao:
+  588:             continue
+  589: 
+  590:         if quantidade_total <= 0:
+  591:             erros.append(f"Linha {pos}: quantidade invÃ¡lida para {descricao[:60]}")
+  592:             continue
+  593: 
+  594:         produto = _localizar_produto_mapa(cur, descricao, sku_master_informado)
+  595: 
+  596:         produto_id = None
+  597:         sku_master_final = sku_master_informado
+  598:         categoria_final = categoria_informada
+  599: 
+  600:         if produto:
+  601:             produto_id = produto.get("id")
+  602:             sku_master_final = normalizar_texto_mapa(produto.get("sku_master") or produto.get("produto_padrao") or sku_master_final)
+  603:             categoria_final = normalizar_texto_mapa(produto.get("categoria") or categoria_final)
+  604:         else:
+  605:             total_sem_sku += 1
+  606:             sku_master_final = sku_master_final or ""
+  607: 
+  608:         quantidade_mensal = quantidade_total / meses_referencia
+  609:         valor_total = quantidade_total * valor_unitario
+  610: 
+  611:         cur.execute("""
+  612:             INSERT INTO cotacoes_clientes_mapa_itens (
+  613:                 cotacao_id,
+  614:                 cliente_id,
+  615:                 produto_id,
+  616:                 descricao_original,
+  617:                 sku_master,
+  618:                 categoria,
+  619:                 quantidade_total,
+  620:                 meses_referencia,
+  621:                 quantidade_mensal,
+  622:                 valor_unitario,
+  623:                 valor_total,
+  624:                 arquivo_origem
+  625:             )
+  626:             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  627:         """, (
+  628:             cotacao_id,
+  629:             cliente_id,
+  630:             produto_id,
+  631:             descricao,
+  632:             sku_master_final,
+  633:             categoria_final,
+  634:             quantidade_total,
+  635:             meses_referencia,
+  636:             quantidade_mensal,
+  637:             valor_unitario,
+  638:             valor_total,
+  639:             arquivo_origem,
+  640:         ))
+  641: 
+  642:         total_importado += 1
+  643: 
+  644:     conn.commit()
+  645:     conn.close()
+  646: 
+  647:     return {
+  648:         "cotacao_id": cotacao_id,
+  649:         "cliente_id": cliente_id,
+  650:         "arquivo": arquivo_origem,
+  651:         "meses_referencia": meses_referencia,
+  652:         "total_linhas": total_linhas,
+  653:         "total_importado": total_importado,
+  654:         "total_sem_sku": total_sem_sku,
+  655:         "erros": erros[:20],
+  656:     }
+  657: 
+  658: 
+  659: def listar_cotacoes_mapa_precos(limite=20):
+  660:     criar_tabelas_mapa_precos_clientes()
+  661: 
+  662:     conn = conectar()
+  663:     conn.row_factory = sqlite3.Row
+  664:     cur = conn.cursor()
+  665: 
+  666:     cur.execute("""
+  667:         SELECT
+  668:             cm.id,
+  669:             cm.data_referencia,
+  670:             cm.meses_referencia,
+  671:             cm.arquivo_origem,
+  672:             cm.criado_em,
+  673:             c.nome AS cliente,
+  674:             COUNT(i.id) AS total_itens,
+  675:             COALESCE(SUM(i.quantidade_mensal), 0) AS demanda_mensal
+  676:         FROM cotacoes_clientes_mapa cm
+  677:         JOIN clientes_mapa_precos c ON c.id = cm.cliente_id
+  678:         LEFT JOIN cotacoes_clientes_mapa_itens i ON i.cotacao_id = cm.id
+  679:         GROUP BY cm.id, cm.data_referencia, cm.meses_referencia, cm.arquivo_origem, cm.criado_em, c.nome
+  680:         ORDER BY cm.id DESC
+  681:         LIMIT ?
+  682:     """, (int(limite),))
+  683: 
+  684:     cotacoes = [dict(row) for row in cur.fetchall()]
+  685:     conn.close()
+  686: 
+  687:     for c in cotacoes:
+  688:         c["demanda_mensal_formatada"] = formatar_quantidade_mapa(c.get("demanda_mensal"))
+  689:     return cotacoes
+  690: 
+  691: 
+  692: def mapa_consolidado_vazio():
+  693:     """
+  694:     Fase 2: agora retorna o mapa consolidado real.
+  695:     """
+  696:     criar_tabelas_mapa_precos_clientes()
+  697:     garantir_clientes_fixos_mapa()
+  698: 
+  699:     clientes_colunas = clientes_colunas_mapa()
+  700:     nomes_clientes_colunas = [c["nome"] for c in clientes_colunas]
+  701: 
+  702:     conn = conectar()
+  703:     conn.row_factory = sqlite3.Row
+  704:     cur = conn.cursor()
+  705: 
+  706:     cur.execute("""
+  707:         SELECT
+  708:             i.*,
+  709:             c.nome AS cliente_nome,
+  710:             p.produto_padrao,
+  711:             p.fabricante AS fabricante_produto,
+  712:             p.categoria AS categoria_produto,
+  713:             p.sku_master AS sku_master_produto
+  714:         FROM cotacoes_clientes_mapa_itens i
+  715:         JOIN clientes_mapa_precos c ON c.id = i.cliente_id
+  716:         LEFT JOIN produtos p ON p.id = i.produto_id
+  717:         ORDER BY COALESCE(i.sku_master, i.descricao_original), c.nome
+  718:     """)
+  719:     linhas = [dict(row) for row in cur.fetchall()]
+  720: 
+  721:     grupos = {}
+  722: 
+  723:     for row in linhas:
+  724:         produto_id = row.get("produto_id")
+  725:         chave = f"PID:{produto_id}" if produto_id else "DESC:" + normalizar_texto_mapa(row.get("sku_master") or row.get("descricao_original"))
+  726: 
+  727:         if chave not in grupos:
+  728:             produto_id_ref = produto_id
+  729:             custo = _menor_preco_medbox(cur, produto_id_ref)
+  730: 
+  731:             sku_master = normalizar_texto_mapa(
+  732:                 row.get("sku_master_produto")
+  733:                 or row.get("sku_master")
+  734:                 or row.get("produto_padrao")
+  735:                 or row.get("descricao_original")
+  736:             )
+  737: 
+  738:             categoria = normalizar_texto_mapa(
+  739:                 row.get("categoria_produto")
+  740:                 or row.get("categoria")
+  741:                 or ""
+  742:             )
+  743: 
+  744:             fabricante = normalizar_texto_mapa(
+  745:                 custo.get("fabricante")
+  746:                 or row.get("fabricante_produto")
+  747:                 or ""
+  748:             )
+  749: 
+  750:             menor_preco = float(custo.get("menor_preco") or 0)
+  751:             preco_medbox = menor_preco * 1.8 if menor_preco > 0 else 0
+  752: 
+  753:             grupos[chave] = {
+  754:                 "categoria": categoria,
+  755:                 "descricao": normalizar_texto_mapa(row.get("descricao_original")),
+  756:                 "sku_master": sku_master,
+  757:                 "produto_id": produto_id_ref,
+  758:                 "demanda_mensal_total": 0.0,
+  759:                 "valor_ponderado_total": 0.0,
+  760:                 "quantidade_valor_total": 0.0,
+  761:                 "preco_compra": menor_preco,
+  762:                 "preco_compra_formatado": moeda_br(menor_preco) if menor_preco else "",
+  763:                 "fornecedor": custo.get("fornecedor") or "",
+  764:                 "fabricante": fabricante,
+  765:                 "preco_medbox": preco_medbox,
+  766:                 "preco_medbox_formatado": moeda_br(preco_medbox) if preco_medbox else "",
+  767:                 "clientes": {
+  768:                     nome: {
+  769:                         "quantidade_mensal": 0.0,
+  770:                         "valor_ponderado": 0.0,
+  771:                         "quantidade_valor": 0.0,
+  772:                         "valor_unitario": 0.0,
+  773:                         "valor_unitario_formatado": "",
+  774:                     }
+  775:                     for nome in nomes_clientes_colunas
+  776:                 }
+  777:             }
+  778: 
+  779:         grupo = grupos[chave]
+  780: 
+  781:         qtd_mensal = float(row.get("quantidade_mensal") or 0)
+  782:         valor_unitario = float(row.get("valor_unitario") or 0)
+  783:         cliente_nome = row.get("cliente_nome")
+  784: 
+  785:         grupo["demanda_mensal_total"] += qtd_mensal
+  786: 
+  787:         if valor_unitario > 0 and qtd_mensal > 0:
+  788:             grupo["valor_ponderado_total"] += valor_unitario * qtd_mensal
+  789:             grupo["quantidade_valor_total"] += qtd_mensal
+  790: 
+  791:         if cliente_nome in grupo["clientes"]:
+  792:             cel = grupo["clientes"][cliente_nome]
+  793:             cel["quantidade_mensal"] += qtd_mensal
+  794: 
+  795:             if valor_unitario > 0 and qtd_mensal > 0:
+  796:                 cel["valor_ponderado"] += valor_unitario * qtd_mensal
+  797:                 cel["quantidade_valor"] += qtd_mensal
+  798: 
+  799:     itens = []
+  800: 
+  801:     for grupo in grupos.values():
+  802:         if grupo["quantidade_valor_total"] > 0:
+  803:             preco_medio = grupo["valor_ponderado_total"] / grupo["quantidade_valor_total"]
+  804:         else:
+  805:             preco_medio = 0
+  806: 
+  807:         faturamento = grupo["demanda_mensal_total"] * preco_medio
+  808: 
+  809:         grupo["preco_medio"] = preco_medio
+  810:         grupo["preco_medio_formatado"] = moeda_br(preco_medio) if preco_medio else ""
+  811:         grupo["faturamento"] = faturamento
+  812:         grupo["faturamento_formatado"] = moeda_br(faturamento) if faturamento else ""
+  813:         grupo["demanda_mensal_total_formatada"] = formatar_quantidade_mapa(grupo["demanda_mensal_total"])
+  814: 
+  815:         for nome, cel in grupo["clientes"].items():
+  816:             if cel["quantidade_valor"] > 0:
+  817:                 cel["valor_unitario"] = cel["valor_ponderado"] / cel["quantidade_valor"]
+  818: 
+  819:             cel["quantidade_mensal_formatada"] = (
+  820:                 formatar_quantidade_mapa(cel["quantidade_mensal"])
+  821:                 if cel["quantidade_mensal"] else ""
+  822:             )
+  823:             cel["valor_unitario_formatado"] = (
+  824:                 moeda_br(cel["valor_unitario"])
+  825:                 if cel["valor_unitario"] else ""
+  826:             )
+  827: 
+  828:         itens.append(grupo)
+  829: 
+  830:     conn.close()
+  831: 
+  832:     itens.sort(key=lambda x: (-x["demanda_mensal_total"], x["sku_master"]))
+  833:     return itens

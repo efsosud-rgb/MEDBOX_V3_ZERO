@@ -1,0 +1,14 @@
+===== AJUSTE DICIONÁRIO - FR = FRASCO =====
+
+Data/hora: 2026-06-24 09:29:41
+
+Aliases de empresa FR desativados nesta execução: 0
+Aliases de empresa FR ainda ativos: 0
+Termo técnico FR=FRASCO cadastrado: 1
+Sinônimo técnico FR->FRASCO cadastrado: 1
+
+Banco de produtos alterado: NÃO
+Fabricantes/fornecedores alterados: NÃO
+
+VEREDITO:
+FR_BLOQUEADO_COMO_EMPRESA_E_CADASTRADO_COMO_FRASCO

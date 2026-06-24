@@ -1,0 +1,598 @@
+===== PREVISUALIZACAO GERAL - MOTOR SKU_MASTER =====
+
+Data/hora: 2026-06-24 09:13:46
+Produtos ativos analisados: 10839
+Produtos com sugestao automatica: 120
+Produtos sem sugestao automatica: 10719
+Grupos SKU_MASTER sugeridos: 45
+
+Banco alterado: NAO
+Aplicacao automatica: NAO
+
+===== TOP GRUPOS SUGERIDOS =====
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 7,5MM
+Total itens: 11
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=7,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 8, 'VAZIO': 3}
+Fabricantes nos itens: MEDIX | MEDIX BRASIL - TOP QUALITY | SOLIDOR
+Fabricantes SKU existente: MEDIX | MEDIX BRASIL - TOP QUALITY | SOLIDOR
+Fornecedores encontrados: 1 | 11 | 2
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 7,5MM C/BALAO
+  2. TUBO ENDOTRAQUEAL C/BALAO N7,5MM UN SOLIDOR (ITEM: )
+  3. TUBO ENDOTRAQUEAL 7.5 COM/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 8,0MM
+Total itens: 10
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=8,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 7, 'VAZIO': 3}
+Fabricantes nos itens: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 1 | 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 8,0MM C/BALAO
+  2. TUBO ENDOTRAQUEAL 8.0 COM/BALAO
+  3. SKU PENDENTE - 24638 TUBO ENDOTRAQUEAL 8,0MM C/BALAO TUBO ENDOTRAQUEAL 8,0MM C/BALAO, UN 8 UN
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 8,5MM
+Total itens: 9
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=8,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 6, 'VAZIO': 3}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 1 | 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 8,5MM C/BALAO
+  2. TUBO ENDOTRAQUEAL 8.5 COM/BALAO
+  3. TUBO ENDOTRAQUEAL N 8,5 COM CUFF -
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 7,0MM
+Total itens: 7
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=7,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 4, 'VAZIO': 3}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 7.0 COM/BALAO
+  2. TUBO ENDOTRAQUEAL N 7,0 COM CUFF -
+  3. SONDA ENDOTRAQUEAL C/BALAO Nº 7,0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 3,5MM
+Total itens: 5
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=3,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 3, 'VAZIO': 2}
+Fabricantes nos itens: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 1 | 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 3,5MM S/BALAO
+  2. TUBO ENDOTRAQUEAL 3.5 SEM/BALAO
+  3. TUBO ENDOTRAQUEAL N 3,5 SEM CUFF -
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 5,5MM
+Total itens: 5
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=5,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 3, 'VAZIO': 2}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 5.5 COM/BALAO
+  2. TUBO ENDOTRAQUEAL N 5,5 COM CUFF -
+  3. SONDA ENDOTRAQUEAL C/BALAO Nº 5,5
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 6,0MM
+Total itens: 4
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=6,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 3, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 1 | 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 6,0MM C/BALAO
+  2. TUBO ENDOTRAQUEAL 6.0 COM/BALAO
+  3. TUBO ENDOTRAQUEAL C/BALAO N. 6,0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 9,0MM
+Total itens: 4
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=9,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 3, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 1 | 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 9,0MM C/BALAO
+  2. TUBO ENDOTRAQUEAL 9.0 COM/BALAO
+  3. CANULA ENDOTRAQUEAL COM CUFF N. 9,0. DES. EST. EM PVC, SILICONIZADA, TRANSPARENTE
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 3,5MM
+Total itens: 4
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=3,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 3, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 3.5 COM/BALAO
+  2. TUBO ENDOTRAQUEAL N 3,5 COM CUFF -
+  3. TUBO ENDOTRAQUEAL COM CUFF NUMERO 3,5
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 3,0MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=3,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 3}
+Fabricantes nos itens: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 1 | 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 3,0MM C/BALAO
+  2. TUBO ENDOTRAQUEAL 3.0 COM/BALAO
+  3. TUBO ENDOTRAQUEAL COM CUFF NUMERO 3,0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 4,5MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=4,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 3}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL C/BALAO N4,5MM
+  2. TUBO ENDOTRAQUEAL 4.5 COM/BALAO
+  3. TUBO ENDOTRAQUEAL N 4,5 COM CUFF -
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 4,0MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=4,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 2, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 4.0 COM/BALAO
+  2. TUBO ENDOTRAQUEAL COM CUFF NUMERO 4,0
+  3. TUBO ENDOTRAQUEAL C/BALAO N. 4,0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 5,0MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=5,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1, 'VAZIO': 2}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 5.0 COM/BALAO
+  2. SONDA ENDOTRAQUEAL C/BALAO Nº 5,0
+  3. TUBO ENDOTRAQUEAL C/BALAO N. 5,0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 6,5MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=6,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 2, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 6.5 COM/BALAO
+  2. SONDA ENDOTRAQUEAL C/BALAO Nº 6,5
+  3. TUBO ENDOTRAQUEAL COM BALONETE N° 6,5
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 2,0MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=2,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 2, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 2.0 SEM/BALAO
+  2. TUBO ENDOTRAQUEAL NO 10, 2,0MM ( NO 10, 2,0MM, POLIVINIL, TRANSPARENTE, SEM CUFF, COM CONECTOR UNIVERSAL, ESTERIL, EMBALADO INDIVIDUALMENTE.
+  3. TUBO ENDOTRAQUEAL SEM BALONETE N° 2,0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 2,5MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=2,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 2, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 2.5 SEM/BALAO
+  2. TUBO ENDOTRAQUEAL N 2,5 SEM CUFF -
+  3. TUBO ENDOTRAQUEAL, NO 12, 2,5MM EM CLORETO DE POLIVINIL, DIAMETRO DE 2,5MM OU NUMERO 12, SEM BALONETE, RADIOPACO, SUPERFICIE LISA, PONTA ARREDONDADA, COM CONECTOR UNIVERSAL,ESTERIL, EMBALAGEM INDIVIDUAL.
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 3,0MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=3,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1, 'VAZIO': 2}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 3.0 SEM/BALAO
+  2. TUBO ENDOTRAQUEAL N 3,0 SEM CUFF -
+  3. TUBO ENDOTRAQUEAL SEM BALONETE N° 3.0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 4,0MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=4,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 2, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 4.0 SEM/BALAO
+  2. SONDA ENDOTRAQUEAL S/BALAO Nº 4,0
+  3. TUBO OROTRAQUEAL SEM BALAO POLIVINIL 4,0MM
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 5,5MM
+Total itens: 3
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=5,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 2, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX | MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 5.5 SEM/BALAO
+  2. TUBO ENDOTRAQUEAL S/BALAO N. 5,5
+  3. TUBO OROTRAQUEAL SEM BALAO POLIVINIL 5,5MM
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 5,0MM
+Total itens: 2
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=5,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 5.0 SEM/BALAO
+  2. TUBO ENDOTRAQUEAL S/BALAO N. 5,0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 7,0MM
+Total itens: 2
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=7,0MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 7.0 C/BALAO
+  2. TUBO ENDOTRAQUEAL ARAMADO N 7,0 COM CUFF
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 7,5MM
+Total itens: 2
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=7,5MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 7.5 C/BALAO
+  2. SONDA ENDOTRAQUEAL COM CUFF ARAMADA Nº7,5
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 8,0MM
+Total itens: 2
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=8,0MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1, 'VAZIO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 8.0 C/BALAO
+  2. SONDA ENDOTRAQUEAL COM CUFF ARAMADA Nº8
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 7,0MM
+Total itens: 2
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=7,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1, 'VAZIO': 1}
+Fabricantes nos itens: -
+Fabricantes SKU existente: -
+Fornecedores encontrados: 1
+Menor custo do grupo: 2.36
+Amostras:
+  1. SKU PENDENTE - 23271 TUBO ENDOTRAQUEAL 7,0MM S/BALAO TUBO ENDOTRAQUEAL 7,0MM S/BALAO UN 10 UN
+  2. TUBO ENDOTRAQUEAL S/ BALONETE N° 7,0
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 2,5MM
+Total itens: 1
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=2,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 2.5 COM/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 9,5MM
+Total itens: 1
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=9,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 9.5 COM/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/CUFF 10,0MM
+Total itens: 1
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=10,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.026
+Amostras:
+  1. TUBO ENDOTRAQUEAL 10.0 COM/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 4,5MM
+Total itens: 1
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=4,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 4.5 SEM/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 6,0MM
+Total itens: 1
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=6,0MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 6.0 SEM/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL S/CUFF 6,5MM
+Total itens: 1
+Ja existe no banco: SIM
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=6,5MM | aramado=NAO | aspiracao=NAO
+Status atuais: {'PREENCHIDO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: MEDIX BRASIL - TOP QUALITY
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.022
+Amostras:
+  1. TUBO ENDOTRAQUEAL 6.5 SEM/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/ASPIRACAO C/CUFF 7,0MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=7,0MM | aramado=NAO | aspiracao=SIM
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.079
+Amostras:
+  1. TUBO ENDOTRAQUEAL COM ASPIRACAO 7.0 C/ BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/ASPIRACAO C/CUFF 7,5MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=7,5MM | aramado=NAO | aspiracao=SIM
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.079
+Amostras:
+  1. TUBO ENDOTRAQUEAL COM ASPIRACAO 7.5 C/ BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/ASPIRACAO C/CUFF 8,0MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=8,0MM | aramado=NAO | aspiracao=SIM
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.079
+Amostras:
+  1. TUBO ENDOTRAQUEAL COM ASPIRACAO 8.0 C/ BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/ASPIRACAO C/CUFF 8,5MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=8,5MM | aramado=NAO | aspiracao=SIM
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.079
+Amostras:
+  1. TUBO ENDOTRAQUEAL COM ASPIRACAO 8.5 C/ BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL C/ASPIRACAO C/CUFF 9,0MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=9,0MM | aramado=NAO | aspiracao=SIM
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.079
+Amostras:
+  1. TUBO ENDOTRAQUEAL COM ASPIRACAO 9.0 C/ BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO S/CUFF 3,0MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=3,0MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 3.0 S/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO S/CUFF 3,5MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=3,5MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 3.5 S/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO S/CUFF 4,5MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=S/CUFF | medida=4,5MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 4.5 S/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 5,0MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=5,0MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 5.0 C/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 5,5MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=5,5MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 5.5 C/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 6,0MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=6,0MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 6.0 C/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 6,5MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=6,5MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 6.5 C/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 8,5MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=8,5MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 8.5 C/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 9,0MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=9,0MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 9.0 C/BALAO
+
+SKU_MASTER: TUBO ENDOTRAQUEAL ARAMADO C/CUFF 9,5MM
+Total itens: 1
+Ja existe no banco: NAO
+Assinatura: TUBO ENDOTRAQUEAL | cuff=C/CUFF | medida=9,5MM | aramado=SIM | aspiracao=NAO
+Status atuais: {'IGUAL_DESCRICAO': 1}
+Fabricantes nos itens: MEDIX BRASIL - TOP QUALITY
+Fabricantes SKU existente: -
+Fornecedores encontrados: 11
+Menor custo do grupo: 0.089
+Amostras:
+  1. TUBO ENDOTRAQUEAL ARAMADO 9.5 C/BALAO
+
+CSV detalhe: C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\previsualizacao_motor_sku_master_detalhe.csv
+CSV grupos: C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\previsualizacao_motor_sku_master_grupos.csv
