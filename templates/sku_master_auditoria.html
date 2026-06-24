@@ -698,8 +698,9 @@
     border-radius: 8px;
     background: #ffffff;
     display: none;
-    max-height: 260px;
-    overflow: auto;
+    max-height: 180px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .sku-sugestao-fornecedor-item {
@@ -830,6 +831,60 @@
     margin-top: 6px;
     line-height: 1.35;
 }
+
+.sku-audit-modal-content {
+    max-height: 94vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sku-audit-modal-header {
+    flex: 0 0 auto;
+    padding: 16px 20px;
+}
+
+.sku-audit-modal-form {
+    min-height: 0;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sku-audit-modal-body {
+    min-height: 0;
+    padding: 16px 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.sku-audit-modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    flex: 0 0 auto;
+    padding: 14px 20px;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+    box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 680px) {
+    .sku-audit-modal-footer {
+        align-items: stretch !important;
+        flex-direction: column;
+    }
+
+    .sku-audit-modal-footer > div,
+    .sku-audit-modal-footer button {
+        width: 100%;
+    }
+
+    .sku-audit-modal-footer > div {
+        flex-direction: column;
+    }
+}
 </style>
 
 
@@ -934,13 +989,14 @@
 </section>
 
 <!-- MODAL DE EDIÇÃO -->
-<div id="modal-edicao" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
-    <div class="modal-content" style="background-color:white; margin:5% auto; padding:20px; border-radius:8px; width:600px; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:20px;">
+<div id="modal-edicao" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; padding:3vh 12px; box-sizing:border-box; overflow:hidden; background-color:rgba(0,0,0,0.5);">
+    <div class="modal-content sku-audit-modal-content" style="background-color:white; margin:0 auto; padding:0; border-radius:8px; width:min(600px, 100%); box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <div class="sku-audit-modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee;">
             <h3 style="margin:0;">Editar Produto <span id="modal-produto-id"></span></h3>
             <button onclick="fecharModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
         </div>
-        <form id="form-edicao">
+        <form id="form-edicao" class="sku-audit-modal-form">
+            <div class="sku-audit-modal-body">
             <input type="hidden" id="edit-id">
             <input type="hidden" id="edit-sku-master-original">
             <input type="hidden" id="edit-fabricante-original">
@@ -1024,7 +1080,8 @@
                     <div style="margin-top:8px; font-weight:700; font-size:0.75rem; color:#64748b;" id="cascata-total"></div>
                 </div>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            </div>
+            <div class="sku-audit-modal-footer" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
                 <button type="button" class="btn-primary" style="background:#dc2626;" onclick="excluirProdutoPermanente()">Excluir Produto Permanentemente</button>
                 <div style="display:flex; gap:10px;">
                     <button type="button" onclick="fecharModal()" class="btn-primary" style="background:#6b7280;">Cancelar</button>
