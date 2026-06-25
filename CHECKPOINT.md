@@ -1,12 +1,12 @@
 # CHECKPOINT MEDBOX_V3_ZERO
 
 ## Estado atual
-- Data/hora: 2026-06-25 08:20:02 -03:00
+- Data/hora: 2026-06-25 08:31:21 -03:00
 - Agente em uso: Codex
 - Branch: melhoria/auditoria-sku-master-todos-produtos
-- Tarefa atual: preparar script seguro para correcao futura das marcas invalidas em precos_fornecedores
-- Status: script criado; APPLY nao executado; DRY-RUN bloqueado por ausencia do comando `python` no PATH
-- Status Git antes desta rodada: `CHECKPOINT.md` modificado e `.claude/` nao rastreado
+- Tarefa atual: validacao pos-apply da correcao de marcas invalidas em `precos_fornecedores.marca`
+- Status: validacao pos-apply executada; banco nao alterado nesta validacao
+- Status Git observado: `.claude/` e `backups/` nao rastreados
 
 ## Regras inviolaveis
 - Nunca alterar banco sem backup previo.
@@ -16,10 +16,10 @@
 - Precos antigos vao para precos_fornecedores_historico.
 - Nao misturar fornecedor com fabricante/marca.
 - Nao fazer patch as cegas: diagnosticar antes.
-- Nao executar `--apply` nesta tarefa.
+- Nao mexer nos 13 registros `SR` / `S R` nesta etapa.
+- Nao adicionar `backups/` ao Git.
 
 ## Arquivos permitidos nesta tarefa
-- scripts/correcoes/corrigir_marcas_invalidas_precos.py
 - CHECKPOINT.md
 
 ## Arquivos proibidos nesta tarefa
@@ -28,64 +28,52 @@
 - backups/
 - descricao_original
 - historico de precos
-- arquivos fora do escopo da tarefa
+- arquivos fora do escopo da validacao
 
-## O que ja foi feito
-- AGENTS.md, CLAUDE.md, RETOMAR.md e CHECKPOINT.md lidos antes da alteracao.
-- `git status --short` executado antes da alteracao.
-- Criado `scripts/correcoes/corrigir_marcas_invalidas_precos.py`.
-- Configurado DRY-RUN como modo padrao, sem conexao de escrita.
-- Configurado APPLY futuro para exigir `--apply --confirmar`, branch correta e Git limpo.
-- Configurada contagem obrigatoria de exatamente 89 registros.
-- Configurado bloqueio explicito de `SR` e `S R`.
-- Configuradas validacoes de existencia de CSV/banco, IDs, produto_id e marca atual.
-- Configurado `NOVO_VALOR_MARCA = None`, documentado como SQL NULL pendente de validacao humana.
-- Configurados backup SQLite em `backups/` e CSV de auditoria com timestamp para APPLY futuro.
-- Reconciliados por leitura independente os 89 registros do CSV com os 89 registros atuais do banco.
+## Contexto do APPLY executado fora desta validacao
+- Comando informado pelo usuario: `python scripts\correcoes\corrigir_marcas_invalidas_precos.py --apply --confirmar`
+- Backup informado: `backups\medbox_v3_antes_marcas_invalidas_20260625_082639.db`
+- Auditoria informada: `backups\auditoria_marcas_invalidas_20260625_082639.csv`
+- Registros atualizados no APPLY informado: 89
 
-## O que falta fazer
-- Executar o DRY-RUN em ambiente com comando `python` disponivel.
-- Validar o resultado do DRY-RUN antes de qualquer autorizacao futura de APPLY.
-- Decidir explicitamente se `NOVO_VALOR_MARCA = None` sera mantido.
-- Nenhuma correcao de banco esta autorizada nesta etapa.
+## Validacao pos-apply executada
+- Backup confirmado como existente: `backups\medbox_v3_antes_marcas_invalidas_20260625_082639.db`
+- Auditoria confirmada como existente: `backups\auditoria_marcas_invalidas_20260625_082639.csv`
+- Auditoria possui exatamente 89 registros de dados.
+- Os 89 `preco_id` auditados foram encontrados no banco.
+- 89 registros auditados estao com `marca IS NULL`.
+- 0 registros auditados permanecem com `marca` preenchida.
+- Marcas suspeitas restantes em `precos_fornecedores.marca`: somente `SR`.
+- Restam exatamente 13 registros `SR` / `S R`.
+- `UN`, `U N`, `RL`, `PR`, `PT`, `CX`, `FL`, `GL`, `KT` e `MT` nao aparecem mais em `precos_fornecedores.marca`.
 
-## Arquivos alterados
-- scripts/correcoes/corrigir_marcas_invalidas_precos.py
-- CHECKPOINT.md
+## Comandos executados nesta validacao
+- `git status --short`
+- `Test-Path backups\medbox_v3_antes_marcas_invalidas_20260625_082639.db`
+- `Test-Path backups\auditoria_marcas_invalidas_20260625_082639.csv`
+- `Import-Csv -Delimiter ';' -Path backups\auditoria_marcas_invalidas_20260625_082639.csv | Measure-Object`
+- Consulta SQLite somente leitura via Node `node:sqlite` sobre `banco\medbox_v3.db`
 
-## Comandos executados
-- `git status --short` antes da tarefa.
-- Leitura de AGENTS.md, CLAUDE.md, RETOMAR.md e CHECKPOINT.md.
-- `python scripts/correcoes/corrigir_marcas_invalidas_precos.py` sem argumentos.
-- Nova tentativa em 2026-06-25: mesmo comando solicitado, bloqueado porque `python` nao esta disponivel no PATH.
-- Consultas independentes somente leitura via `node:sqlite` para reconciliacao.
-- `git diff --check`, `git diff --name-only -- banco` e `git check-ignore -v`.
+## Resultado das consultas
+- Linhas de auditoria: 89
+- `preco_id` unicos na auditoria: 89
+- Registros encontrados no banco para a auditoria: 89
+- `preco_id` auditados ausentes no banco: 0
+- Auditados com `marca NULL`: 89
+- Auditados ainda com `marca` preenchida: 0
+- Suspeitos restantes por marca: `SR` = 13
+- Suspeitos de alta confianca restantes (`UN`, `U N`, `RL`, `PR`, `PT`, `CX`, `FL`, `GL`, `KT`, `MT`): 0
 
-## Testes executados
-- Tentativa do DRY-RUN pelo comando Python solicitado.
-- Validacao independente de 89 registros selecionados no CSV.
-- Validacao de 89 `preco_id` unicos.
-- Confirmacao de que nenhum registro SR/S R entrou no conjunto.
-- Reconciliacao de `preco_id`, `produto_id` e `marca_preco_atual` com o banco.
-- Verificacao estatica das protecoes de branch, Git limpo, backup, auditoria e confirmacao dupla.
-- Comparacao de tamanho e data de modificacao do banco antes/depois.
-
-## Resultado dos testes
-- O comando Python nao iniciou: `python` nao esta disponivel no PATH desta sessao.
-- Nova tentativa em 2026-06-25 confirmou o mesmo bloqueio de ambiente.
-- Nenhuma linha do script foi executada pelo interpretador Python nesta sessao.
-- Validacao independente: 89 registros, IDs unicos, zero SR/S R e zero divergencias com o banco.
-- Totais por marca: UN 64, U N 2, RL 12, PR 3, PT 1, CX 1, FL 1, GL 1, KT 1, MT 3.
-- Banco permaneceu inalterado.
-- Nenhum UPDATE, INSERT, DELETE, DROP, ALTER ou CREATE foi executado.
-- APPLY nao foi executado.
+## Confirmacoes
+- Banco nao foi alterado nesta validacao.
+- Nenhum `UPDATE`, `INSERT`, `DELETE`, `DROP`, `ALTER` ou `CREATE` foi executado nesta validacao.
+- Nenhum commit foi feito.
+- `backups/` apareceu como nao rastreado e nao foi adicionado ao Git.
 
 ## Riscos / observacoes
-- O DRY-RUN real ainda precisa ser executado onde Python esteja disponivel.
-- O script contem o UPDATE futuro, mas ele esta isolado no caminho protegido por `--apply --confirmar`.
-- O arquivo corresponde ao padrao local ignorado `corrigir_*.py` em `.git/info/exclude`; por isso nao aparece no `git status`. Para rastrea-lo futuramente sera necessario revisar essa exclusao ou usar `git add -f`, sem fazer isso nesta tarefa.
-- O Git esta propositalmente sujo durante o desenvolvimento; o APPLY futuro abortara ate que esteja limpo.
-- `.claude/` continua nao rastreado e nao foi alterado.
+- `backups/` deve permanecer fora do Git. Se necessario, adicionar `backups/` ao `.git/info/exclude` local, sem commit.
+- Os 13 registros `SR` / `S R` ainda exigem revisao manual antes de qualquer decisao.
+- A coluna `fornecedor` nao existe diretamente em `precos_fornecedores` neste schema; exemplos de `SR` foram validados por `id`, `produto_id` e `marca`.
 
 ## Proximo passo recomendado
-- Em PowerShell com Python disponivel, executar `python scripts\correcoes\corrigir_marcas_invalidas_precos.py` e revisar o DRY-RUN. Nao usar `--apply` antes de nova autorizacao explicita.
+- Revisao manual dos 13 registros `SR` / `S R`, sem aplicar correcao automatica.
