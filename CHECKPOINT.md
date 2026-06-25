@@ -1,11 +1,11 @@
 # CHECKPOINT MEDBOX_V3_ZERO
 
 ## Estado atual
-- Data/hora: 2026-06-25 08:46:00 -03:00
+- Data/hora: 2026-06-25 09:12:53 -03:00
 - Agente em uso: Codex
 - Branch: melhoria/auditoria-sku-master-todos-produtos
-- Tarefa atual: criar script seguro dry-run para aplicar a decisao aprovada dos 13 registros `SR` / `S R`
-- Status: script criado; DRY-RUN executado com sucesso via `py`; APPLY nao executado
+- Tarefa atual: aplicar de forma controlada a correcao aprovada dos 13 registros `SR` / `S R` em `precos_fornecedores.marca`
+- Status: APPLY executado com sucesso; validacao pos-apply concluida; commit ainda nao realizado
 
 ## Regras inviolaveis
 - Nunca alterar banco sem backup previo.
@@ -15,93 +15,81 @@
 - Precos antigos vao para precos_fornecedores_historico.
 - Nao misturar fornecedor com fabricante/marca.
 - Nao fazer patch as cegas: diagnosticar antes.
-- Nao aplicar correcao automatica nos 13 registros `SR` / `S R` nesta etapa.
 - Nao mexer nos precos.
 - Nao alterar `produtos.fabricante`.
 - Nao alterar historico de precos.
+- Nao adicionar `backups/` ao Git.
+- Nao adicionar `.claude/` ao Git.
 - Nao fazer commit nesta etapa.
 
 ## Arquivos permitidos nesta tarefa
-- scripts/correcoes/corrigir_sr_precos.py
 - CHECKPOINT.md
 
 ## Arquivos proibidos nesta tarefa
-- banco/
 - uploads/
-- backups/
 - descricao_original
 - historico de precos
-- arquivos fora do escopo do script/checkpoint
+- produtos.fabricante
+- precos
+- arquivos fora do escopo da validacao/checkpoint
 
 ## Contexto anterior
-- A limpeza automatica das 89 marcas invalidas de alta confianca foi aplicada e validada.
-- Restaram 13 registros com `SR` / `S R`.
-- Foi criado e commitado `scripts/diagnosticos/decisao_manual_sr.csv`.
-- O usuario aprovou a Opcao A:
-  - 4 registros devem confirmar `marca = SALDANHA RODRIGUES`.
-  - 9 registros devem remover `SR` como marca invalida, gravando `marca = NULL` em APPLY futuro.
+- O script `scripts/correcoes/corrigir_sr_precos.py` foi criado, validado em DRY-RUN e commitado em `cc59084`.
+- Decisao aprovada:
+  - `1025`, `1026`, `1027`, `1028`: confirmar `marca = SALDANHA RODRIGUES`.
+  - `1022`, `1030`, `1031`, `1032`, `1034`, `1036`, `1037`, `1038`, `1041`: remover `SR`, gravando `marca = NULL`.
 
-## Tarefa executada
-- Criado arquivo: `scripts/correcoes/corrigir_sr_precos.py`
-- O script roda por padrao em DRY-RUN.
-- O script le `scripts/diagnosticos/decisao_manual_sr.csv`.
-- O script exige exatamente 13 registros.
-- O script exige decisao_usuario vazia ou compativel com a decisao aprovada.
-- O script valida exatamente 4 registros para `SALDANHA RODRIGUES` e 9 registros para `NULL`.
-- O script valida existencia dos 13 `preco_id` no banco.
-- O script valida que os 13 ainda estao com marca compactada `SR`.
-- O script valida que `produto_id` no banco bate com o CSV.
-- O script valida que os 4 registros de SALDANHA têm `fabricante_produto = SALDANHA RODRIGUES`.
-- O script valida que os 9 registros para NULL têm fabricante diferente de SALDANHA RODRIGUES.
-- O caminho APPLY futuro exige `--apply --confirmar`, bloqueia Git sujo, cria backup, gera auditoria, usa transacao, atualiza somente por `preco_id` e marca antiga compactada `SR`, e exige `rowcount = 1`.
+## Dry-run final antes do APPLY
+- Comando inicial no sandbox: `py scripts\correcoes\corrigir_sr_precos.py`
+- Resultado no sandbox: `py` nao disponivel.
+- Comando executado fora do sandbox: `py scripts\correcoes\corrigir_sr_precos.py`
+- Resultado do DRY-RUN:
+  - Registros validados: 13
+  - Atualizariam para `SALDANHA RODRIGUES`: 4
+  - Atualizariam para `NULL`: 9
+  - Confirmacao do script: nenhum UPDATE foi executado; banco aberto somente leitura.
 
-## Resultado do DRY-RUN solicitado
-- Comando executado: `python scripts\correcoes\corrigir_sr_precos.py`
-- Resultado: o comando nao iniciou porque `python` nao esta disponivel no PATH desta sessao.
-- Comando executado em seguida: `py scripts\correcoes\corrigir_sr_precos.py`
-- Resultado: DRY-RUN executado com sucesso fora do sandbox, sem `--apply`.
-- Registros validados: 13
-- Atualizariam para `SALDANHA RODRIGUES`: 4 (`1025`, `1026`, `1027`, `1028`)
-- Atualizariam para `NULL`: 9 (`1022`, `1030`, `1031`, `1032`, `1034`, `1036`, `1037`, `1038`, `1041`)
-- Confirmacao do script: nenhum UPDATE foi executado; banco aberto somente leitura.
-- Nenhum `--apply` foi executado.
+## APPLY executado
+- Comando executado: `py scripts\correcoes\corrigir_sr_precos.py --apply --confirmar`
+- Backup criado: `backups\medbox_v3_antes_correcao_sr_20260625_091200.db`
+- Auditoria criada: `backups\auditoria_correcao_sr_20260625_091200.csv`
+- Registros atualizados: 13
 
-## Validacao independente somente leitura
-- CSV lido: `scripts/diagnosticos/decisao_manual_sr.csv`
-- Total de registros no CSV: 13
-- Decisao usuario vazia: 13
-- Registros para `SALDANHA RODRIGUES`: 4
-- Registros para `NULL`: 9
-- IDs para `SALDANHA RODRIGUES`: `1025`, `1026`, `1027`, `1028`
-- IDs para `NULL`: `1022`, `1030`, `1031`, `1032`, `1034`, `1036`, `1037`, `1038`, `1041`
-- Registros encontrados no banco em leitura: 13
-- Divergencias de `produto_id` ou marca atual: 0
+## Validacao pos-apply
+- Backup existe e tem tamanho maior que zero: 9.334.784 bytes.
+- Auditoria existe.
+- Auditoria possui 13 registros de dados.
+- Registros com `marca = SALDANHA RODRIGUES`: `1025`, `1026`, `1027`, `1028`.
+- Registros com `marca IS NULL`: `1022`, `1030`, `1031`, `1032`, `1034`, `1036`, `1037`, `1038`, `1041`.
+- Registros `SR` / `S R` restantes em `precos_fornecedores.marca`: 0.
+- Marcas suspeitas restantes (`UN`, `U N`, `RL`, `PR`, `PT`, `CX`, `FL`, `GL`, `KT`, `MT`): 0.
+- Marcas suspeitas totais restantes no conjunto verificado (`UN`, `U N`, `SR`, `S R`, `RL`, `PR`, `PT`, `CX`, `FL`, `GL`, `KT`, `MT`): 0.
 
 ## Comandos executados nesta etapa
-- `git status --short`
-- `Import-Csv -Delimiter ';' -Path scripts\diagnosticos\decisao_manual_sr.csv | Select-Object ... | ConvertTo-Json`
-- `python scripts\correcoes\corrigir_sr_precos.py`
 - `py scripts\correcoes\corrigir_sr_precos.py`
+- `py scripts\correcoes\corrigir_sr_precos.py --apply --confirmar`
+- `Get-Item backups\medbox_v3_antes_correcao_sr_20260625_091200.db | Select-Object FullName,Length`
+- `Test-Path backups\auditoria_correcao_sr_20260625_091200.csv`
+- `Import-Csv -Delimiter ';' -Path backups\auditoria_correcao_sr_20260625_091200.csv | Measure-Object`
 - Consulta SQLite somente leitura via Node `node:sqlite` sobre `banco\medbox_v3.db`
-- `git diff --stat`
-- `git diff --check`
-- `git check-ignore -v scripts\correcoes\corrigir_sr_precos.py`
+- `git status --short`
 - `Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"`
 
 ## Confirmacoes
-- Banco nao foi alterado nesta etapa.
-- Nenhum `UPDATE`, `INSERT`, `DELETE`, `DROP`, `ALTER` ou `CREATE` foi executado nesta etapa.
-- Nenhum commit foi feito nesta etapa.
-- Nenhuma correcao foi aplicada aos 13 registros `SR` / `S R`.
-- Precos nao foram alterados.
+- Backup foi criado antes da alteracao pelo script.
+- Auditoria foi criada pelo script.
 - `descricao_original` nao foi alterada.
 - `produtos.fabricante` nao foi alterado.
+- Precos nao foram alterados.
 - Historico de precos nao foi alterado.
+- `backups/` nao foi adicionado ao Git.
+- `.claude/` nao foi adicionado ao Git.
+- Nenhum commit foi feito nesta etapa.
 
 ## Riscos / observacoes
-- O DRY-RUN real do script foi executado com sucesso via `py`.
-- O script contem comandos de UPDATE apenas no caminho futuro protegido por `--apply --confirmar`; esse caminho nao foi executado.
-- O arquivo `scripts/correcoes/corrigir_sr_precos.py` segue ignorado por regra local `corrigir_*.py` em `.git/info/exclude`; se for necessario versionar futuramente, revisar isso explicitamente.
+- O banco foi alterado somente pelo APPLY explicitamente autorizado, restrito aos 13 `preco_id` aprovados.
+- `backups/` deve permanecer fora do Git.
+- A validacao pos-apply nao encontrou marcas suspeitas restantes no conjunto monitorado.
 
 ## Proximo passo recomendado
-- Se o usuario aprovar uma etapa futura, planejar APPLY controlado com `py scripts\correcoes\corrigir_sr_precos.py --apply --confirmar`, somente apos nova autorizacao explicita e com Git limpo.
+- Revisar o `CHECKPOINT.md` e, se aprovado, commitar apenas o registro da aplicacao/validacao pos-apply em uma etapa separada.
