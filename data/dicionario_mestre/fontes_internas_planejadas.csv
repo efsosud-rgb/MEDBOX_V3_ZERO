@@ -1,0 +1,12 @@
+fonte_nome;tipo_fonte;tabela_ou_arquivo;campos_relevantes;uso_no_dicionario;status;observacao
+produtos;interna;tabela SQLite produtos;sku_master;descricao_padrao;fabricante;categoria;ativo;base confiavel para acertos e propagacao;planejada;fonte interna primaria do projeto
+precos_fornecedores;interna;tabela SQLite precos_fornecedores;marca;fornecedor;preco;data_importacao;base para rastrear marca e origem;planejada;usar apenas para validacao e rastreio
+equivalencias;interna;tabela SQLite equivalencias;descricao_equivalente;produto_padrao;sku_master;apoio a equivalencias aprovadas;planejada;sem inferencia automatica
+dicionario_termos;interna;tabela SQLite dicionario_termos;termo;padrao;tipo;sinonimos;base terminologica interna;planejada;insumo de normalizacao textual
+dicionario_sinonimos;interna;tabela SQLite dicionario_sinonimos;termo_original;termo_padrao;tipo;base de sinonimos internos;planejada;insumo de mapeamento
+sku_master_regras;interna;tabela SQLite sku_master_regras;regra;prioridade;acao;base de regras ja aprovadas;planejada;regras de seguranca e padronizacao
+uploads/SKU_MASTER_2_0.xlsx;interna;arquivo Excel;Descricao do Produto;SKU_MASTER;MARCA;CATEGORIA;base de acertos historicos;planejada;fonte interna confiavel de partida
+uploads/PRODUTOS.xlsx;interna;arquivo Excel;BASE DE PRODUTOS;base de referencia inicial;planejada;fonte interna de apoio para nomes padrao
+scripts/diagnosticos/lote_piloto_normalizacao_sku_master.csv;interna;CSV diagnostico;produto_id;descricao_atual;sku_master_sugerido;score;amostra aprovada para analise humana;planejada;lote piloto validado
+scripts/diagnosticos/revisao_amostras_normalizacao_sku_master.txt;interna;TXT diagnostico;risco;recomendacao;seguranca;analise humana das amostras;planejada;criterios de risco e lote seguro
+backups/auditoria_lote_piloto_sku_master_20260625_112310.csv;interna;CSV auditoria;produto_id;sku_master_antigo;sku_master_novo;trilha do APPLY aprovado;planejada;auditoria de aplicacao controlada

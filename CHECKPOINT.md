@@ -368,3 +368,122 @@ Data: 2026-06-25
 ## Proximo passo recomendado
 - Validar e commitar o script dry-run e o CHECKPOINT.md.
 - Depois, se o usuario aprovar, executar novamente dry-run final antes de qualquer APPLY.
+
+# Checkpoint - Aplicacao controlada do lote piloto SKU_MASTER
+
+Data: 2026-06-25
+
+## Tarefa executada
+- Aplicacao controlada do lote piloto de 50 normalizacoes SKU_MASTER.
+- Script usado:
+  - `scripts/correcoes/aplicar_lote_piloto_sku_master.py`
+- Lote aplicado:
+  - `scripts/diagnosticos/lote_piloto_normalizacao_sku_master.csv`
+
+## Resultado do dry-run final
+- Total de linhas validadas: 50.
+- Produtos que seriam atualizados: 50.
+- Campo alvo futuro: `produtos.sku_master`.
+- Nenhum `UPDATE` foi executado no dry-run.
+- Banco aberto somente leitura no dry-run.
+- `--apply` nao foi executado no dry-run.
+
+## Resultado do APPLY
+- Comando executado:
+  - `py scripts\correcoes\aplicar_lote_piloto_sku_master.py --apply --confirmar`
+- Backup criado:
+  - `backups/medbox_v3_antes_lote_piloto_sku_master_20260625_112310.db`
+- Auditoria criada:
+  - `backups/auditoria_lote_piloto_sku_master_20260625_112310.csv`
+- Registros atualizados: 50.
+
+## Validacao pos-apply
+- Backup existe e tem tamanho maior que zero: OK.
+- Auditoria existe: OK.
+- Auditoria possui 50 registros de dados: OK.
+- Os 50 `produto_id` agora estao com `sku_master` igual ao `sku_master_sugerido` do lote: OK.
+- `descricao_original` nao foi alterada: OK.
+- `produtos.fabricante` nao foi alterado: OK.
+- Categoria nao foi alterada: OK.
+- Precos nao foram alterados: OK.
+- Historico de precos nao foi alterado: OK.
+- Comparacao com o backup mostrou:
+  - `produtos` sem divergencias em colunas fora de `sku_master`.
+  - nenhuma diferenca de contagem entre tabelas do backup e do banco atual.
+
+## Confirmacoes
+- Banco nao foi alterado fora do APPLY controlado aprovado.
+- Nenhum SQL de escrita foi executado fora do APPLY controlado aprovado.
+- Nenhuma correção adicional foi aplicada.
+- `backups/` nao foi adicionado ao Git.
+- `.claude/` nao foi adicionado ao Git.
+- Nenhum commit foi feito nesta etapa.
+
+## Proximo passo recomendado
+- Validacao funcional e visual do sistema com o lote piloto aplicado, antes de qualquer expansao para outros lotes.
+
+# Checkpoint - Dicionario Mestre MEDBOX
+
+Data: 2026-06-25
+
+## Mudanca de direcao
+- A prioridade arquitetural mudou para o Dicionario Mestre MEDBOX hibrido.
+- Nao aplicar novos lotes SKU_MASTER agora.
+- Claude fica reservado apenas se o Codex travar ou bater limite.
+- Nenhum agente paralelo foi acionado nesta tarefa.
+
+## Estrutura criada
+- `data/dicionario_mestre/`
+- `data/dicionario_mestre/fontes/`
+- `data/dicionario_mestre/bruto/`
+- `data/dicionario_mestre/processado/`
+- `data/dicionario_mestre/interno/`
+- `data/dicionario_mestre/externo/`
+- `scripts/dicionario_mestre/`
+
+## Arquivos criados
+- `data/dicionario_mestre/README_FONTES.md`
+- `data/dicionario_mestre/dicionario_mestre_medbox.csv`
+- `data/dicionario_mestre/dicionario_mestre_medicamentos.csv`
+- `data/dicionario_mestre/dicionario_mestre_produtos_saude.csv`
+- `data/dicionario_mestre/sinonimos_tecnicos.csv`
+- `data/dicionario_mestre/abreviacoes_tecnicas.csv`
+- `data/dicionario_mestre/fabricantes_marcas.csv`
+- `data/dicionario_mestre/fontes_internas_planejadas.csv`
+- `data/dicionario_mestre/fontes_externas_planejadas.csv`
+- `scripts/dicionario_mestre/README.md`
+
+## Fontes internas planejadas
+- `produtos`
+- `precos_fornecedores`
+- `equivalencias`
+- `dicionario_termos`
+- `dicionario_sinonimos`
+- `sku_master_regras`
+- `uploads/SKU_MASTER_2_0.xlsx`
+- `uploads/PRODUTOS.xlsx`
+- `scripts/diagnosticos/lote_piloto_normalizacao_sku_master.csv`
+- `scripts/diagnosticos/revisao_amostras_normalizacao_sku_master.txt`
+- `backups/auditoria_lote_piloto_sku_master_20260625_112310.csv`
+
+## Fontes externas planejadas
+- ANVISA DCB
+- ANVISA Medicamentos Registrados
+- Bulario Eletronico ANVISA
+- ANVISA Produtos para Saude
+- WHO ATC/DDD
+- FDA AccessGUDID
+- Catalogos oficiais de fabricantes
+- Compendios tecnicos de produtos hospitalares
+
+## Confirmacoes desta tarefa
+- Banco nao foi alterado.
+- Nenhum `UPDATE`, `INSERT`, `DELETE`, `DROP`, `ALTER` ou `CREATE` foi executado.
+- Nenhum novo lote foi aplicado.
+- Nenhum dado ficticio foi inserido nos CSVs principais.
+- Nenhum arquivo de `backups/` foi alterado.
+- Nenhum arquivo de `.claude/` foi alterado.
+- Nenhum commit foi feito.
+
+## Proximo passo recomendado
+- Preencher as fontes externas de forma rastreavel e com validacao humana antes de qualquer mesclagem com o dicionario interno.

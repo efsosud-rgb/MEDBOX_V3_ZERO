@@ -1,0 +1,9 @@
+fonte_nome;tipo_fonte;categoria;url_base;uso_no_dicionario;status;observacao
+ANVISA DCB;externa;medicamentos;https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/cmed;padrao de nomes e principios ativos;planejada;coleta futura
+ANVISA Medicamentos Registrados;externa;medicamentos;https://consultas.anvisa.gov.br/#/medicamentos/;validacao de nomes e registros;planejada;coleta futura
+Bulario Eletronico ANVISA;externa;medicamentos;https://consultas.anvisa.gov.br/#/bulario/;confirmacao de apresentacoes e concentracoes;planejada;coleta futura
+ANVISA Produtos para Saude;externa;produtos para saude;https://consultas.anvisa.gov.br/#/produtos/;validacao de itens de saude;planejada;coleta futura
+WHO ATC/DDD;externa;medicamentos;https://www.whocc.no/atc_ddd_index/;classificacao terapeutica;planejada;coleta futura
+FDA AccessGUDID;externa;dispositivos medicos;https://accessgudid.nlm.nih.gov/;apoio a dispositivos e identificadores;planejada;coleta futura
+Catalogos oficiais de fabricantes;externa;fabricantes;https://;validacao de nomes de fabricante e marca;planejada;coleta futura
+Compendios tecnicos de produtos hospitalares;externa;produtos hospitalares;https://;padrao tecnico de nomes e atributos;planejada;coleta futura
