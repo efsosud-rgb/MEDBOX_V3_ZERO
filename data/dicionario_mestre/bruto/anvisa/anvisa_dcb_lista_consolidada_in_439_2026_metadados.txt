@@ -1,0 +1,18 @@
+fonte: ANVISA DCB
+orgao: ANVISA / Farmacopeia Brasileira
+pagina_oficial_gov_br: https://www.gov.br/anvisa/pt-br/assuntos/farmacopeia/dcb
+pagina_biblioteca_digital: https://bibliotecadigital.anvisa.gov.br/jspui/handle/anvisa/20673
+titulo: Lista consolidada das DCB: versao IN no 439, de 16 de abril de 2026 - VIGENTE
+versao: IN no 439/2026
+data_da_in: 16 de abril de 2026
+publicacao_dou: DOU no 74, de 22 de abril de 2026 - Secao 1 - p.241
+status: VIGENTE
+alteracoes_na_versao: 15 novas DCBs incluidas; 1 alteracao (CAS glicose monoidratada atualizado de 14431-43-7 para 77938-63-7)
+data_hora_captura: 2026-06-25T14:47:16 (horario local Windows)
+nome_arquivo_bruto: anvisa_dcb_lista_consolidada_in_439_2026_original.xlsx
+extensao_formato: .xlsx (Microsoft Excel XML / OpenXML)
+tamanho_bytes: 588227
+url_bitstream_origem: https://bibliotecadigital.anvisa.gov.br/jspui/bitstream/anvisa/20673/3/1-%20Lista%20DCB%20consolidada%20abr%202026.xlsx
+nome_original_servidor: 1- Lista DCB consolidada abr 2026.xlsx
+link_legislacao_anvisa: https://anvisalegis.datalegis.net/action/UrlPublicasAction.php?acao=abrirAtoPublico&num_ato=00000439&sgl_tipo=INM&sgl_orgao=ANVISA/MS&vlr_ano=2026&seq_ato=222&cod_modulo=310&cod_menu=9428
+observacao: Arquivo bruto preservado sem edicao manual, sem processamento e sem mesclagem no dicionario final.

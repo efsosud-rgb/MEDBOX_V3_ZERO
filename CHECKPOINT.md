@@ -563,3 +563,105 @@ Data: 2026-06-25
 - `app.py`, `core/`, `templates/`, `uploads/`, `backups/`, `.claude/` e arquivos `.db`
   nao foram alterados.
 - Nenhum commit foi feito.
+
+# Checkpoint - FASE 1 — ANVISA DCB — Captura do arquivo bruto oficial
+
+Data: 2026-06-25
+
+## Fonte capturada
+- ANVISA DCB — Lista Consolidada das Denominacoes Comuns Brasileiras
+- Versao vigente: IN no 439, de 16 de abril de 2026 — VIGENTE
+- Publicacao DOU: no 74, de 22 de abril de 2026 — Secao 1 — p.241
+- Alteracoes da versao: 15 novas DCBs incluidas; 1 alteracao (CAS da glicose monoidratada)
+
+## URLs validadas
+- Pagina oficial gov.br: https://www.gov.br/anvisa/pt-br/assuntos/farmacopeia/dcb (HTTP 200, confirma Lista Consolidada DCB)
+- Biblioteca Digital ANVISA handle 20673: https://bibliotecadigital.anvisa.gov.br/jspui/handle/anvisa/20673 (acessada via curl com User-Agent de browser — HTTP 200)
+- Bitstream origem: https://bibliotecadigital.anvisa.gov.br/jspui/bitstream/anvisa/20673/3/1-%20Lista%20DCB%20consolidada%20abr%202026.xlsx (HTTP 200 — download concluido)
+
+## Arquivo bruto salvo
+- Caminho: data/dicionario_mestre/bruto/anvisa/anvisa_dcb_lista_consolidada_in_439_2026_original.xlsx
+- Formato: Microsoft Excel XML (.xlsx)
+- Tamanho: 588.227 bytes (574,4 kB)
+- Nome original no servidor: 1- Lista DCB consolidada abr 2026.xlsx
+- Conteudo preservado sem edicao manual
+
+## Metadados gerados
+- data/dicionario_mestre/bruto/anvisa/anvisa_dcb_lista_consolidada_in_439_2026_metadados.txt
+- Contem: fonte, orgao, URLs oficiais, titulo, versao, data da IN, publicacao DOU, status, alteracoes, data/hora da captura, nome e tamanho do arquivo, URL bitstream de origem
+
+## Relatorio gerado
+- data/dicionario_mestre/processado/relatorio_captura_anvisa_dcb.md
+- Contem: objetivo, URLs consultadas, arquivo bruto salvo, metadados registrados, confirmacoes de integridade, proxima etapa recomendada
+
+## Catalogo externo atualizado
+- data/dicionario_mestre/externo/catalogo_fontes_externas.csv
+- Linha ANVISA_DCB: status alterado de `planejada` para `capturada_bruto`
+- URL de acesso atualizada para o handle da Biblioteca Digital
+- Formato esperado atualizado para XLSX
+- Observacao atualizada com data da captura, nome do arquivo e tamanho
+- Validado CSV apos alteracao: 9 linhas, 14 colunas por linha, sem erros
+
+## Confirmacoes
+- Banco nao foi alterado.
+- Nenhum SQL de escrita foi executado.
+- SKU_MASTER nao foi aplicado.
+- Nenhuma fonte interna foi consultada ou usada.
+- Nenhum processamento do arquivo bruto foi realizado.
+- Nenhuma mesclagem no Dicionario Mestre foi feita.
+- O arquivo bruto foi preservado sem edicao manual do conteudo.
+- data/dicionario_mestre/interno/ nao foi alterada.
+- app.py, core/, templates/, uploads/, backups/, .claude/ e arquivos .db nao foram alterados.
+- Nenhuma rotina automatica de scraping foi criada.
+- Nenhum commit foi feito.
+
+## Proximo passo recomendado
+- Validar a estrutura interna do arquivo bruto:
+  - verificar abas/sheets presentes no XLSX
+  - identificar colunas (DCB, CAS, categoria, etc.)
+- Criar script de processamento separado que gere CSV normalizado da DCB.
+- Restricao: o CSV normalizado deve ficar como etapa intermediaria, sem mesclar no Dicionario Mestre final.
+
+# Checkpoint - Ajuste de arquitetura da captura ANVISA DCB
+
+Data: 2026-06-25
+
+## Arquitetura corrigida
+- Catalogo externo (`catalogo_fontes_externas.csv`) mantem exatamente UMA linha por fonte.
+- Historico de capturas (`historico_capturas_fontes.csv`) armazena registros de cada evento de captura separadamente.
+
+## Catalogo externo consolidado
+- Sem duplicidade detectada: ANVISA_DCB aparecia exatamente 1 vez antes e continua com 1 ocorrencia.
+- Ajustes realizados na linha ANVISA_DCB:
+  - `formato_esperado` simplificado para `XLSX` (era "XLSX (Microsoft Excel XML)").
+  - `observacao` atualizada para formato curto conforme especificacao do orquestrador.
+- Resultado da validacao: 9 linhas (1 cabecalho + 8 fontes), 14 colunas por linha, ids unicos, sem erros.
+
+## Historico de capturas criado
+- Arquivo: data/dicionario_mestre/processado/historico_capturas_fontes.csv
+- Colunas: 18 (id_captura, id_fonte, nome_fonte, data_captura, status_captura, titulo_capturado,
+  versao_identificada, data_norma, status_fonte, url_pagina_oficial, url_pagina_operacional,
+  url_arquivo_bruto, arquivo_bruto, tamanho_bytes, formato, processado, mesclado_dicionario, observacao)
+- Captura registrada: ANVISA_DCB_20260625_IN_439_2026
+- Resultado da validacao: 2 linhas (1 cabecalho + 1 captura), 18 colunas por linha, sem erros.
+
+## CSVs validados
+- catalogo_fontes_externas.csv: VALIDO — 9 linhas, 14 colunas, 8 ids unicos, ANVISA_DCB = 1 ocorrencia
+- historico_capturas_fontes.csv: VALIDO — 2 linhas, 18 colunas, processado=nao, mesclado_dicionario=nao
+
+## Relatorio atualizado
+- data/dicionario_mestre/processado/relatorio_captura_anvisa_dcb.md
+- Adicionada secao "Controle de Catalogo e Historico" explicando a arquitetura de separacao.
+
+## Confirmacoes
+- Banco nao foi alterado.
+- Nenhum SQL de escrita foi executado.
+- SKU_MASTER nao foi aplicado.
+- Nenhuma fonte interna foi usada.
+- Nenhum processamento do XLSX foi realizado.
+- Nenhuma mesclagem no Dicionario Mestre foi feita.
+- Nenhum download adicional alem do bruto ja capturado.
+- data/dicionario_mestre/interno/ nao foi alterada.
+- Nenhum script novo criado em scripts/dicionario_mestre/.
+- app.py, core/, templates/, uploads/, backups/, .claude/ e arquivos .db nao foram alterados.
+- Nenhum commit feito ainda nesta etapa.
