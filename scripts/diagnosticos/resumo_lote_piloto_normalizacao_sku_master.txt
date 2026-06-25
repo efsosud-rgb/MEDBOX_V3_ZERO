@@ -1,0 +1,59 @@
+﻿RESUMO DO LOTE PILOTO - NORMALIZACAO SKU_MASTER
+Gerado em: 2026-06-25 10:56:23
+Escopo: leitura de CSV diagnostico; sem consulta ou alteracao de banco.
+
+1. TOTAL
+- Total de linhas no lote piloto: 50
+
+2. CRITERIOS USADOS
+- Maximo de 50 linhas; selecionadas 50 linhas.
+- Somente nivel_confianca = ALTA.
+- sku_master_atual vazio/nulo.
+- sku_master_sugerido preenchido e em maiusculas.
+- decisao_usuario vazia.
+- Sem fabricante_sugerido e sem categoria_sugerida.
+- Sem pode_propagar_fabricante/pode_propagar_categoria marcado como SIM/TRUE/1.
+- Sem divergencia de termos tecnicos: MG, ML, %, MM, CM, FR, G, LUER, LOCK, AGULHA, CUFF, ADULTO, INFANTIL, PEDIATRICO, ESTERIL, FILTRO.
+- Sem descricao ou SKU sugerido muito curto.
+- Sem diferenca grande de tamanho entre descricao_atual e sku_master_sugerido.
+- Sem SKU PENDENTE e sem PREMIUM como sugestao.
+- Sem alteracao/proposta de fabricante ou categoria neste lote.
+
+3. TOP 20 LINHAS DO LOTE
+01. produto_id=5298 | descricao=LIDOCAINA CLORIDRATO 2% 5ML AMP - | sku_master_sugerido=LIDOCAINA CLORIDRATO 2% 5ML AMP - | score=100.00
+02. produto_id=5299 | descricao=LIDOCAINA 2% SEM - VASOCONSTRITOR 20ML FR/A - | sku_master_sugerido=LIDOCAINA 2% SEM - VASOCONSTRITOR 20ML FR/A - | score=100.00
+03. produto_id=5300 | descricao=LIDOCAINA CLORIDRATO 2% GELEIA 30G TB - | sku_master_sugerido=LIDOCAINA CLORIDRATO 2% GELEIA 30G TB - | score=100.00
+04. produto_id=5301 | descricao=LIDOCAINA CLORIDRATO 10% SPRAY 50 A 70ML FR - | sku_master_sugerido=LIDOCAINA CLORIDRATO 10% SPRAY 50 A 70ML FR - | score=100.00
+05. produto_id=5302 | descricao=BUPIVACAINA CLORIDRATO 5MG/ML 0,5% ISOBARICA 4ML AMP - | sku_master_sugerido=BUPIVACAINA CLORIDRATO 5MG/ML 0,5% ISOBARICA 4ML AMP - | score=100.00
+06. produto_id=5303 | descricao=ROPIVACAINA CLORIDRATO 10MG/ML 20 ML FRASCO / AMPOLA - | sku_master_sugerido=ROPIVACAINA CLORIDRATO 10MG/ML 20 ML FRASCO / AMPOLA - | score=100.00
+07. produto_id=5304 | descricao=BUPIVACAINA 0,5% SEM VASO 20ML AMP - | sku_master_sugerido=BUPIVACAINA 0,5% SEM VASO 20ML AMP - | score=100.00
+08. produto_id=5305 | descricao=BUPIVACAINA+GLICOSE ANIDRA INJ 5MG/ML 0,5%+80MG/ML 8% 4ML - | sku_master_sugerido=BUPIVACAINA+GLICOSE ANIDRA INJ 5MG/ML 0,5%+80MG/ML 8% 4ML - | score=100.00
+09. produto_id=5306 | descricao=FLUMAZENIL CLORIDRATO 0,1MG/ML 5ML AMP - | sku_master_sugerido=FLUMAZENIL CLORIDRATO 0,1MG/ML 5ML AMP - | score=100.00
+10. produto_id=5307 | descricao=PERMETRINA 50MG/ML SOL TOPICA 60ML FR - | sku_master_sugerido=PERMETRINA 50MG/ML SOL TOPICA 60ML FR - | score=100.00
+11. produto_id=5309 | descricao=FLUCONAZOL 2MG/ML 100ML BSA - | sku_master_sugerido=FLUCONAZOL 2MG/ML 100ML BSA - | score=100.00
+12. produto_id=5310 | descricao=DEXAMETASONA 0,1% CREME 10G TB - | sku_master_sugerido=DEXAMETASONA 0,1% CREME 10G TB - | score=100.00
+13. produto_id=5311 | descricao=DEXAMETASONA FOSFATO DISSODICO 4MG/ML 2,5ML AMP - | sku_master_sugerido=DEXAMETASONA FOSFATO DISSODICO 4MG/ML 2,5ML AMP - | score=100.00
+14. produto_id=5312 | descricao=HIDROCORTISONA SUCCINATO 100MG FR/A - | sku_master_sugerido=HIDROCORTISONA SUCCINATO 100MG FR/A - | score=100.00
+15. produto_id=5314 | descricao=BUDESONIDA 0,25 MG/ML 2ML FLA - | sku_master_sugerido=BUDESONIDA 0,25 MG/ML 2ML FLA - | score=100.00
+16. produto_id=5315 | descricao=PREDNISOLONA 3MG/ML SOL ORAL 100 ML FR - | sku_master_sugerido=PREDNISOLONA 3MG/ML SOL ORAL 100 ML FR - | score=100.00
+17. produto_id=5317 | descricao=AMOXICILINA 500MG + CLAVULANATO 125MG COMP - | sku_master_sugerido=AMOXICILINA 500MG + CLAVULANATO 125MG COMP - | score=100.00
+18. produto_id=5319 | descricao=AZITROMICINA 500MG INJ FR/A - | sku_master_sugerido=AZITROMICINA 500MG INJ FR/A - | score=100.00
+19. produto_id=5320 | descricao=BENZILPENICILINA BENZATINA 1200000UI FR/A - | sku_master_sugerido=BENZILPENICILINA BENZATINA 1200000UI FR/A - | score=100.00
+20. produto_id=5321 | descricao=CEFAZOLINA SODICA 1G FR/A - | sku_master_sugerido=CEFAZOLINA SODICA 1G FR/A - | score=100.00
+
+4. VALIDACOES DO LOTE
+- fabricante_sugerido preenchido: 0
+- categoria_sugerida preenchida: 0
+- divergencias tecnicas detectadas: 0
+- sugestoes em maiusculas: 50/50
+- sugestoes SKU PENDENTE: 0
+- sugestoes PREMIUM: 0
+
+5. RECOMENDACAO
+- O lote parece adequado para revisao humana e para um dry-run futuro, desde que o usuario aprove explicitamente os itens.
+- Ainda nao aplicar no banco. Proximo passo seguro: revisar o CSV e, se aprovado, criar script dry-run sem UPDATE automatico.
+
+6. CONFIRMACOES
+- Banco nao foi consultado nem alterado nesta etapa.
+- Nenhum SQL de escrita foi executado.
+- Nenhum commit foi feito.

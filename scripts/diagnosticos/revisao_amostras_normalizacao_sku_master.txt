@@ -1,0 +1,186 @@
+﻿REVISAO DAS AMOSTRAS - NORMALIZACAO GERAL DE SKU_MASTER
+Gerado em: 2026-06-25 10:50:42
+Escopo: leitura de CSV/TXT diagnosticos; sem consulta ou alteracao de banco.
+
+1. RESUMO GERAL
+- previa_normalizacao_sku_master.csv: 2000 linhas
+- amostra_normalizacao_sku_master_top100.csv: 100 linhas
+- amostra_normalizacao_sku_master_fabricante_categoria.csv: 48 linhas
+- amostra_normalizacao_sku_master_medidas.csv: 100 linhas
+- linhas unicas analisadas nas amostras: 143
+- decisao_usuario vazia na previa: 2000/2000
+- sku_master_sugerido em maiusculas na previa: 2000/2000
+
+Principais origens_do_match nas amostras combinadas:
+- uploads/PRODUTOS.xlsx: 95
+- produtos.sku_master: 45
+- equivalencias.descricao_equivalente: 3
+
+Principais SKU_MASTER sugeridos repetidos nas amostras combinadas:
+- COLAR CERVICAL ESPUMA: 3
+- ESCOPOLAMINA 10MG: 2
+- PROMETAZINA CLORIDRATO 25MG: 2
+- AP PRESSAO ADL METAL: 2
+
+Principais pares descricao_atual -> sku_master_sugerido repetidos:
+- Nenhum par repetido com contagem > 1 nas amostras combinadas.
+
+2. 30 CASOS MAIS SEGUROS
+Criterio: sem riscos detectados, score >= 96, sem fabricante_sugerido e sem categoria_sugerida.
+01. produto_id=5298 | score=100.00 | descricao=LIDOCAINA CLORIDRATO 2% 5ML AMP - | sugerido=LIDOCAINA CLORIDRATO 2% 5ML AMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+02. produto_id=5299 | score=100.00 | descricao=LIDOCAINA 2% SEM - VASOCONSTRITOR 20ML FR/A - | sugerido=LIDOCAINA 2% SEM - VASOCONSTRITOR 20ML FR/A - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+03. produto_id=5300 | score=100.00 | descricao=LIDOCAINA CLORIDRATO 2% GELEIA 30G TB - | sugerido=LIDOCAINA CLORIDRATO 2% GELEIA 30G TB - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+04. produto_id=5301 | score=100.00 | descricao=LIDOCAINA CLORIDRATO 10% SPRAY 50 A 70ML FR - | sugerido=LIDOCAINA CLORIDRATO 10% SPRAY 50 A 70ML FR - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+05. produto_id=5302 | score=100.00 | descricao=BUPIVACAINA CLORIDRATO 5MG/ML 0,5% ISOBARICA 4ML AMP - | sugerido=BUPIVACAINA CLORIDRATO 5MG/ML 0,5% ISOBARICA 4ML AMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+06. produto_id=5303 | score=100.00 | descricao=ROPIVACAINA CLORIDRATO 10MG/ML 20 ML FRASCO / AMPOLA - | sugerido=ROPIVACAINA CLORIDRATO 10MG/ML 20 ML FRASCO / AMPOLA - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+07. produto_id=5304 | score=100.00 | descricao=BUPIVACAINA 0,5% SEM VASO 20ML AMP - | sugerido=BUPIVACAINA 0,5% SEM VASO 20ML AMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+08. produto_id=5305 | score=100.00 | descricao=BUPIVACAINA+GLICOSE ANIDRA INJ 5MG/ML 0,5%+80MG/ML 8% 4ML - | sugerido=BUPIVACAINA+GLICOSE ANIDRA INJ 5MG/ML 0,5%+80MG/ML 8% 4ML - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+09. produto_id=5306 | score=100.00 | descricao=FLUMAZENIL CLORIDRATO 0,1MG/ML 5ML AMP - | sugerido=FLUMAZENIL CLORIDRATO 0,1MG/ML 5ML AMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+10. produto_id=5307 | score=100.00 | descricao=PERMETRINA 50MG/ML SOL TOPICA 60ML FR - | sugerido=PERMETRINA 50MG/ML SOL TOPICA 60ML FR - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+11. produto_id=5309 | score=100.00 | descricao=FLUCONAZOL 2MG/ML 100ML BSA - | sugerido=FLUCONAZOL 2MG/ML 100ML BSA - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+12. produto_id=5310 | score=100.00 | descricao=DEXAMETASONA 0,1% CREME 10G TB - | sugerido=DEXAMETASONA 0,1% CREME 10G TB - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+13. produto_id=5311 | score=100.00 | descricao=DEXAMETASONA FOSFATO DISSODICO 4MG/ML 2,5ML AMP - | sugerido=DEXAMETASONA FOSFATO DISSODICO 4MG/ML 2,5ML AMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+14. produto_id=5312 | score=100.00 | descricao=HIDROCORTISONA SUCCINATO 100MG FR/A - | sugerido=HIDROCORTISONA SUCCINATO 100MG FR/A - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+15. produto_id=5314 | score=100.00 | descricao=BUDESONIDA 0,25 MG/ML 2ML FLA - | sugerido=BUDESONIDA 0,25 MG/ML 2ML FLA - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+16. produto_id=5315 | score=100.00 | descricao=PREDNISOLONA 3MG/ML SOL ORAL 100 ML FR - | sugerido=PREDNISOLONA 3MG/ML SOL ORAL 100 ML FR - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+17. produto_id=5317 | score=100.00 | descricao=AMOXICILINA 500MG + CLAVULANATO 125MG COMP - | sugerido=AMOXICILINA 500MG + CLAVULANATO 125MG COMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+18. produto_id=5319 | score=100.00 | descricao=AZITROMICINA 500MG INJ FR/A - | sugerido=AZITROMICINA 500MG INJ FR/A - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+19. produto_id=5320 | score=100.00 | descricao=BENZILPENICILINA BENZATINA 1200000UI FR/A - | sugerido=BENZILPENICILINA BENZATINA 1200000UI FR/A - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+20. produto_id=5321 | score=100.00 | descricao=CEFAZOLINA SODICA 1G FR/A - | sugerido=CEFAZOLINA SODICA 1G FR/A - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+21. produto_id=5322 | score=100.00 | descricao=CEFTRIAXONA DISSODICA 1G IV / IM FR/A - | sugerido=CEFTRIAXONA DISSODICA 1G IV / IM FR/A - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+22. produto_id=5323 | score=100.00 | descricao=CIPROFLOXACINO CLORIDRATO 2MG/ML 100ML BSA - | sugerido=CIPROFLOXACINO CLORIDRATO 2MG/ML 100ML BSA - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+23. produto_id=5324 | score=100.00 | descricao=GENTAMICINA SULFATO 40MG/ML 2ML AMP - | sugerido=GENTAMICINA SULFATO 40MG/ML 2ML AMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+24. produto_id=5326 | score=100.00 | descricao=SULFADIAZINA DE PRATA 1% CREME 50G TB - | sugerido=SULFADIAZINA DE PRATA 1% CREME 50G TB - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+25. produto_id=5327 | score=100.00 | descricao=SULFAMETOXAZOL 400MG + TRIMETOPRIMA 80MG COMP - | sugerido=SULFAMETOXAZOL 400MG + TRIMETOPRIMA 80MG COMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+26. produto_id=5328 | score=100.00 | descricao=SULFAMETOXAZOL 80MG/ML + TRIMETOPRIMA 16MG/ML 5ML AMP - | sugerido=SULFAMETOXAZOL 80MG/ML + TRIMETOPRIMA 16MG/ML 5ML AMP - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+27. produto_id=5329 | score=100.00 | descricao=VANCOMICINA CLORIDRATO 500MG FR/A - | sugerido=VANCOMICINA CLORIDRATO 500MG FR/A - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+28. produto_id=5330 | score=100.00 | descricao=NEOMICINA SULFATO 5MG/G + BACITRACINA 250UI/G POMADA 10G TB - | sugerido=NEOMICINA SULFATO 5MG/G + BACITRACINA 250UI/G POMADA 10G TB - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+29. produto_id=5331 | score=100.00 | descricao=LEVOFLOXACINO 500MG / 100ML BSA - | sugerido=LEVOFLOXACINO 500MG / 100ML BSA - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+30. produto_id=5332 | score=100.00 | descricao=LINEZOLIDA 2MG/ML 300ML BOLSA - | sugerido=LINEZOLIDA 2MG/ML 300ML BOLSA - | motivo=match preserva termos criticos e nao propaga fabricante/categoria
+
+3. 30 CASOS QUE EXIGEM REVISAO HUMANA
+01. produto_id=4636 | risco=ALTO | score=100.00 | descricao=SKU PENDENTE - ALGODAO HIDROFILO 500GR INATHY L O 12% 23,3300 A.9880 | sugerido=ALGODAO HIDROFILO 500G | motivo=categoria_sugerida preenchida exige validacao de taxonomia; diferenca grande de tamanho entre descricao e SKU sugerido; termo tecnico na descricao ausente no SKU sugerido: %
+02. produto_id=4644 | risco=ALTO | score=100.00 | descricao=SKU PENDENTE - AP PRESSAO ADL METAL CEST PREMIUM LUN 2 6% 153.8567 S2A7A0 146... | sugerido=AP PRESSAO ADL METAL | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; categoria_sugerida preenchida exige validacao de taxonomia; diferenca grande de tamanho entre descricao e SKU sugerido; termo tecnico na descricao ausente no SKU sugerido: %
+03. produto_id=4645 | risco=ALTO | score=100.00 | descricao=SKU PENDENTE - AP PRESSAO ADL METAL S/EST PREMIUM LUN 2 % | sugerido=AP PRESSAO ADL METAL | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; categoria_sugerida preenchida exige validacao de taxonomia; termo tecnico na descricao ausente no SKU sugerido: %
+04. produto_id=4646 | risco=ALTO | score=100.00 | descricao=SKU PENDENTE - AP PRESSAO ADL VELCRO CIESTO IPREMIU JON 2 4% | sugerido=AP PRESSAO ADL VELCRO | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; categoria_sugerida preenchida exige validacao de taxonomia; termo tecnico na descricao ausente no SKU sugerido: %
+05. produto_id=4658 | risco=ALTO | score=100.00 | descricao=SKU PENDENTE - BAND CUBA INOX 30X20X4CM 1.8L RETANGULAR JVIRALCOUD LUV 2 4% | sugerido=BAND CUBA INOX | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; categoria_sugerida preenchida exige validacao de taxonomia; diferenca grande de tamanho entre descricao e SKU sugerido; termo tecnico na descricao ausente no SKU sugerido: %
+06. produto_id=5271 | risco=ALTO | score=100.00 | descricao=SKU PENDENTE - BUSCOPAN 10MG CX 20 DRG ESCOPOLAMINA COSMED | sugerido=ESCOPOLAMINA 10MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; diferenca grande de tamanho entre descricao e SKU sugerido
+07. produto_id=5272 | risco=ALTO | score=100.00 | descricao=SKU PENDENTE - BUSCOPAN 10MG 20 DRG ESCOPOLAMINA COSMED INDUSTRIA DE COSME | sugerido=ESCOPOLAMINA 10MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; diferenca grande de tamanho entre descricao e SKU sugerido
+08. produto_id=5308 | risco=ALTO | score=100.00 | descricao=IVERMECTINA 6MG COMP - | sugerido=IVERMECTINA 6 MG COMP | motivo=descricao ou SKU sugerido muito curto; termo tecnico no SKU sugerido ausente na descricao: MG
+09. produto_id=5313 | risco=ALTO | score=100.00 | descricao=PREDNISONA 20MG COMP - | sugerido=PREDNISONA 20 MG COMP | motivo=descricao ou SKU sugerido muito curto; termo tecnico no SKU sugerido ausente na descricao: MG
+10. produto_id=5316 | risco=ALTO | score=100.00 | descricao=AMOXICILINA 500MG COMP - | sugerido=AMOXICILINA 500MG COMP - | motivo=descricao ou SKU sugerido muito curto
+11. produto_id=5318 | risco=ALTO | score=100.00 | descricao=AZITROMICINA 500MG COMP - | sugerido=AZITROMICINA 500MG COMP - | motivo=descricao ou SKU sugerido muito curto
+12. produto_id=5339 | risco=ALTO | score=100.00 | descricao=CARVEDILOL 12,5 MG COMP - | sugerido=CARVEDILOL 12,5MG COMP | motivo=termo tecnico na descricao ausente no SKU sugerido: MG
+13. produto_id=5343 | risco=ALTO | score=100.00 | descricao=ATENOLOL 50MG COMP - | sugerido=ATENOLOL 50MG COMP | motivo=descricao ou SKU sugerido muito curto
+14. produto_id=5344 | risco=ALTO | score=100.00 | descricao=CAPTOPRIL 50MG COMP - | sugerido=CAPTOPRIL 50MG COMP - | motivo=descricao ou SKU sugerido muito curto
+15. produto_id=5348 | risco=ALTO | score=100.00 | descricao=SINVASTATINA 20MG COMP - | sugerido=SINVASTATINA 20 MG COMP | motivo=descricao ou SKU sugerido muito curto; termo tecnico no SKU sugerido ausente na descricao: MG
+16. produto_id=5360 | risco=ALTO | score=100.00 | descricao=OMEPRAZOL 20MG COMP - | sugerido=OMEPRAZOL 20MG COMP - | motivo=descricao ou SKU sugerido muito curto
+17. produto_id=5371 | risco=ALTO | score=100.00 | descricao=ESPIRONOLACTONA 25MG COMP - | sugerido=ESPIRONOLACTONA 25 MG COMP | motivo=descricao ou SKU sugerido muito curto; termo tecnico no SKU sugerido ausente na descricao: MG
+18. produto_id=5373 | risco=ALTO | score=100.00 | descricao=FUROSEMIDA 40MG COMP - | sugerido=FUROSEMIDA 40 MG COMP | motivo=descricao ou SKU sugerido muito curto; termo tecnico no SKU sugerido ausente na descricao: MG
+19. produto_id=5820 | risco=ALTO | score=100.00 | descricao=ALPRAZOLAM 2 MG | sugerido=ALPRAZOLAM 2MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+20. produto_id=5838 | risco=ALTO | score=100.00 | descricao=ATENOLOL 25 MG | sugerido=ATENOLOL 25MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+21. produto_id=5839 | risco=ALTO | score=100.00 | descricao=ATENOLOL 50 MG | sugerido=ATENOLOL 50MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+22. produto_id=5853 | risco=ALTO | score=100.00 | descricao=BISACODIL 5 MG | sugerido=BISACODIL 5MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+23. produto_id=5861 | risco=ALTO | score=100.00 | descricao=CARBAMAZEPINA 200 MG | sugerido=CARBAMAZEPINA 200MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+24. produto_id=5867 | risco=ALTO | score=100.00 | descricao=CEFALEXINA 500 MG | sugerido=CEFALEXINA 500MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+25. produto_id=5889 | risco=ALTO | score=100.00 | descricao=CLONAZEPAM 2 MG | sugerido=CLONAZEPAM 2MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+26. produto_id=5893 | risco=ALTO | score=100.00 | descricao=CLOPIDOGREL, BISSULFATO 75 MG | sugerido=CLOPIDOGREL BISSULFATO 75MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; termo tecnico na descricao ausente no SKU sugerido: MG
+27. produto_id=5933 | risco=ALTO | score=100.00 | descricao=ENALAPRIL, MALEATO 10 MG | sugerido=ENALAPRIL MALEATO 10MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; termo tecnico na descricao ausente no SKU sugerido: MG
+28. produto_id=5945 | risco=ALTO | score=100.00 | descricao=ESPIRONOLACTONA 25 MG | sugerido=ESPIRONOLACTONA 25MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+29. produto_id=5951 | risco=ALTO | score=100.00 | descricao=FENOBARBITAL 100 MG | sugerido=FENOBARBITAL 100MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto; termo tecnico na descricao ausente no SKU sugerido: MG
+30. produto_id=5961 | risco=ALTO | score=100.00 | descricao=FLUOXETINA, CLORIDRATO 20MG | sugerido=FLUOXETINA CLORIDRATO 20MG | motivo=fabricante_sugerido preenchido exige validacao para nao confundir marca/fabricante/fornecedor; descricao ou SKU sugerido muito curto
+
+4. CASOS COM FABRICANTE_SUGERIDO
+Total na amostra fabricante/categoria: 43
+Avaliacao: exigir revisao manual antes de propagar. O risco principal e confundir fabricante/marca com fornecedor ou propagar fabricante errado para SKU equivalente amplo.
+01. produto_id=4644 | fabricante_atual=(vazio) | fabricante_sugerido=PREMIUM | descricao=SKU PENDENTE - AP PRESSAO ADL METAL CEST PREMIUM LUN 2 6% 153.8567 ... | sku=AP PRESSAO ADL METAL | avaliacao=REVER COM CUIDADO
+02. produto_id=4645 | fabricante_atual=(vazio) | fabricante_sugerido=PREMIUM | descricao=SKU PENDENTE - AP PRESSAO ADL METAL S/EST PREMIUM LUN 2 % | sku=AP PRESSAO ADL METAL | avaliacao=REVER COM CUIDADO
+03. produto_id=4646 | fabricante_atual=(vazio) | fabricante_sugerido=PREMIUM | descricao=SKU PENDENTE - AP PRESSAO ADL VELCRO CIESTO IPREMIU JON 2 4% | sku=AP PRESSAO ADL VELCRO | avaliacao=REVER COM CUIDADO
+04. produto_id=4658 | fabricante_atual=(vazio) | fabricante_sugerido=VITALGOLD | descricao=SKU PENDENTE - BAND CUBA INOX 30X20X4CM 1.8L RETANGULAR JVIRALCOUD ... | sku=BAND CUBA INOX | avaliacao=REVER COM CUIDADO
+05. produto_id=5271 | fabricante_atual=(vazio) | fabricante_sugerido=COSMED | descricao=SKU PENDENTE - BUSCOPAN 10MG CX 20 DRG ESCOPOLAMINA COSMED | sku=ESCOPOLAMINA 10MG | avaliacao=REVER COM CUIDADO
+06. produto_id=5272 | fabricante_atual=(vazio) | fabricante_sugerido=COSMED | descricao=SKU PENDENTE - BUSCOPAN 10MG 20 DRG ESCOPOLAMINA COSMED INDUSTRIA D... | sku=ESCOPOLAMINA 10MG | avaliacao=REVER COM CUIDADO
+07. produto_id=5275 | fabricante_atual=(vazio) | fabricante_sugerido=COSMED | descricao=SKU PENDENTE - PREDSIM 20MG CX 20 COM REV PREDNISOLONA COSMED | sku=PREDSIM 20MG CX 20 COM REV PREDNISOLONA | avaliacao=PARECE SEGURO PARA REVISAO
+08. produto_id=5643 | fabricante_atual=(vazio) | fabricante_sugerido=MEDSONDA | descricao=SONDA URETRAL N 14 | sku=SONDA URETRAL N14 | avaliacao=PARECE SEGURO PARA REVISAO
+09. produto_id=5820 | fabricante_atual=(vazio) | fabricante_sugerido=EMS | descricao=ALPRAZOLAM 2 MG | sku=ALPRAZOLAM 2MG | avaliacao=REVER COM CUIDADO
+10. produto_id=5838 | fabricante_atual=(vazio) | fabricante_sugerido=PRATI DONADUZZI | descricao=ATENOLOL 25 MG | sku=ATENOLOL 25MG | avaliacao=REVER COM CUIDADO
+11. produto_id=5839 | fabricante_atual=(vazio) | fabricante_sugerido=PRATI DONADUZZI | descricao=ATENOLOL 50 MG | sku=ATENOLOL 50MG | avaliacao=REVER COM CUIDADO
+12. produto_id=5853 | fabricante_atual=(vazio) | fabricante_sugerido=NEO QUIMICA | descricao=BISACODIL 5 MG | sku=BISACODIL 5MG | avaliacao=REVER COM CUIDADO
+13. produto_id=5861 | fabricante_atual=(vazio) | fabricante_sugerido=TEUTO | descricao=CARBAMAZEPINA 200 MG | sku=CARBAMAZEPINA 200MG | avaliacao=REVER COM CUIDADO
+14. produto_id=5867 | fabricante_atual=(vazio) | fabricante_sugerido=ABL | descricao=CEFALEXINA 500 MG | sku=CEFALEXINA 500MG | avaliacao=REVER COM CUIDADO
+15. produto_id=5889 | fabricante_atual=(vazio) | fabricante_sugerido=EMS | descricao=CLONAZEPAM 2 MG | sku=CLONAZEPAM 2MG | avaliacao=REVER COM CUIDADO
+16. produto_id=5893 | fabricante_atual=(vazio) | fabricante_sugerido=AUROBINDO | descricao=CLOPIDOGREL, BISSULFATO 75 MG | sku=CLOPIDOGREL BISSULFATO 75MG | avaliacao=REVER COM CUIDADO
+17. produto_id=5933 | fabricante_atual=(vazio) | fabricante_sugerido=HIPOLABOR | descricao=ENALAPRIL, MALEATO 10 MG | sku=ENALAPRIL MALEATO 10MG | avaliacao=REVER COM CUIDADO
+18. produto_id=5945 | fabricante_atual=(vazio) | fabricante_sugerido=EMS | descricao=ESPIRONOLACTONA 25 MG | sku=ESPIRONOLACTONA 25MG | avaliacao=REVER COM CUIDADO
+19. produto_id=5951 | fabricante_atual=(vazio) | fabricante_sugerido=UNIAO QUIMICA | descricao=FENOBARBITAL 100 MG | sku=FENOBARBITAL 100MG | avaliacao=REVER COM CUIDADO
+20. produto_id=5961 | fabricante_atual=(vazio) | fabricante_sugerido=HIPOLABOR | descricao=FLUOXETINA, CLORIDRATO 20MG | sku=FLUOXETINA CLORIDRATO 20MG | avaliacao=REVER COM CUIDADO
+21. produto_id=6010 | fabricante_atual=(vazio) | fabricante_sugerido=VITAMEDIC | descricao=IVERMECTINA 6 MG | sku=IVERMECTINA 6MG | avaliacao=REVER COM CUIDADO
+22. produto_id=6015 | fabricante_atual=(vazio) | fabricante_sugerido=GEOLAB | descricao=LEVOFLOXACINO 500 MG | sku=LEVOFLOXACINO 500MG | avaliacao=REVER COM CUIDADO
+23. produto_id=6027 | fabricante_atual=(vazio) | fabricante_sugerido=GEOLAB | descricao=LORATADINA 10 MG | sku=LORATADINA 10MG | avaliacao=REVER COM CUIDADO
+24. produto_id=6028 | fabricante_atual=(vazio) | fabricante_sugerido=NEO QUIMICA | descricao=LOSARTANA POTASSICA 50 MG | sku=LOSARTANA POTASSICA 50MG | avaliacao=REVER COM CUIDADO
+25. produto_id=6035 | fabricante_atual=(vazio) | fabricante_sugerido=HIPOLABOR | descricao=METILDOPA 250 MG | sku=METILDOPA 250MG | avaliacao=REVER COM CUIDADO
+26. produto_id=6041 | fabricante_atual=(vazio) | fabricante_sugerido=NEO QUIMICA | descricao=METOPROLOL ,SUCCINATO 25 MG | sku=METOPROLOL SUCCINATO 25MG | avaliacao=REVER COM CUIDADO
+27. produto_id=6044 | fabricante_atual=(vazio) | fabricante_sugerido=PRATI DONADUZZI | descricao=METRONIDAZOL 250 MG | sku=METRONIDAZOL 250MG | avaliacao=REVER COM CUIDADO
+28. produto_id=6092 | fabricante_atual=(vazio) | fabricante_sugerido=TEUTO | descricao=PROMETAZINA, CLORIDRATO 25 MG | sku=PROMETAZINA CLORIDRATO 25MG | avaliacao=REVER COM CUIDADO
+29. produto_id=6109 | fabricante_atual=(vazio) | fabricante_sugerido=CIMED | descricao=SINVASTATINA 20 MG | sku=SINVASTATINA 20MG | avaliacao=REVER COM CUIDADO
+30. produto_id=6110 | fabricante_atual=(vazio) | fabricante_sugerido=CIMED | descricao=SINVASTATINA 40 MG | sku=SINVASTATINA 40MG | avaliacao=REVER COM CUIDADO
+31. produto_id=6127 | fabricante_atual=(vazio) | fabricante_sugerido=HIPOLABOR | descricao=TRAMADOL , CLORIDRATO 50 MG | sku=TRAMADOL CLORIDRATO 50MG | avaliacao=REVER COM CUIDADO
+32. produto_id=6135 | fabricante_atual=(vazio) | fabricante_sugerido=EMS | descricao=VERAPAMIL CLORIDRATO 80 MG | sku=VERAPAMIL CLORIDRATO 80MG | avaliacao=REVER COM CUIDADO
+33. produto_id=6277 | fabricante_atual=(vazio) | fabricante_sugerido=MEDSONDA | descricao=SONDA URETRAL N 10 | sku=SONDA URETRAL N10 | avaliacao=PARECE SEGURO PARA REVISAO
+34. produto_id=6278 | fabricante_atual=(vazio) | fabricante_sugerido=MEDSONDA | descricao=SONDA URETRAL N 12 | sku=SONDA URETRAL N12 | avaliacao=PARECE SEGURO PARA REVISAO
+35. produto_id=6315 | fabricante_atual=(vazio) | fabricante_sugerido=MEDSONDA | descricao=SONDA URETRAL N 06 | sku=SONDA URETRAL N06 | avaliacao=PARECE SEGURO PARA REVISAO
+36. produto_id=6426 | fabricante_atual=(vazio) | fabricante_sugerido=HIPOLABOR | descricao=FENITOINA SODICA 50MG/ML - 5ML | sku=FENITOINA SODICA 50MG/ML 5ML | avaliacao=PARECE SEGURO PARA REVISAO
+37. produto_id=6911 | fabricante_atual=(vazio) | fabricante_sugerido=MEDSONDA | descricao=SONDA URETRAL N 04 | sku=SONDA URETRAL N04 | avaliacao=PARECE SEGURO PARA REVISAO
+38. produto_id=6912 | fabricante_atual=(vazio) | fabricante_sugerido=MEDSONDA | descricao=SONDA URETRAL N 08 | sku=SONDA URETRAL N08 | avaliacao=PARECE SEGURO PARA REVISAO
+39. produto_id=7081 | fabricante_atual=(vazio) | fabricante_sugerido=SAMTEC | descricao=SULFATO DE MAGNESIO 10% - 10ML | sku=SULFATO DE MAGNESIO 10% 10ML | avaliacao=PARECE SEGURO PARA REVISAO
+40. produto_id=7085 | fabricante_atual=(vazio) | fabricante_sugerido=TEUTO | descricao=PROMETAZINA, CLORIDRATO 25MG | sku=PROMETAZINA CLORIDRATO 25MG | avaliacao=REVER COM CUIDADO
+41. produto_id=7135 | fabricante_atual=(vazio) | fabricante_sugerido=HIPOLABOR | descricao=CETOPROFENO 50 MG/ML - 2 ML IM | sku=CETOPROFENO 50MG/ML 2ML IM | avaliacao=REVER COM CUIDADO
+42. produto_id=7216 | fabricante_atual=(vazio) | fabricante_sugerido=MEDIX | descricao=CANULA DE GUEDEL N. 3 | sku=CANULA DE GUEDEL | avaliacao=PARECE SEGURO PARA REVISAO
+43. produto_id=7341 | fabricante_atual=(vazio) | fabricante_sugerido=DESCARPACK | descricao=LAMINA DE BISTURI N. 11 | sku=LAMINA DE BISTURI N11 | avaliacao=PARECE SEGURO PARA REVISAO
+
+5. CASOS COM CATEGORIA_SUGERIDA
+Total na amostra fabricante/categoria: 9
+Avaliacao: categoria parece menos perigosa que fabricante, mas ainda deve ser bloqueada se houver SKU generico, descricao curta ou medida divergente.
+01. produto_id=4635 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=CORRELATO | descricao=SKU PENDENTE - ALGODAO HIDROFILO 250GR INATHY FL O ARM 13.4422 W0SS... | sku=ALGODAO HIDROFILO 250G | avaliacao=PARECE SEGURO PARA REVISAO
+02. produto_id=4636 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=CORRELATO | descricao=SKU PENDENTE - ALGODAO HIDROFILO 500GR INATHY L O 12% 23,3300 A.9880 | sku=ALGODAO HIDROFILO 500G | avaliacao=REVER COM CUIDADO
+03. produto_id=4644 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=MATERIAL HOSPITALAR | descricao=SKU PENDENTE - AP PRESSAO ADL METAL CEST PREMIUM LUN 2 6% 153.8567 ... | sku=AP PRESSAO ADL METAL | avaliacao=REVER COM CUIDADO
+04. produto_id=4645 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=MATERIAL HOSPITALAR | descricao=SKU PENDENTE - AP PRESSAO ADL METAL S/EST PREMIUM LUN 2 % | sku=AP PRESSAO ADL METAL | avaliacao=REVER COM CUIDADO
+05. produto_id=4646 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=MATERIAL HOSPITALAR | descricao=SKU PENDENTE - AP PRESSAO ADL VELCRO CIESTO IPREMIU JON 2 4% | sku=AP PRESSAO ADL VELCRO | avaliacao=REVER COM CUIDADO
+06. produto_id=4658 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=MATERIAL HOSPITALAR | descricao=SKU PENDENTE - BAND CUBA INOX 30X20X4CM 1.8L RETANGULAR JVIRALCOUD ... | sku=BAND CUBA INOX | avaliacao=REVER COM CUIDADO
+07. produto_id=4749 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=CORRELATO | descricao=SKU PENDENTE - COLAR CERVICAL DE ESPUMA GG ISO. 6 AM 15.2816 ASSO | sku=COLAR CERVICAL ESPUMA | avaliacao=PARECE SEGURO PARA REVISAO
+08. produto_id=4750 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=CORRELATO | descricao=SKU PENDENTE - COLAR CERVICAL DF ESPUMA M ASO. LN 6 AM 15.281 ESO | sku=COLAR CERVICAL ESPUMA | avaliacao=PARECE SEGURO PARA REVISAO
+09. produto_id=4752 | categoria_atual=SKU PENDENTE DE PADRONIZACAO | categoria_sugerida=CORRELATO | descricao=SKU PENDENTE - COLAR CERVICAL OF ESPUMA PP JASO. LN 6 AM | sku=COLAR CERVICAL ESPUMA | avaliacao=PARECE SEGURO PARA REVISAO
+
+6. CASOS COM MEDIDAS / CONCENTRACOES
+Total na amostra de medidas: 100
+Casos com termo tecnico ausente/aparecendo indevidamente: 11
+Termos avaliados: MG, ML, %, MM, CM, FR, G, LUER, LOCK, AGULHA, CUFF, ADULTO, INFANTIL, PEDIATRICO, ESTERIL, FILTRO.
+Exemplos de divergencia tecnica:
+01. produto_id=4636 | descricao=SKU PENDENTE - ALGODAO HIDROFILO 500GR INATHY L O 12% 23,3300 A.9880 | sugerido=ALGODAO HIDROFILO 500G | ausente no SKU: %
+02. produto_id=4644 | descricao=SKU PENDENTE - AP PRESSAO ADL METAL CEST PREMIUM LUN 2 6% 153.8567 S2A7A... | sugerido=AP PRESSAO ADL METAL | ausente no SKU: %
+03. produto_id=4645 | descricao=SKU PENDENTE - AP PRESSAO ADL METAL S/EST PREMIUM LUN 2 % | sugerido=AP PRESSAO ADL METAL | ausente no SKU: %
+04. produto_id=4646 | descricao=SKU PENDENTE - AP PRESSAO ADL VELCRO CIESTO IPREMIU JON 2 4% | sugerido=AP PRESSAO ADL VELCRO | ausente no SKU: %
+05. produto_id=4658 | descricao=SKU PENDENTE - BAND CUBA INOX 30X20X4CM 1.8L RETANGULAR JVIRALCOUD LUV 2 4% | sugerido=BAND CUBA INOX | ausente no SKU: %
+06. produto_id=5308 | descricao=IVERMECTINA 6MG COMP - | sugerido=IVERMECTINA 6 MG COMP | aparece so no SKU: MG
+07. produto_id=5313 | descricao=PREDNISONA 20MG COMP - | sugerido=PREDNISONA 20 MG COMP | aparece so no SKU: MG
+08. produto_id=5339 | descricao=CARVEDILOL 12,5 MG COMP - | sugerido=CARVEDILOL 12,5MG COMP | ausente no SKU: MG
+09. produto_id=5348 | descricao=SINVASTATINA 20MG COMP - | sugerido=SINVASTATINA 20 MG COMP | aparece so no SKU: MG
+10. produto_id=5371 | descricao=ESPIRONOLACTONA 25MG COMP - | sugerido=ESPIRONOLACTONA 25 MG COMP | aparece so no SKU: MG
+11. produto_id=5373 | descricao=FUROSEMIDA 40MG COMP - | sugerido=FUROSEMIDA 40 MG COMP | aparece so no SKU: MG
+
+7. LEITURA DO RESUMO ORIGINAL
+- descricao contem termo tecnico ausente no SKU sugerido: 40
+- SKU sugerido contem termo tecnico ausente na descricao: 7
+- linhas com fabricante/categoria sugeridos: 48
+
+8. RECOMENDACAO FINAL
+- Nao recomendo aplicar as 2.000 linhas de uma vez, apesar de todas estarem classificadas como ALTA.
+- Motivo: a propria previa acusa 168 casos curtos, 40 perdas de termo tecnico, 7 termos tecnicos adicionados e 48 linhas com fabricante/categoria sugeridos.
+- Primeiro lote recomendado: 25 a 50 linhas, somente casos sem fabricante_sugerido/categoria_sugerida, sem divergencia de medida/concentracao, sem descricao curta, sem diferenca grande de tamanho e com score >= 98.
+- Bloquear no primeiro lote: qualquer linha com MG/ML/%/MM/CM/FR/G/LUER/LOCK/AGULHA/CUFF ausente ou adicionado; qualquer fabricante_sugerido; qualquer categoria_sugerida; qualquer SKU muito curto; qualquer origem que dependa de equivalencia ambigua; qualquer descricao com termo comercial/embalagem que possa mudar o produto.
+- Propagacao de fabricante/categoria deve ser tratada em lote separado, com aprovacao manual linha a linha ou por grupo de SKU_MASTER sem conflito.
+- Proxima etapa segura: gerar CSV de lote piloto aprovado manualmente com coluna decisao_usuario e rodar apenas dry-run, sem UPDATE.
+
+9. CONFIRMACOES
+- Banco nao foi consultado nem alterado nesta revisao.
+- Nenhum SQL de escrita foi executado.
+- Nenhum commit foi feito nesta etapa.
