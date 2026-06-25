@@ -1,0 +1,16 @@
+﻿id;fonte_id;fonte_nome;codigo_fonte;termo_oficial;termo_normalizado;familia;categoria;tipo_termo;atributos_json;observacao;ativo;criado_em
+1;;REGRAS_MEDBOX;;TUBO ENDOTRAQUEAL;TUBO ENDOTRAQUEAL;TUBO ENDOTRAQUEAL;CORRELATOS;FAMILIA;"{""sku_base"": ""TUBO ENDOTRAQUEAL""}";Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+2;;REGRAS_MEDBOX;;TUBO OROTRAQUEAL;TUBO ENDOTRAQUEAL;TUBO ENDOTRAQUEAL;CORRELATOS;SINONIMO_FAMILIA;"{""equivale_a"": ""TUBO ENDOTRAQUEAL""}";Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+5;;REGRAS_MEDBOX;;COM BALAO;C/CUFF;TUBO ENDOTRAQUEAL;CORRELATOS;ATRIBUTO;"{""atributo"": ""cuff"", ""valor"": ""C/CUFF""}";Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+10;;REGRAS_MEDBOX;;SEM BALAO;S/CUFF;TUBO ENDOTRAQUEAL;CORRELATOS;ATRIBUTO;"{""atributo"": ""cuff"", ""valor"": ""S/CUFF""}";Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+15;;REGRAS_MEDBOX;;ARAMADO;ARAMADO;ARAMADO;CORRELATOS;ATRIBUTO_DIFERENCIADOR;"{""atributo"": ""aramado"", ""valor"": ""SIM""}";Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+19;;REGRAS_MEDBOX;;COM ASPIRACAO;C/ASPIRACAO;C/ASPIRACAO;CORRELATOS;ATRIBUTO_DIFERENCIADOR;"{""atributo"": ""aspiracao"", ""valor"": ""SIM""}";Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+21;;REGRAS_MEDBOX;;PVC;PVC;PVC;CORRELATOS;ATRIBUTO_NAO_DIFERENCIADOR_TUBO_COMUM;"{""atributo"": ""material"", ""entra_no_sku_tubo_comum"": false}";Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+24;;REGRAS_MEDBOX;;SERINGA;SERINGA;SERINGA;CORRELATOS;FAMILIA;{};Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+25;;REGRAS_MEDBOX;;AGULHA HIPODERMICA;AGULHA HIPODERMICA;AGULHA HIPODERMICA;CORRELATOS;FAMILIA;{};Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+26;;REGRAS_MEDBOX;;AGULHA;AGULHA HIPODERMICA;AGULHA HIPODERMICA;CORRELATOS;SINONIMO_FAMILIA;{};Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+27;;REGRAS_MEDBOX;;LUVA;LUVA;LUVA;CORRELATOS;FAMILIA;{};Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+28;;REGRAS_MEDBOX;;CATETER;CATETER;CATETER;CORRELATOS;FAMILIA;{};Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+29;;REGRAS_MEDBOX;;SONDA FOLEY;SONDA FOLEY;SONDA FOLEY;CORRELATOS;FAMILIA;{};Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+30;;REGRAS_MEDBOX;;EQUIPO;EQUIPO;EQUIPO;CORRELATOS;FAMILIA;{};Termo inicial do dicionário técnico MedBox;1;2026-06-24 12:10:50
+31;;REGRAS_MEDBOX;;FRASCO;FR;APRESENTACAO;GERAL;UNIDADE_APRESENTACAO;"{""abreviatura"": ""FR"", ""significado"": ""FRASCO""}";Validado pelo usuário: FR significa FRASCO, não fabricante/fornecedor.;1;2026-06-24 12:29:41

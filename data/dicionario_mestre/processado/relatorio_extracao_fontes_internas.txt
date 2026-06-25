@@ -1,0 +1,47 @@
+﻿RELATORIO DE EXTRACAO DE FONTES INTERNAS - DICIONARIO MESTRE MEDBOX
+Data/hora: 2026-06-25 14:05:54
+Banco lido: C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\banco\medbox_v3.db
+Modo: somente leitura (SQLite URI read-only, arquivos apenas leitura)
+
+Fontes encontradas:
+- sqlite:produtos
+- sqlite:precos_fornecedores
+- sqlite:equivalencias
+- sqlite:dicionario_termos
+- sqlite:dicionario_sinonimos
+- sqlite:sku_master_regras
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\uploads\SKU_MASTER_2_0.xlsx
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\uploads\PRODUTOS.xlsx
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\backups\auditoria_lote_piloto_sku_master_20260625_112310.csv
+
+Fontes ausentes:
+- nenhuma
+
+Arquivos CSV gerados:
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\produtos_extraidos.csv
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\precos_fornecedores_extraidos.csv
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\equivalencias_extraidas.csv
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\dicionario_termos_extraido.csv
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\dicionario_sinonimos_extraido.csv
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\sku_master_regras_extraidas.csv
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\sku_master_2_0_upload_extraido.csv
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\produtos_upload_extraido.csv
+- C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\interno\auditoria_lote_piloto_extraida.csv
+
+Linhas e colunas exportadas:
+- produtos: linhas=11105; colunas=id, sku, produto_padrao, fabricante, categoria, ativo, observacoes, sku_master, sku_corrigido, corrigido_em; status=extraida
+- precos_fornecedores: linhas=5131; colunas=id, fornecedor_id, produto_id, descricao_original, codigo_fornecedor, marca, preco, data_importacao, arquivo_origem; status=extraida
+- equivalencias: linhas=8145; colunas=id, produto_id, descricao_equivalente; status=extraida
+- dicionario_termos: linhas=15; colunas=id, fonte_id, fonte_nome, codigo_fonte, termo_oficial, termo_normalizado, familia, categoria, tipo_termo, atributos_json, observacao, ativo, criado_em; status=extraida
+- dicionario_sinonimos: linhas=21; colunas=id, termo_origem, termo_destino, familia, tipo_equivalencia, usar_no_sku_master, observacao, fonte, validado_por_usuario, ativo, criado_em; status=extraida
+- sku_master_regras: linhas=3; colunas=id, nome_regra, familia, sku_master_padrao, categoria, fabricante, termos_equivalentes, termos_obrigatorios, especificacoes_obrigatorias, termos_proibidos, exemplos_positivos, exemplos_negativos, fonte_validacao, observacoes, usuario_validou, data_validacao, ativo; status=extraida
+- SKU_MASTER_2_0.xlsx: linhas=1682; colunas=Nota Fiscal, Data lançamento, Razão Social do Fornecedor, FABRICANTE/DISTRIBUIDOR, FORNECEDOR, Código Produto, Descrição do Produto, SKU_MASTER, MARCA, CATEGORIA, Unidade de Compra, Quantidade, Valor Unitário, Valor Total, , , , ; status=extraida
+- PRODUTOS.xlsx: linhas=8034; colunas=BASE DE PRODUTOS; status=extraida
+- auditoria_lote_piloto_sku_master_20260625_112310.csv: linhas=50; colunas=data_hora, produto_id, produto_padrao_banco, descricao_atual_csv, sku_master_antigo, sku_master_novo; status=extraida
+
+Avisos de seguranca:
+- SKU_MASTER_2_0.xlsx: aba usada = BD_Compras 2026
+- PRODUTOS.xlsx: aba usada = Produtos
+
+Confirmacao:
+- nenhum SQL de escrita foi executado
