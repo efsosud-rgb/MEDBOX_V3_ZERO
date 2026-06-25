@@ -839,3 +839,59 @@ Data: 2026-06-25
 - data/dicionario_mestre/interno/ nao foi alterada.
 - app.py, core/, templates/, uploads/, backups/, .claude/ e .db nao foram alterados.
 - Nenhum commit feito ainda.
+
+# Checkpoint - FASE 1.4 — Carga previa controlada DCB medicamentos
+
+Data: 2026-06-25
+
+## Script criado
+- scripts/dicionario_mestre/preparar_carga_dicionario_medicamentos_dcb.py
+- Le a previa CSV e o dicionario final (somente leitura).
+- Nao acessa internet, banco ou fontes internas. Reexecutavel com seguranca.
+
+## Entrada usada
+- data/dicionario_mestre/processado/pre_dicionario_medicamentos_anvisa_dcb.csv
+- 12.715 registros lidos
+
+## Dicionario final apenas inspecionado (nao alterado)
+- data/dicionario_mestre/dicionario_mestre_medicamentos.csv
+- Status: apenas cabecalho, 0 linhas de dados
+- Colunas (22): id_dicionario, nome_padrao, sku_master_padrao, principio_ativo,
+  dcb, cas, classificacao, concentracao, forma_farmaceutica, apresentacao,
+  via_uso, atc, fonte_tipo, fonte_nome, fonte_origem, url_fonte, data_coleta,
+  validado_internamente, validado_externamente, confianca, status_revisao, observacao
+
+## Arquivos gerados
+- data/dicionario_mestre/processado/carga_previa_dicionario_medicamentos_anvisa_dcb.csv
+  (12.716 linhas = 1 cabecalho + 12.715 registros, 22 colunas)
+- data/dicionario_mestre/processado/diff_carga_dicionario_medicamentos_anvisa_dcb.csv
+  (12.716 linhas = 1 cabecalho + 12.715 registros, 10 colunas)
+- data/dicionario_mestre/processado/relatorio_carga_previa_dicionario_medicamentos_anvisa_dcb.md
+
+## Mapeamento realizado
+- Colunas mapeadas (16): id_dicionario, nome_padrao, principio_ativo, dcb, cas,
+  classificacao, fonte_tipo, fonte_nome, fonte_origem, url_fonte, data_coleta,
+  validado_internamente, validado_externamente, confianca, status_revisao, observacao
+- Colunas sem equivalente (6, deixadas vazias): sku_master_padrao, concentracao,
+  forma_farmaceutica, apresentacao, via_uso, atc
+
+## Totais
+- 12.715 registros preparados
+- 12.715 acoes INSERIR_PREVISTO no diff
+- pode_aplicar = SIM em todos os 12.715 registros
+
+## Recomendacao final da fase
+- APTO_PARA_REVISAR_CARGA
+- Carga pronta para revisao humana; nenhuma aplicacao foi realizada.
+- Pendencias antes da aplicacao real: revisar 24 CAS duplicados e 54 termos longos;
+  decidir preenchimento de concentracao, forma_farmaceutica, apresentacao, via_uso e atc.
+
+## Confirmacoes FASE 1.4
+- Banco nao foi alterado. Nenhum SQL executado. SKU_MASTER nao aplicado.
+- Nenhuma fonte interna usada. Nenhum download feito.
+- Nenhuma mesclagem no Dicionario Mestre.
+- dicionario_mestre_medicamentos.csv validado: permanece com 1 linha (so cabecalho).
+- dicionario_mestre_medbox.csv e dicionario_mestre_produtos_saude.csv nao foram alterados.
+- data/dicionario_mestre/interno/ nao foi alterada.
+- app.py, core/, templates/, uploads/, backups/, .claude/ e .db nao foram alterados.
+- Nenhum commit feito ainda.
