@@ -792,3 +792,50 @@ Data: 2026-06-25
 - data/dicionario_mestre/interno/ nao foi alterada.
 - app.py, core/, templates/, uploads/, backups/, .claude/ e arquivos .db nao foram alterados.
 - Nenhum commit feito ainda.
+
+# Checkpoint - FASE 1.3 — Auditoria da previa DCB medicamentos
+
+Data: 2026-06-25
+
+## Script criado
+- scripts/dicionario_mestre/auditar_previa_dcb_medicamentos.py
+- Le somente a previa CSV, sem banco, internet ou fontes internas.
+- Reexecutavel com seguranca, seed=42 para reproducibilidade.
+
+## Entrada analisada
+- data/dicionario_mestre/processado/pre_dicionario_medicamentos_anvisa_dcb.csv
+- 12.715 registros analisados
+
+## Arquivos gerados
+- data/dicionario_mestre/processado/amostra_previa_dcb_medicamentos.csv
+  (281 linhas = 1 cabecalho + 280 entradas em 14 grupos)
+- data/dicionario_mestre/processado/auditoria_previa_dcb_medicamentos.md
+- data/dicionario_mestre/processado/duplicidades_previa_dcb_medicamentos.csv
+  (25 linhas = 1 cabecalho + 24 entradas de duplicidade por CAS)
+- data/dicionario_mestre/processado/termos_revisao_previa_dcb_medicamentos.csv
+  (55 linhas = 1 cabecalho + 54 termos para revisao)
+
+## Totais por classificacao DCB
+- INF: 9.568 | HOM: 1.170 | IFA: 615 | BIO: 514 | EXA: 372 | PM: 273 | RAD: 203
+
+## Duplicidades encontradas
+- Por termo_normalizado: 0
+- Por numero_cas: 24 (mesmo CAS compartilhado entre formas/sais — esperado)
+
+## Termos para revisao
+- Total: 54 (termos muito longos e caracteres incomuns)
+- Nenhum com termo_oficial vazio, CAS vazio ou status invalido
+
+## Recomendacao final
+- APTO_PARA_PREPARAR_CARGA_FINAL
+- Revisao humana recomendada para os 54 termos e 24 CAS duplicados antes da carga.
+
+## Confirmacoes FASE 1.3
+- Banco nao foi alterado. Nenhum SQL executado. SKU_MASTER nao aplicado.
+- Nenhuma fonte interna usada. Nenhum download feito.
+- Nenhuma mesclagem no Dicionario Mestre.
+- dicionario_mestre_medbox.csv, dicionario_mestre_medicamentos.csv,
+  dicionario_mestre_produtos_saude.csv nao foram alterados.
+- data/dicionario_mestre/interno/ nao foi alterada.
+- app.py, core/, templates/, uploads/, backups/, .claude/ e .db nao foram alterados.
+- Nenhum commit feito ainda.
