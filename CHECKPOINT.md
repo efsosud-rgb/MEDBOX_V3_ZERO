@@ -728,3 +728,67 @@ Data: 2026-06-25
 - data/dicionario_mestre/interno/ nao foi alterada.
 - app.py, core/, templates/, uploads/, backups/, .claude/ e arquivos .db nao foram alterados.
 - Nenhum commit feito ainda.
+
+# Checkpoint - FASE 1.2 — Previa de integracao DCB para medicamentos
+
+Data: 2026-06-25
+
+## Script criado
+- scripts/dicionario_mestre/gerar_previa_dicionario_medicamentos_dcb.py
+- Le somente o CSV intermediario normalizado, sem banco, internet ou fontes internas.
+- Gera CSV UTF-8 com BOM, separador ";", reexecutavel com seguranca.
+
+## Entrada usada
+- data/dicionario_mestre/processado/anvisa_dcb_normalizada.csv
+- 12.715 registros lidos
+
+## Previa gerada
+- data/dicionario_mestre/processado/pre_dicionario_medicamentos_anvisa_dcb.csv
+- 12.715 registros exportados (todos preservados, sem deduplicacao)
+- 19 colunas
+
+## Totais por classificacao DCB
+- IFA (Insumo Farmaceutico Ativo): 615
+- INF (Insumo Farmaceutico):       9.568
+- BIO (Biologico):                 514
+- EXA (Extrato):                   372
+- HOM (Homeopatico):               1.170
+- PM  (Produto Manutencao):        273
+- RAD (Radiofarmaco):              203
+
+## Totais por subcategoria sugerida
+- INSUMO FARMACEUTICO:       9.568
+- HOMEOPATICO:               1.170
+- INSUMO FARMACEUTICO ATIVO: 615
+- BIOLOGICO:                 514
+- EXTRATO:                   372
+- PRODUTO MANUTENCAO:        273
+- RADIOFARMACO:              203
+
+## Totais por status de validacao
+- PRE_VALIDADO_FONTE_OFICIAL: 12.715
+- REVISAR: 0
+
+## Relatorio gerado
+- data/dicionario_mestre/processado/relatorio_previa_dicionario_medicamentos_anvisa_dcb.md
+
+## Historico atualizado
+- data/dicionario_mestre/processado/historico_capturas_fontes.csv
+- observacao atualizada mencionando a previa auditavel gerada
+- processado = sim (mantido)
+- mesclado_dicionario = nao (mantido)
+- Validacao: 2 linhas, 18 colunas, sem erros
+
+## Confirmacoes
+- Banco nao foi alterado.
+- Nenhum SQL foi executado.
+- SKU_MASTER nao foi aplicado.
+- Nenhuma fonte interna foi usada.
+- Nenhum download foi feito.
+- Nenhuma mesclagem no Dicionario Mestre foi feita.
+- dicionario_mestre_medbox.csv nao foi alterado.
+- dicionario_mestre_medicamentos.csv nao foi alterado.
+- dicionario_mestre_produtos_saude.csv nao foi alterado.
+- data/dicionario_mestre/interno/ nao foi alterada.
+- app.py, core/, templates/, uploads/, backups/, .claude/ e arquivos .db nao foram alterados.
+- Nenhum commit feito ainda.
