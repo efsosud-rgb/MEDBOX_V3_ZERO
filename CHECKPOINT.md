@@ -487,3 +487,79 @@ Data: 2026-06-25
 
 ## Proximo passo recomendado
 - Preencher as fontes externas de forma rastreavel e com validacao humana antes de qualquer mesclagem com o dicionario interno.
+
+# Checkpoint - Dicionario Mestre externo planejado
+
+Data: 2026-06-25
+
+## Direcao corrigida
+- O Dicionario Mestre MEDBOX sera construido prioritariamente por fontes externas oficiais e confiaveis.
+- Fontes internas ficam como apoio posterior para comparacao, validacao, lacunas e auditoria.
+- Proxima etapa: planejamento e catalogo de fontes externas.
+
+## Confirmacoes desta etapa
+- Banco nao foi alterado.
+- SKU_MASTER nao foi aplicado.
+- Backups nao foram alterados.
+- Uploads nao foram alterados.
+- Nenhum arquivo de `.claude/` foi alterado.
+- Nenhum SQL de escrita foi executado.
+- Nenhum commit foi feito.
+
+# Checkpoint - Ajuste de URLs oficiais do catalogo externo
+
+Data: 2026-06-25
+
+## Tarefa executada
+- Ajuste das URLs oficiais do catalogo externo do Dicionario Mestre MEDBOX.
+- Plano operacional externo atualizado para reforcar validacao das URLs antes de cada captura.
+- README do fluxo externo atualizado para manter coerencia com a estrategia externa-first.
+
+## Confirmacoes
+- Banco nao foi alterado nesta tarefa.
+- Nenhum download externo foi feito.
+- Nenhum script automatico de captura foi criado.
+- Nenhum commit foi feito.
+
+# Checkpoint - Validacao estrutural do catalogo externo (CSV)
+
+Data: 2026-06-25
+
+## Tarefa executada
+- Validacao e correcao estrutural do arquivo:
+  - `data/dicionario_mestre/externo/catalogo_fontes_externas.csv`
+- Objetivo: garantir CSV simples com separador `;` e exatamente 14 colunas por linha.
+
+## Colunas validadas (14)
+- `id_fonte`, `nome_fonte`, `tipo_fonte`, `orgao_entidade`, `pais_origem`,
+  `url_base`, `url_download_ou_acesso`, `formato_esperado`, `categoria_medbox`,
+  `prioridade`, `modo_captura`, `status`, `uso_no_dicionario`, `observacao`.
+
+## Correcoes aplicadas
+- Substituido ponto e virgula interno por virgula em campos textuais que quebravam
+  (ou complicavam) a estrutura de 14 colunas:
+  - Linha `ANVISA_DCB` (campo `observacao`): 1 `;` interno -> `,`.
+  - Linha `ANVISA_MEDICAMENTOS_REGISTRADOS` (campo `formato_esperado`): 1 `;` interno
+    estava protegido por aspas; aspas removidas e `;` -> `,` para manter CSV simples.
+  - Linha `ANVISA_PRODUTOS_SAUDE` (campo `observacao`): 1 `;` interno -> `,`.
+  - Linha `FDA_ACCESSGUDID` (campo `observacao`): 2 `;` internos -> `,`.
+- Linhas `ANVISA_BULARIO`, `WHO_ATC_DDD`, `CATALOGOS_FABRICANTES` e
+  `COMPENDIOS_TECNICOS` ja estavam corretas (14 colunas), sem alteracao.
+
+## Resultado da validacao Python
+- Validado com `csv.reader` (delimitador `;`).
+- Total de linhas (cabecalho + dados): 9.
+- Todas as linhas com exatamente 14 colunas: SIM (0 linhas invalidas).
+- Cabecalho conforme as 14 colunas esperadas: SIM.
+- Checagem por split simples (sem aspas): todas as linhas com exatamente 13 delimitadores.
+
+## Confirmacoes
+- Nenhum banco de dados foi alterado.
+- Nenhum SQL de escrita foi executado.
+- Nenhum download externo foi feito.
+- Nenhum script automatico de captura foi criado.
+- Nenhum extrator/analise/mesclagem interna foi feita.
+- Nenhum lote SKU_MASTER foi aplicado.
+- `app.py`, `core/`, `templates/`, `uploads/`, `backups/`, `.claude/` e arquivos `.db`
+  nao foram alterados.
+- Nenhum commit foi feito.
