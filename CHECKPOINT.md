@@ -307,3 +307,64 @@ Data: 2026-06-25
 ## Proximo passo recomendado
 - Revisar manualmente `scripts/diagnosticos/lote_piloto_normalizacao_sku_master.csv`.
 - Somente depois de aprovacao manual, criar script de dry-run para esse lote, ainda sem aplicar UPDATE automaticamente.
+
+# Checkpoint - Script dry-run do lote piloto SKU_MASTER
+
+Data: 2026-06-25
+
+## Tarefa executada
+- Criado script seguro:
+  - `scripts/correcoes/aplicar_lote_piloto_sku_master.py`
+- O script roda por padrao em DRY-RUN.
+- O modo APPLY futuro existe apenas com `--apply --confirmar`.
+- Nesta etapa, `--apply` nao foi executado.
+
+## Escopo do script
+- Leitura do lote:
+  - `scripts/diagnosticos/lote_piloto_normalizacao_sku_master.csv`
+- Valida exatamente 50 linhas.
+- Valida `produto_id`, `sku_master_atual`, `sku_master_sugerido`, `decisao_usuario`, `fabricante_sugerido`, `categoria_sugerida`, `SKU PENDENTE` e `PREMIUM`.
+- Em DRY-RUN, abre o banco em modo somente leitura (`mode=ro`).
+- Valida no banco:
+  - os 50 `produto_id` existem;
+  - produtos estao ativos quando a coluna `ativo` existe;
+  - `produtos.sku_master` continua vazio/nulo;
+  - `produto_padrao` do banco e compativel com `descricao_atual` do CSV;
+  - nao ha `produto_id` duplicado no lote.
+- O APPLY futuro, se autorizado em outra etapa, atualizara somente `produtos.sku_master`.
+- O script nao altera `descricao_original`, `produto_padrao`, fabricante, categoria, precos ou historico.
+
+## Resultado do dry-run
+- Comando executado:
+  - `py scripts\correcoes\aplicar_lote_piloto_sku_master.py`
+- Primeira tentativa dentro do sandbox:
+  - `py` nao estava disponivel no PATH da sessao.
+- Execucao fora do sandbox, sem `--apply`:
+  - DRY-RUN concluido com sucesso.
+  - Total de linhas validadas: 50.
+  - Produtos que seriam atualizados futuramente: 50.
+  - Campo alvo futuro: `produtos.sku_master`.
+  - Banco aberto somente leitura no DRY-RUN.
+  - Nenhum `UPDATE` foi executado.
+  - `--apply` nao foi executado.
+
+## Ajuste feito durante a validacao
+- A primeira execucao fora do sandbox abortou com seguranca porque a comparacao entre `descricao_atual` e `produto_padrao` era sensivel a pontuacao:
+  - exemplo: `5ML AMP` versus `5ML (AMP)`.
+- O script foi ajustado para comparar descricoes ignorando apenas pontuacao cosmetica/parenteses, preservando conteudo tecnico.
+- Apos o ajuste, o dry-run validou as 50 linhas com sucesso.
+
+## Confirmacoes
+- Banco nao foi alterado.
+- Nenhum `UPDATE`, `INSERT`, `DELETE`, `DROP`, `ALTER` ou `CREATE` foi executado nesta etapa.
+- Nenhuma correcao foi aplicada.
+- Nenhum commit foi feito.
+- `descricao_original` nao foi alterada.
+- `produtos.fabricante` nao foi alterado.
+- Categoria/fabricante nao foram alterados.
+- Precos nao foram alterados.
+- Historico de precos nao foi alterado.
+
+## Proximo passo recomendado
+- Validar e commitar o script dry-run e o CHECKPOINT.md.
+- Depois, se o usuario aprovar, executar novamente dry-run final antes de qualquer APPLY.
