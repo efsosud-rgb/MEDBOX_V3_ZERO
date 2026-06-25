@@ -1,11 +1,12 @@
 # CHECKPOINT MEDBOX_V3_ZERO
 
 ## Estado atual
-- Data/hora: 2026-06-24 17:01:32 -03:00
+- Data/hora: 2026-06-25 08:20:02 -03:00
 - Agente em uso: Codex
 - Branch: melhoria/auditoria-sku-master-todos-produtos
-- Tarefa atual: gerar previa especifica read-only para marcas SR/S R
-- Status Git antes da tarefa: somente `.claude/` nao rastreado
+- Tarefa atual: preparar script seguro para correcao futura das marcas invalidas em precos_fornecedores
+- Status: script criado; APPLY nao executado; DRY-RUN bloqueado por ausencia do comando `python` no PATH
+- Status Git antes desta rodada: `CHECKPOINT.md` modificado e `.claude/` nao rastreado
 
 ## Regras inviolaveis
 - Nunca alterar banco sem backup previo.
@@ -15,9 +16,10 @@
 - Precos antigos vao para precos_fornecedores_historico.
 - Nao misturar fornecedor com fabricante/marca.
 - Nao fazer patch as cegas: diagnosticar antes.
+- Nao executar `--apply` nesta tarefa.
 
 ## Arquivos permitidos nesta tarefa
-- scripts/diagnosticos/previa_sr_validacao_manual.csv
+- scripts/correcoes/corrigir_marcas_invalidas_precos.py
 - CHECKPOINT.md
 
 ## Arquivos proibidos nesta tarefa
@@ -29,56 +31,61 @@
 - arquivos fora do escopo da tarefa
 
 ## O que ja foi feito
-- Mantida a previa geral `scripts/diagnosticos/previa_marcas_suspeitas_precos.csv` com 102 registros.
-- Banco `banco/medbox_v3.db` aberto explicitamente em modo somente leitura.
-- Consultados os 13 registros atuais de `precos_fornecedores.marca` iguais a `SR` ou `S R` apos remover espacos.
-- Gerado `scripts/diagnosticos/previa_sr_validacao_manual.csv` com 15 colunas para decisao manual.
-- Recuperada `descricao_original` nos 13 registros, priorizando o preco atual e usando historico apenas como fallback de leitura.
-- Classificados 4 registros como possivel `SALDANHA RODRIGUES` com confianca `MEDIA`.
-- Classificados 9 registros como `VALIDAR` com confianca `BAIXA` por divergencia com BD ou VITALGOLD.
+- AGENTS.md, CLAUDE.md, RETOMAR.md e CHECKPOINT.md lidos antes da alteracao.
+- `git status --short` executado antes da alteracao.
+- Criado `scripts/correcoes/corrigir_marcas_invalidas_precos.py`.
+- Configurado DRY-RUN como modo padrao, sem conexao de escrita.
+- Configurado APPLY futuro para exigir `--apply --confirmar`, branch correta e Git limpo.
+- Configurada contagem obrigatoria de exatamente 89 registros.
+- Configurado bloqueio explicito de `SR` e `S R`.
+- Configuradas validacoes de existencia de CSV/banco, IDs, produto_id e marca atual.
+- Configurado `NOVO_VALOR_MARCA = None`, documentado como SQL NULL pendente de validacao humana.
+- Configurados backup SQLite em `backups/` e CSV de auditoria com timestamp para APPLY futuro.
+- Reconciliados por leitura independente os 89 registros do CSV com os 89 registros atuais do banco.
 
 ## O que falta fazer
-- Responsavel preencher a coluna `decisao_usuario` nas 13 linhas.
-- Confirmar manualmente os quatro casos sugeridos como SALDANHA RODRIGUES.
-- Revisar os nove casos divergentes antes de qualquer correcao.
+- Executar o DRY-RUN em ambiente com comando `python` disponivel.
+- Validar o resultado do DRY-RUN antes de qualquer autorizacao futura de APPLY.
+- Decidir explicitamente se `NOVO_VALOR_MARCA = None` sera mantido.
 - Nenhuma correcao de banco esta autorizada nesta etapa.
 
 ## Arquivos alterados
-- scripts/diagnosticos/previa_sr_validacao_manual.csv
+- scripts/correcoes/corrigir_marcas_invalidas_precos.py
 - CHECKPOINT.md
 
 ## Comandos executados
 - `git status --short` antes da tarefa.
 - Leitura de AGENTS.md, CLAUDE.md, RETOMAR.md e CHECKPOINT.md.
-- Consultas `SELECT` via `node:sqlite` com `{ readOnly: true }`.
-- `git branch --show-current`, `git status --short` e `git diff --name-only -- banco`.
+- `python scripts/correcoes/corrigir_marcas_invalidas_precos.py` sem argumentos.
+- Nova tentativa em 2026-06-25: mesmo comando solicitado, bloqueado porque `python` nao esta disponivel no PATH.
+- Consultas independentes somente leitura via `node:sqlite` para reconciliacao.
+- `git diff --check`, `git diff --name-only -- banco` e `git check-ignore -v`.
 
 ## Testes executados
-- Validacao de 15 colunas em todas as linhas do CSV.
-- Validacao de 13 `preco_id` unicos.
-- Confirmacao de que todas as marcas normalizam para `SR`.
-- Confirmacao de que as 13 celulas `decisao_usuario` estao vazias.
-- Validacao de codificacao UTF-8 e acentos.
-- Reconciliacao do total do CSV com consulta read-only ao banco.
+- Tentativa do DRY-RUN pelo comando Python solicitado.
+- Validacao independente de 89 registros selecionados no CSV.
+- Validacao de 89 `preco_id` unicos.
+- Confirmacao de que nenhum registro SR/S R entrou no conjunto.
+- Reconciliacao de `preco_id`, `produto_id` e `marca_preco_atual` com o banco.
+- Verificacao estatica das protecoes de branch, Git limpo, backup, auditoria e confirmacao dupla.
 - Comparacao de tamanho e data de modificacao do banco antes/depois.
 
 ## Resultado dos testes
-- CSV: 13 linhas de dados e 1 cabecalho.
-- Todas as linhas possuem 15 colunas.
-- Todos os `preco_id` sao unicos.
-- `descricao_original` recuperada nas 13 linhas.
-- Possivel correcao: 4 `SALDANHA RODRIGUES` e 9 `VALIDAR`.
-- Confianca: 4 `MEDIA` e 9 `BAIXA`.
-- Codificacao UTF-8 valida.
+- O comando Python nao iniciou: `python` nao esta disponivel no PATH desta sessao.
+- Nova tentativa em 2026-06-25 confirmou o mesmo bloqueio de ambiente.
+- Nenhuma linha do script foi executada pelo interpretador Python nesta sessao.
+- Validacao independente: 89 registros, IDs unicos, zero SR/S R e zero divergencias com o banco.
+- Totais por marca: UN 64, U N 2, RL 12, PR 3, PT 1, CX 1, FL 1, GL 1, KT 1, MT 3.
 - Banco permaneceu inalterado.
 - Nenhum UPDATE, INSERT, DELETE, DROP, ALTER ou CREATE foi executado.
+- APPLY nao foi executado.
 
 ## Riscos / observacoes
-- A sigla `SR` isolada nao foi considerada prova de fabricante.
-- Os quatro casos sugeridos como SALDANHA RODRIGUES dependem do fabricante ja cadastrado no produto e ainda exigem validacao manual.
-- Os nove casos restantes possuem contexto divergente, principalmente BD ou VITALGOLD.
-- O CSV e apenas diagnostico; nao deve ser usado como script de atualizacao sem nova autorizacao.
+- O DRY-RUN real ainda precisa ser executado onde Python esteja disponivel.
+- O script contem o UPDATE futuro, mas ele esta isolado no caminho protegido por `--apply --confirmar`.
+- O arquivo corresponde ao padrao local ignorado `corrigir_*.py` em `.git/info/exclude`; por isso nao aparece no `git status`. Para rastrea-lo futuramente sera necessario revisar essa exclusao ou usar `git add -f`, sem fazer isso nesta tarefa.
+- O Git esta propositalmente sujo durante o desenvolvimento; o APPLY futuro abortara ate que esteja limpo.
 - `.claude/` continua nao rastreado e nao foi alterado.
 
 ## Proximo passo recomendado
-- Preencher `decisao_usuario` em `scripts/diagnosticos/previa_sr_validacao_manual.csv` e revisar as decisoes antes de planejar qualquer alteracao no banco.
+- Em PowerShell com Python disponivel, executar `python scripts\correcoes\corrigir_marcas_invalidas_precos.py` e revisar o DRY-RUN. Nao usar `--apply` antes de nova autorizacao explicita.
