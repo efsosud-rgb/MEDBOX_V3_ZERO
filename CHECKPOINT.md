@@ -665,3 +665,66 @@ Data: 2026-06-25
 - Nenhum script novo criado em scripts/dicionario_mestre/.
 - app.py, core/, templates/, uploads/, backups/, .claude/ e arquivos .db nao foram alterados.
 - Nenhum commit feito ainda nesta etapa.
+
+# Checkpoint - FASE 1.1 — Processamento intermediario ANVISA DCB
+
+Data: 2026-06-25
+
+## Script criado
+- scripts/dicionario_mestre/processar_anvisa_dcb.py
+- Le o XLSX bruto localmente, sem internet, sem banco, sem fontes internas.
+- Gera CSV UTF-8 com BOM, separador ";", reexecutavel com seguranca.
+
+## XLSX bruto lido
+- data/dicionario_mestre/bruto/anvisa/anvisa_dcb_lista_consolidada_in_439_2026_original.xlsx
+- 1 aba: "Lista DCB Consolidada"
+- L1: titulo da planilha (ignorado)
+- L2: cabecalho (5 colunas uteis: No DCB, DENOMINACAO COMUM BRASILEIRA, No CAS, CLASSIFICACAO, HISTORICO)
+- L3..L12717: dados (12.715 registros nao-vazios)
+- L12718: vazia (ignorada)
+- Total de linhas no XLSX: 12.718
+
+## CSV intermediario gerado
+- data/dicionario_mestre/processado/anvisa_dcb_normalizada.csv
+- 12.716 linhas (1 cabecalho + 12.715 registros)
+- 13 colunas: id_registro, fonte, versao_fonte, status_fonte, termo_dcb, termo_dcb_normalizado,
+  numero_cas, tipo_registro, observacao_fonte, linha_origem, arquivo_origem,
+  data_processamento, status_processamento
+- Todos os 12.715 registros com status OK
+- 0 registros sem termo DCB
+- 0 registros sem CAS
+- 0 campos com ponto e virgula interno
+
+## Relatorio gerado
+- data/dicionario_mestre/processado/relatorio_processamento_anvisa_dcb.md
+- Contem: objetivo, arquivo bruto lido, abas, colunas mapeadas, totais, 10 linhas de exemplo, confirmacoes.
+
+## Historico atualizado
+- data/dicionario_mestre/processado/historico_capturas_fontes.csv
+- Linha ANVISA_DCB_20260625_IN_439_2026: processado alterado de nao para sim
+- mesclado_dicionario permanece nao
+- observacao atualizada: "processado para CSV intermediario anvisa_dcb_normalizada.csv, sem mesclagem"
+- Validacao: 2 linhas, 18 colunas por linha, sem erros
+
+## Classificacoes encontradas na DCB
+- IFA: Insumo Farmaceutico Ativo
+- INF: Insumo Farmaceutico (outros)
+- BIO: Biologico
+- EXA: Extrato de Algas
+- HOM: Homeopatico
+- PM: Produto para Manutencao
+- RAD: Radioativo
+
+## Confirmacoes
+- Banco nao foi alterado.
+- Nenhum SQL foi executado.
+- SKU_MASTER nao foi aplicado.
+- Nenhuma fonte interna foi usada.
+- Nenhum download adicional foi feito.
+- Nenhuma mesclagem no Dicionario Mestre foi feita.
+- dicionario_mestre_medbox.csv nao foi alterado.
+- dicionario_mestre_medicamentos.csv nao foi alterado.
+- dicionario_mestre_produtos_saude.csv nao foi alterado.
+- data/dicionario_mestre/interno/ nao foi alterada.
+- app.py, core/, templates/, uploads/, backups/, .claude/ e arquivos .db nao foram alterados.
+- Nenhum commit feito ainda.
