@@ -1,0 +1,19 @@
+﻿item;status;esperado;encontrado;bloqueia_apply;observacao
+fase_2_8_commitada;OK;FASE 2.8 documentada em CHECKPOINT;OK;NAO;
+dicionario_final_existe;OK;existe;existe;NAO;
+diagnostico_cruzamento_existe;OK;existe;existe;NAO;
+total_match_exato_unico;OK;7984;7984;NAO;
+total_dry_run;OK;7984;7984;NAO;
+somente_match_exato_unico;OK;todos_MATCH_EXATO_UNICO;OK;NAO;
+somente_pode_enriquecer_sim;OK;-;dry-run derivado de pode_enriquecer=SIM;NAO;todos os registros do dry-run vieram de pode_enriquecer_automaticamente=SIM
+nenhum_sem_match_no_dry_run;OK;0;0;NAO;
+nenhum_match_multiplo_no_dry_run;OK;0;0;NAO;nenhum SEM_MATCH ou MATCH_MULTIPLO no dry-run
+ids_medreg_existentes_no_dicionario;OK;0;0;NAO;IDs MEDREG do dry-run não encontrados no dicionário
+ids_dcb_existentes_no_dicionario;OK;0;0;NAO;IDs DCB candidatos não encontrados no dicionário
+sem_conflitos_bloqueantes;OK;0;0;NAO;conflitos existem mas podem ser resolvidos individualmente
+apply_nao_executado;OK;nao_executado;nao_executado;NAO;dry-run apenas — apply requer aprovação humana explícita
+dicionario_final_nao_alterado;OK;8694344;8694344;NAO;
+banco_nao_alterado;OK;nao_acessado;nao_acessado;NAO;
+fonte_interna_nao_usada;OK;nao_usada;nao_usada;NAO;
+sku_master_nao_aplicado;OK;nao_aplicado;nao_aplicado;NAO;
+arquivos_protegidos_nao_alterados;OK;intactos;intactos;NAO;

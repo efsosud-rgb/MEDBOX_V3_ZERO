@@ -1534,3 +1534,52 @@ APTO_PARA_PREPARAR_DRY_RUN_ENRIQUECIMENTO_DCB
 - Nenhum SKU_MASTER aplicado.
 - Nenhum download realizado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.9 — Dry-run enriquecimento DCB ANVISA MEDREG
+Data: 2026-06-26
+
+## Modo: READ-ONLY (dicionario_mestre_medicamentos.csv nao alterado)
+
+## Diagnostico usado
+- data/dicionario_mestre/processado/diagnostico_cruzamento_dcb_anvisa_medreg.csv (FASE 2.8)
+- Total ANVISA_MEDREG: 10.345
+- Total MATCH_EXATO_UNICO elegíveis: 7.984
+
+## Descoberta tecnica importante
+- Campo 'classificacao' nos MEDREG contem categoria regulatoria (Generico, Similar, Biologico).
+- Campo 'classificacao' nos DCB contem classe farmaceutica (INSUMO FARMACEUTICO, etc.).
+- Semanticas distintas: 'classificacao' excluida do escopo de enriquecimento.
+- Escopo final: apenas 'dcb' e 'cas'.
+
+## Resultado do dry-run
+- ENRIQUECER_PREVISTO: 7.984 (77,2% dos MEDREG)
+- IGNORAR_JA_PREENCHIDO: 0
+- REVISAR_CONFLITO: 0
+- REVISAR_DADOS_INCOMPLETOS: 0
+- Total campos a alterar: 15.968 (7.984 dcb + 7.984 cas)
+
+## Checklist
+- 18 itens / 0 falhas / 0 bloqueantes
+
+## Decisao tecnica
+APTO_PARA_APLICACAO_CONTROLADA_ENRIQUECIMENTO_DCB
+
+## Arquivos gerados
+- scripts/dicionario_mestre/preparar_dry_run_enriquecimento_dcb_anvisa_medreg.py
+- data/dicionario_mestre/processado/dry_run_enriquecimento_dcb_anvisa_medreg.csv (7.984 linhas)
+- data/dicionario_mestre/processado/diff_enriquecimento_dcb_anvisa_medreg.csv (15.968 alteracoes + 7 resumos)
+- data/dicionario_mestre/processado/checklist_dry_run_enriquecimento_dcb_anvisa_medreg.csv (18 itens)
+- data/dicionario_mestre/processado/plano_aplicacao_enriquecimento_dcb_anvisa_medreg.md
+
+## Apply nao executado
+- Enriquecimento real requer aprovacao humana explicita.
+
+## Confirmacoes FASE 2.9
+- dicionario_mestre_medicamentos.csv NAO alterado (read-only, 8.694.344 bytes).
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum SKU_MASTER aplicado.
+- Nenhum download realizado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
