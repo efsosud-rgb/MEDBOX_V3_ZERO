@@ -1865,3 +1865,37 @@ NAO_APTO_CAPTURA_AUTOMATICA_SEM_REVISAR_ABORDAGEM
 
 ## Próxima fase recomendada
 Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executada ainda porque não há dados brutos suficientes para processar os campos-alvo.
+
+## Checkpoint - FASE 2.14C-R — Busca navegada profunda de fontes públicas MEDREG
+
+- Data/hora local: 2026-06-26 16:01:24 -03:00
+- Objetivo: mapear fontes públicas oficiais e estruturadas para enriquecer MEDREG com forma farmacêutica, concentração, apresentação, via de uso, princípio ativo, empresa, registro ANVISA, código GGREM, bula e vocabulários controlados.
+- Motivo da fase: a FASE 2.14B consultou 14 registros, obteve 0 captura OK, 11 sem resultado e 3 bloqueados/não automatizáveis por HTTP 429 consecutivo; a abordagem foi revista para priorizar fontes estruturadas e navegadas.
+- Fontes pesquisadas:
+  - Dados Abertos ANVISA.
+  - Medicamentos registrados no Brasil / dados.gov.br.
+  - CMED listas de preços.
+  - Como consultar listas CMED.
+  - Bulário Eletrônico ANVISA.
+  - Consulta a registro de medicamentos.
+  - Sistema de Consultas ANVISA.
+  - DCB ANVISA.
+  - Farmacopeia Brasileira / vocabulários controlados.
+  - Medicamentos genéricos e similares.
+  - Medicamentos de referência.
+- Páginas abertas/lidas: páginas oficiais gov.br/anvisa, dados.gov.br e consultas.anvisa.gov.br relacionadas às fontes acima.
+- Arquivos criados:
+  - data/dicionario_mestre/externo/matriz_fontes_navegadas_medreg.csv
+  - data/dicionario_mestre/externo/relatorio_busca_navegada_fontes_medreg.md
+  - data/dicionario_mestre/processado/checklist_busca_navegada_fontes_medreg.csv
+- Links de bases e arquivos foram apenas registrados.
+- Base grande não foi baixada.
+- Nova captura da amostra 100 não foi executada.
+- Scraping massivo não foi executado.
+- Bloqueios não foram burlados.
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- Decisão técnica: APTO_PARA_PLANEJAR_INGESTAO_MULTI_FONTE_ESTRUTURADA
+- Próxima fase recomendada: FASE 2.14D — planejamento de ingestão multi-fonte estruturada.
