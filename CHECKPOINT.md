@@ -1060,3 +1060,51 @@ Data: 2026-06-26
 - Nenhum SKU_MASTER foi aplicado.
 - app.py, core/, templates/, uploads/, .claude/, arquivos .db, data/dicionario_mestre/interno/ nao foram alterados.
 - Commit ainda nao feito antes da validacao.
+
+# Checkpoint - FASE 1.8 — Revisao pos-aplicacao DCB medicamentos
+
+Data: 2026-06-26
+
+## Script criado
+- scripts/dicionario_mestre/revisar_pos_aplicacao_dcb_medicamentos.py
+- Le somente arquivos locais autorizados:
+  - data/dicionario_mestre/dicionario_mestre_medicamentos.csv
+  - data/dicionario_mestre/processado/carga_previa_dicionario_medicamentos_anvisa_dcb.csv
+  - data/dicionario_mestre/processado/pendencias_carga_previa_dcb_medicamentos.csv
+  - data/dicionario_mestre/processado/validacao_pos_aplicacao_dcb_medicamentos.csv
+- Nao acessa internet, banco ou fonte interna.
+- Nao altera o dicionario final.
+
+## Arquivos analisados
+- data/dicionario_mestre/dicionario_mestre_medicamentos.csv
+- data/dicionario_mestre/processado/carga_previa_dicionario_medicamentos_anvisa_dcb.csv
+- data/dicionario_mestre/processado/pendencias_carga_previa_dcb_medicamentos.csv
+- data/dicionario_mestre/processado/validacao_pos_aplicacao_dcb_medicamentos.csv
+
+## Amostra gerada
+- data/dicionario_mestre/processado/amostra_pos_aplicacao_dcb_medicamentos.csv
+- Total de linhas de dados: 2.131
+- Inclui primeiros 20, ultimos 20, amostras por classificacao, por fonte, aleatoria seed=42,
+  nomes mais longos, nomes mais curtos, CAS duplicados conhecidos e termos de revisao conhecidos.
+
+## Consistencia gerada
+- data/dicionario_mestre/processado/consistencia_pos_aplicacao_dcb_medicamentos.csv
+- Total de registros revisados: 12.715
+- Total de linhas finais: 12.716 incluindo cabecalho
+- Total de colunas: 22
+- Falhas bloqueantes: 0
+- Resultado: OK para os itens obrigatorios.
+- Comparacao com a carga previa: OK apos normalizacao cosmetica de espaco antes de quebra interna em observacoes.
+
+## Relatorio gerado
+- data/dicionario_mestre/processado/auditoria_pos_aplicacao_dcb_medicamentos.md
+- Decisao tecnica: APTO_PARA_INICIAR_FASE_2_ANVISA_MEDICAMENTOS_REGISTRADOS
+
+## Confirmacoes FASE 1.8
+- Dicionario final nao foi alterado nesta fase.
+- Banco nao foi alterado.
+- Nenhuma fonte interna foi usada.
+- Nenhum download foi feito.
+- Nenhum SKU_MASTER foi aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db, data/dicionario_mestre/interno/ nao foram alterados.
+- Commit ainda nao feito antes da validacao.

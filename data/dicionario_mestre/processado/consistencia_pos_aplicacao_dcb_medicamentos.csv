@@ -1,0 +1,29 @@
+﻿item;status;esperado;encontrado;bloqueia_proxima_fase;observacao
+arquivo_final_existe;OK;arquivo existe;True;SIM;
+total_linhas;OK;12716;12716;SIM;
+total_registros;OK;12715;12715;SIM;
+total_colunas;OK;22 em todas as linhas;[22];SIM;
+cabecalho_preservado;OK;igual a carga previa;True;SIM;
+todas_linhas_mesmo_numero_colunas;OK;[22];[22];SIM;
+ids_dcb;OK;todos DCB_;True;SIM;
+ids_unicos;OK;ids unicos;12715/12715;SIM;
+sem_id_vazio;OK;0 vazios;True;SIM;
+sem_nome_padrao_vazio;OK;0 vazios;True;SIM;
+sem_principio_ativo_vazio;OK;0 vazios;True;SIM;
+sem_dcb_vazio;OK;0 vazios;True;SIM;
+sem_cas_vazio;OK;0 vazios;True;SIM;
+fonte_nome_anvisa_dcb;OK;ANVISA_DCB em todos;True;SIM;
+confianca_alta;OK;ALTA em todos;True;SIM;
+status_revisao_preenchido;OK;preenchido em todos;True;SIM;
+campos_vazios_esperados_sku_master_padrao;OK;12715 vazios esperados;12715;NAO;Vazio esperado porque a DCB nao traz este atributo.
+campos_vazios_esperados_concentracao;OK;12715 vazios esperados;12715;NAO;Vazio esperado porque a DCB nao traz este atributo.
+campos_vazios_esperados_forma_farmaceutica;OK;12715 vazios esperados;12715;NAO;Vazio esperado porque a DCB nao traz este atributo.
+campos_vazios_esperados_apresentacao;OK;12715 vazios esperados;12715;NAO;Vazio esperado porque a DCB nao traz este atributo.
+campos_vazios_esperados_via_uso;OK;12715 vazios esperados;12715;NAO;Vazio esperado porque a DCB nao traz este atributo.
+campos_vazios_esperados_atc;OK;12715 vazios esperados;12715;NAO;Vazio esperado porque a DCB nao traz este atributo.
+consistencia_com_carga_previa;OK;conteudo igual a carga previa apos normalizacao de espaco antes de quebra interna;normalized_equal=True, exact_equal=False, exact_diff_cells=3;SIM;
+pendencias_conhecidas_nao_bloqueantes;OK;0 bloqueantes;0;SIM;
+backup_fase_1_7_existe;OK;backup FASE 1.7 existe;True;SIM;
+banco_nao_alterado;OK;sem alteracao de banco nesta fase;True;SIM;
+fonte_interna_nao_usada;OK;nenhuma fonte interna usada;True;SIM;
+sku_master_nao_aplicado;OK;SKU_MASTER nao aplicado;True;SIM;
