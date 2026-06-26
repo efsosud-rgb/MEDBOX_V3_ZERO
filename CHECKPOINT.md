@@ -1205,3 +1205,41 @@ Data: 2026-06-26
 - Nenhum SKU_MASTER foi aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db, data/dicionario_mestre/interno/ nao foram alterados.
 - Commit ainda nao feito antes da validacao.
+
+---
+
+# Checkpoint - FASE 2.2 — Processamento intermediario ANVISA Medicamentos Registrados
+Data: 2026-06-26
+
+## Script criado
+- scripts/dicionario_mestre/processar_anvisa_medicamentos_registrados.py
+
+## Arquivo bruto usado
+- data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_original.csv
+
+## Encoding / Separador detectados
+- Encoding: cp1252
+- Separador: ; (ponto e virgula)
+
+## Totais
+- Total de registros lidos: 43240
+- Total de registros exportados: 43240
+
+## Status de processamento
+- OK: 43240
+- REVISAR: 0
+- ERRO_ESTRUTURA: 0
+
+## Arquivos gerados
+- data/dicionario_mestre/processado/anvisa_medicamentos_registrados_normalizado.csv (27 colunas, 43240 linhas)
+- data/dicionario_mestre/processado/perfil_anvisa_medicamentos_registrados.csv
+- data/dicionario_mestre/processado/relatorio_processamento_anvisa_medicamentos_registrados.md
+- data/dicionario_mestre/processado/historico_capturas_fontes.csv (atualizado: processado=sim)
+
+## Confirmacoes FASE 2.2
+- Dicionarios finais nao alterados (dicionario_mestre_medbox.csv, dicionario_mestre_medicamentos.csv, dicionario_mestre_produtos_saude.csv).
+- Banco nao alterado.
+- Nenhuma fonte interna usada (data/dicionario_mestre/interno/ nao acessado).
+- Nenhum download realizado.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.

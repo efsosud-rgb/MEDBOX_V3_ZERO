@@ -1,0 +1,28 @@
+﻿coluna_original;coluna_padronizada;existe_no_bruto;total_registros;vazios;preenchidos;percentual_preenchido;exemplos;observacao
+TIPO_PRODUTO;tipo_produto;sim;43240;0;43240;100.0%;MEDICAMENTO | MEDICAMENTO | MEDICAMENTO;
+NOME_PRODUTO;nome_produto;sim;43240;0;43240;100.0%;GASTROGEL FRESH | IZONAX | LAXSOFT;
+DATA_FINALIZACAO_PROCESSO;data_registro;sim;43240;79;43161;99.8%;11/12/2018 | 27/10/2008 | 18/08/2023;
+CATEGORIA_REGULATORIA;categoria_regulatoria;sim;43240;1827;41413;95.8%;BAIXO RISCO | Similar | BAIXO RISCO;
+NUMERO_REGISTRO_PRODUTO;numero_registro;sim;43240;10691;32549;75.3%;141070069 | 102990002 | 126750053;
+DATA_VENCIMENTO_REGISTRO;data_validade;sim;43240;6101;37139;85.9%;122023 | 102028 | 082033;
+NUMERO_PROCESSO;processo;sim;43240;10612;32628;75.5%;25351391511200593 | 2500100597678 | 25351035208200341;
+CLASSE_TERAPEUTICA;classe_terapeutica;sim;43240;11384;31856;73.7%;ANTIMICOTICO | DIGESTIVOS-ASSOCIACOES MEDICAMENTOSAS | ANTILIPEMICOS;
+EMPRESA_DETENTORA_REGISTRO;empresa_detentora;sim;43240;0;43240;100.0%;MEDQUIMICA INDÚSTRIA FARMACÊUTICA LTDA | PHARLAB INDÚSTRIA FARMACÊUTICA S.A. | CIFARMA CIENTÍFICA FARMACÊUTICA LTDA;
+SITUACAO_REGISTRO;situacao_registro;sim;43240;0;43240;100.0%;Ativo | Ativo | Inativo;
+PRINCIPIO_ATIVO;principio_ativo;sim;43240;14125;29115;67.3%;CETOCONAZOL | ALOE FEROX MILL., Angelica archangelica L., GENTIANA LUTEA L., Commyphora myrrha | pravastatina sódica;
+(gerada);id_registro_processamento;nao;43240;0;43240;100.0%;ANVREG_2026_000001 | ANVREG_2026_000002 | ANVREG_2026_000003;coluna gerada no processamento
+(gerada);fonte;nao;43240;0;43240;100.0%;ANVISA_MEDICAMENTOS_REGISTRADOS | ANVISA_MEDICAMENTOS_REGISTRADOS | ANVISA_MEDICAMENTOS_REGISTRADOS;coluna gerada no processamento
+(gerada);versao_fonte;nao;43240;0;43240;100.0%;DADOS_ABERTOS_MEDICAMENTOS | DADOS_ABERTOS_MEDICAMENTOS | DADOS_ABERTOS_MEDICAMENTOS;coluna gerada no processamento
+(gerada);arquivo_origem;nao;43240;0;43240;100.0%;data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_original.csv | data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_original.csv | data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_original.csv;coluna gerada no processamento
+(gerada);linha_origem;nao;43240;0;43240;100.0%;2 | 3 | 4;coluna gerada no processamento
+(gerada);principio_ativo_normalizado;nao;43240;14125;29115;67.3%;CETOCONAZOL | ALOE FEROX MILL., ANGELICA ARCHANGELICA L., GENTIANA LUTEA L., COMMYPHORA MYRRHA | PRAVASTATINA SÓDICA;coluna gerada no processamento
+(gerada);cnpj_empresa;nao;43240;0;43240;100.0%;17875154000391 | 02501297000102 | 17562075000169;coluna gerada no processamento
+(gerada);campo_original_json;nao;43240;0;43240;100.0%;"{""TIPO_PRODUTO"": ""MEDICAMENTO"", ""NOME_PRODUTO"": ""GASTROGEL FRESH"", ""DATA_FINALIZ | {""TIPO_PRODUTO"": ""MEDICAMENTO"", ""NOME_PRODUTO"": ""IZONAX"", ""DATA_FINALIZACAO_PROC | {""TIPO_PRODUTO"": ""MEDICAMENTO"", ""NOME_PRODUTO"": ""LAXSOFT"", ""DATA_FINALIZACAO_PRO";coluna gerada no processamento
+(gerada);status_processamento;nao;43240;0;43240;100.0%;OK | OK | OK;coluna gerada no processamento
+(gerada);motivo_status;nao;43240;43240;0;0.0%;;coluna gerada no processamento
+(ausente no bruto);forma_farmaceutica;nao;43240;43240;0;0.0%;;campo esperado nao presente no arquivo bruto
+(ausente no bruto);concentracao;nao;43240;43240;0;0.0%;;campo esperado nao presente no arquivo bruto
+(ausente no bruto);apresentacao;nao;43240;43240;0;0.0%;;campo esperado nao presente no arquivo bruto
+(ausente no bruto);via_uso;nao;43240;43240;0;0.0%;;campo esperado nao presente no arquivo bruto
+(ausente no bruto);restricao_prescricao;nao;43240;43240;0;0.0%;;campo esperado nao presente no arquivo bruto
+(ausente no bruto);tarja;nao;43240;43240;0;0.0%;;campo esperado nao presente no arquivo bruto
