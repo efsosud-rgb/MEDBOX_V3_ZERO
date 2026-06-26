@@ -1954,3 +1954,28 @@ Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executa
 - SKU_MASTER não foi aplicado.
 - Decisão técnica: APTO_PARA_EXECUTAR_DOWNLOAD_CONTROLADO_FONTE_A_FONTE
 - Próxima fase recomendada: FASE 2.14G — execução controlada do download de fontes estruturadas autorizadas, uma fonte por vez.
+
+## Checkpoint - FASE 2.14E-B — Instalação de dependências PDF/Navegação
+
+- Data/hora local: 2026-06-26 16:44:18 -03:00
+- Objetivo: instalar Java, Ghostscript, Playwright Chromium e diagnosticar Camelot.
+- Autorização: usuário autorizou instalação dessas ferramentas.
+- Resultado Java: OK; Eclipse Temurin JDK 21 instalado via winget e verificado pelo caminho `C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot\bin\java.exe`; PATH permanente não foi alterado.
+- Resultado Ghostscript: PENDENTE; `ArtifexSoftware.GhostScript` não foi encontrado no catálogo winget local e `gswin64c` não foi localizado no PATH nem nos diretórios padrão.
+- Resultado Playwright Chromium: OK; Chromium instalado em cache local do Playwright e importação Playwright testada com sucesso.
+- Resultado Camelot: OK; `import camelot` executado com sucesso, versão 2.0.0.
+- Arquivos criados:
+  - scripts/dicionario_mestre/diagnosticar_dependencias_pdf_navegacao.py
+  - data/dicionario_mestre/processado/diagnostico_dependencias_pdf_navegacao.csv
+  - data/dicionario_mestre/processado/checklist_instalacao_dependencias_pdf_navegacao.csv
+  - data/dicionario_mestre/externo/relatorio_instalacao_dependencias_pdf_navegacao.md
+- Nenhuma base foi baixada.
+- Nenhuma captura foi executada.
+- Scraping não foi executado.
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- Segurança do Windows não foi desativada.
+- Decisão técnica: APTO_COM_PENDENCIAS_PDF_NAV
+- Próxima fase recomendada: FASE 2.14F — criação dos scripts de download estruturado.

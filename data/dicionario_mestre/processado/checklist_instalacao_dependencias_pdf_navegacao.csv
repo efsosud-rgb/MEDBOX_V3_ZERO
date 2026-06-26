@@ -1,0 +1,20 @@
+﻿item,status,observacao
+git_status_verificado,OK,
+branch_verificada,OK,
+winget_verificado,OK,winget v1.28.240
+java_verificado_ou_instalado,OK,Temurin JDK 21 instalado; java OK via caminho instalado; PATH da sessao nao atualizado
+ghostscript_verificado_ou_instalado,PENDENTE,ArtifexSoftware.GhostScript nao encontrado no catalogo winget local; gswin64c nao encontrado
+playwright_chromium_instalado,OK,Chromium localizado em C:\Users\admph\AppData\Local\ms-playwright\chromium-1223
+camelot_retestado,OK,camelot 2.0.0 importado com sucesso
+script_diagnostico_criado,OK,
+diagnostico_executado,OK,8 OK; 1 PENDENTE
+relatorio_criado,OK,
+base_dados_nao_baixada,OK,
+captura_nao_executada,OK,
+scraping_nao_executado,OK,
+banco_nao_alterado,OK,
+dicionario_final_nao_alterado,OK,
+fonte_interna_nao_usada,OK,
+sku_master_nao_aplicado,OK,
+seguranca_windows_nao_desativada,OK,
+checkpoint_atualizado,OK,
