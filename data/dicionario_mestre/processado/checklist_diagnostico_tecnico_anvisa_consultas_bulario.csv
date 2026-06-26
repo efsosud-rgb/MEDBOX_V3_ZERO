@@ -1,0 +1,19 @@
+﻿item,status,observacao
+git_status_verificado,OK,git status executado antes das alteracoes
+branch_verificada,OK,branch melhoria/auditoria-sku-master-todos-produtos confirmada
+checkpoint_lido,OK,CHECKPOINT.md lido
+plano_fase_2_12_lido,OK,plano_fontes_forma_concentracao_apresentacao_via.md lido
+diagnostico_campos_vazios_lido,OK,diagnostico_campos_vazios_medreg.csv lido
+anvisa_consultas_avaliada_como_fonte_principal,OK,fonte principal recomendada para consulta por numero de registro
+bulario_avaliado_como_fonte_complementar,OK,fonte complementar para validacao textual e lacunas
+campos_alvo_definidos,OK,forma_farmaceutica concentracao apresentacao via_uso
+riscos_tecnicos_mapeados,OK,site dinamico consulta individual layout variavel bloqueios e duplicidade por apresentacao
+criterios_amostra_100_definidos,OK,amostra futura planejada sem execucao nesta fase
+captura_bruta_nao_executada,OK,nenhuma captura bruta realizada
+scraping_nao_executado,OK,nenhum crawler ou scraping executado
+banco_nao_alterado,OK,banco e arquivos db nao acessados para escrita
+dicionario_final_nao_alterado,OK,dicionarios finais preservados
+sku_master_nao_aplicado,OK,SKU_MASTER nao aplicado
+fonte_interna_nao_usada,OK,data/dicionario_mestre/interno nao usada
+checkpoint_atualizado,OK,CHECKPOINT.md recebeu secao da FASE 2.13
+apto_para_fase_2_14,OK,APTO_PARA_PREPARAR_CAPTURA_BRUTA_CONTROLADA_AMOSTRA_100

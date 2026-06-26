@@ -1728,3 +1728,47 @@ APTO_PARA_DIAGNOSTICAR_FONTE_OFICIAL_FORMA_CONCENTRACAO_APRESENTACAO_VIA
 - Nenhuma fonte interna usada.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+## Checkpoint - FASE 2.13 — Diagnóstico técnico ANVISA Consultas/Bulário
+
+Data/hora local: 2026-06-26 13:51:57 -03:00
+
+## Objetivo
+Diagnosticar tecnicamente, sem captura de dados em massa, como ANVISA Consultas e, complementarmente, o Bulário ANVISA podem ser usados em fases futuras para enriquecer orma_farmaceutica, concentracao, presentacao e ia_uso nos registros ANVISA_MEDREG.
+
+## Arquivos criados
+- data/dicionario_mestre/externo/diagnostico_tecnico_anvisa_consultas_bulario.md
+- data/dicionario_mestre/processado/checklist_diagnostico_tecnico_anvisa_consultas_bulario.csv
+
+## Arquivos não alterados
+- banco/ e arquivos .db
+- app.py
+- core/
+- templates/
+- uploads/
+- backups/
+- .claude/
+- data/dicionario_mestre/interno/
+- data/dicionario_mestre/dicionario_mestre_medbox.csv
+- data/dicionario_mestre/dicionario_mestre_medicamentos.csv
+- data/dicionario_mestre/dicionario_mestre_produtos_saude.csv
+- arquivos do fluxo Bionexo
+
+## Confirmações FASE 2.13
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Não houve captura bruta.
+- Não houve scraping.
+- Não houve crawler.
+- Não houve download de dados em massa.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- FASE 2.14 não foi executada.
+
+## Decisão técnica
+APTO_PARA_PREPARAR_CAPTURA_BRUTA_CONTROLADA_AMOSTRA_100
+
+## Próxima fase recomendada
+FASE 2.14 — captura bruta controlada, amostra 100, somente após comando explícito.
