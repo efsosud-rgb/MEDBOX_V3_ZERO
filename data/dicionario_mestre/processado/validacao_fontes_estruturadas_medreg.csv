@@ -1,0 +1,8 @@
+fonte_id,caminho_esperado,status,observacao
+medicamentos_registrados_dados_gov_br,data/dicionario_mestre/bruto/medreg/medicamentos_registrados_brasil/,PENDENTE_ARQUIVO_NAO_BAIXADO,Diretorio/arquivo ainda nao existe porque nenhum download real foi executado nesta fase.
+dados_abertos_anvisa,data/dicionario_mestre/bruto/anvisa/dados_abertos/,PENDENTE_ARQUIVO_NAO_BAIXADO,Diretorio/arquivo ainda nao existe porque nenhum download real foi executado nesta fase.
+cmed_listas_precos,data/dicionario_mestre/bruto/cmed/listas_precos/,PENDENTE_ARQUIVO_NAO_BAIXADO,Diretorio/arquivo ainda nao existe porque nenhum download real foi executado nesta fase.
+dcb_anvisa,data/dicionario_mestre/bruto/anvisa/dcb/,PENDENTE_ARQUIVO_NAO_BAIXADO,Diretorio/arquivo ainda nao existe porque nenhum download real foi executado nesta fase.
+farmacopeia_vocabularios,data/dicionario_mestre/bruto/anvisa/farmacopeia_vocabularios/,PENDENTE_ARQUIVO_NAO_BAIXADO,Diretorio/arquivo ainda nao existe porque nenhum download real foi executado nesta fase.
+bulario_eletronico_anvisa,data/dicionario_mestre/bruto/anvisa/bulario/,PENDENTE_ARQUIVO_NAO_BAIXADO,Diretorio/arquivo ainda nao existe porque nenhum download real foi executado nesta fase.
+anvisa_consultas_fallback,data/dicionario_mestre/bruto/anvisa/consultas_fallback/,PENDENTE_ARQUIVO_NAO_BAIXADO,Diretorio/arquivo ainda nao existe porque nenhum download real foi executado nesta fase.

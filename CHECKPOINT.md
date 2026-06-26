@@ -1928,3 +1928,29 @@ Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executa
 - Ghostscript não foi instalado nesta fase.
 - Decisão técnica: APTO_PARA_PREPARAR_SCRIPTS_DOWNLOAD_ESTRUTURADO
 - Próxima fase recomendada: FASE 2.14F — criação dos scripts de download estruturado, sem aplicação no dicionário final.
+
+## Checkpoint - FASE 2.14F — Scripts de download estruturado multi-fonte MEDREG
+
+- Data/hora local: 2026-06-26 16:34:30 -03:00
+- Objetivo: criar scripts seguros para preparar downloads estruturados de fontes públicas oficiais MEDREG, sem executar download real nesta fase.
+- Scripts criados:
+  - scripts/dicionario_mestre/baixar_fontes_estruturadas_medreg.py
+  - scripts/dicionario_mestre/validar_fontes_estruturadas_medreg.py
+- Arquivos de plano/log/validação criados:
+  - data/dicionario_mestre/processado/plano_download_fontes_estruturadas_medreg.csv
+  - data/dicionario_mestre/processado/log_download_fontes_estruturadas_medreg.csv
+  - data/dicionario_mestre/processado/validacao_fontes_estruturadas_medreg.csv
+- Arquivos adicionais criados:
+  - data/dicionario_mestre/processado/checklist_scripts_download_estruturado_medreg.csv
+  - data/dicionario_mestre/externo/relatorio_scripts_download_estruturado_medreg.md
+- DRY_RUN=True por padrão.
+- Nenhum download real foi executado.
+- Nenhuma base grande foi baixada.
+- Scraping não foi executado.
+- ANVISA Consultas por registro não foi usada.
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- Decisão técnica: APTO_PARA_EXECUTAR_DOWNLOAD_CONTROLADO_FONTE_A_FONTE
+- Próxima fase recomendada: FASE 2.14G — execução controlada do download de fontes estruturadas autorizadas, uma fonte por vez.

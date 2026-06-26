@@ -1,0 +1,20 @@
+﻿item,status,observacao
+git_status_verificado,OK,
+branch_verificada,OK,
+toolkit_instalado_considerado,OK,FASE 2.14E concluida no commit 12c743b
+script_download_criado,OK,
+script_validacao_criado,OK,
+dry_run_true_por_padrao,OK,
+plano_download_gerado,OK,7 fontes planejadas
+log_download_gerado,OK,
+validacao_planejada_gerada,OK,7 fontes pendentes por arquivo nao baixado; 0 erros
+download_real_nao_executado,OK,
+base_grande_nao_baixada,OK,
+scraping_nao_executado,OK,
+anvisa_consultas_por_registro_nao_usada,OK,
+banco_nao_alterado,OK,
+dicionario_final_nao_alterado,OK,
+fonte_interna_nao_usada,OK,
+sku_master_nao_aplicado,OK,
+checkpoint_atualizado,OK,
+apto_para_download_controlado_fonte_a_fonte,OK,

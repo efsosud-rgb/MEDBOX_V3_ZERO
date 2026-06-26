@@ -1,0 +1,8 @@
+data_hora,fonte_id,etapa,status,mensagem
+2026-06-26T16:34:15-03:00,medicamentos_registrados_dados_gov_br,montar_plano,OK,DRY_RUN=True; nenhum download executado.
+2026-06-26T16:34:15-03:00,dados_abertos_anvisa,montar_plano,OK,DRY_RUN=True; nenhum download executado.
+2026-06-26T16:34:15-03:00,cmed_listas_precos,montar_plano,OK,DRY_RUN=True; nenhum download executado.
+2026-06-26T16:34:15-03:00,dcb_anvisa,montar_plano,OK,DRY_RUN=True; nenhum download executado.
+2026-06-26T16:34:15-03:00,farmacopeia_vocabularios,montar_plano,OK,DRY_RUN=True; nenhum download executado.
+2026-06-26T16:34:15-03:00,bulario_eletronico_anvisa,montar_plano,OK,DRY_RUN=True; nenhum download executado.
+2026-06-26T16:34:15-03:00,anvisa_consultas_fallback,montar_plano,OK,DRY_RUN=True; nenhum download executado.
