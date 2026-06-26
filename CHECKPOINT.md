@@ -1583,3 +1583,41 @@ APTO_PARA_APLICACAO_CONTROLADA_ENRIQUECIMENTO_DCB
 - Nenhum SKU_MASTER aplicado.
 - Nenhum download realizado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.10 — Aplicacao real enriquecimento DCB/CAS ANVISA MEDREG
+Data: 2026-06-26
+
+## Apply executado com aprovacao humana explicita
+Comando: python scripts/dicionario_mestre/aplicar_enriquecimento_dcb_anvisa_medreg.py --apply --confirmar
+
+## Resultado
+- Registros enriquecidos: 7.984
+- Campos preenchidos: 15.968 (dcb=7.984, cas=7.984)
+- Total dicionario pos-apply: 23.060 (intacto — sem insercao nem remocao)
+- Tamanho antes: 8.694.344 bytes
+- Tamanho depois: 8.917.376 bytes (diferenca por campos preenchidos)
+- Classificacao: NAO enriquecida (semantica diferente entre MEDREG e DCB)
+- Conflitos: 0
+- IDs nao encontrados: 0
+
+## Backup criado
+- backups/dicionario_mestre/dicionario_mestre_medicamentos_ANTES_ENRIQ_DCB_20260626_132702.csv
+  (backup automatico criado pelo script antes da escrita, 8.694.344 bytes)
+
+## Checklist
+- 12 itens / 0 falhas / 0 bloqueantes
+
+## Arquivos alterados
+- data/dicionario_mestre/dicionario_mestre_medicamentos.csv (7.984 registros enriquecidos)
+
+## Confirmacoes FASE 2.10
+- Apply executado com aprovacao humana explicita.
+- Backup criado antes da escrita.
+- Apenas campos dcb e cas preenchidos (nenhum campo ja preenchido foi sobrescrito).
+- Total de registros mantido: 23.060.
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.

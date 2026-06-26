@@ -1,0 +1,13 @@
+﻿item;status;esperado;encontrado;bloqueia_apply;observacao
+dicionario_existe;OK;existe;existe;NAO;
+dry_run_existe;OK;existe;existe;NAO;
+elegíveis_encontrados;OK;7984;7984;NAO;
+ids_nao_encontrados;OK;0;0;NAO;
+conflitos_em_campos_alvo;OK;0;0;NAO;
+registros_a_enriquecer;OK;>0;7984;NAO;
+campos_alvo_dcb_cas_apenas;OK;dcb,cas;dcb,cas;NAO;classificacao excluída: semântica diferente entre MEDREG e DCB
+nao_sobrescreve_preenchidos;OK;0;0;NAO;nenhum campo com valor diferente seria sobrescrito
+banco_nao_alterado;OK;nao_acessado;nao_acessado;NAO;
+fonte_interna_nao_usada;OK;nao_usada;nao_usada;NAO;
+sku_master_nao_aplicado;OK;nao_aplicado;nao_aplicado;NAO;
+apply_autorizado_pelo_responsavel;OK;aprovacao_humana_recebida;aprovacao_humana_recebida;NAO;"dry-run: apply nao executado; apply: aprovacao recebida"
