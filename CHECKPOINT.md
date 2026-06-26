@@ -1108,3 +1108,58 @@ Data: 2026-06-26
 - Nenhum SKU_MASTER foi aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db, data/dicionario_mestre/interno/ nao foram alterados.
 - Commit ainda nao feito antes da validacao.
+
+# Checkpoint - FASE 2.0 — Diagnostico ANVISA Medicamentos Registrados
+
+Data: 2026-06-26
+
+## Objetivo da fase
+- Diagnosticar e planejar a fonte externa oficial ANVISA Medicamentos Registrados.
+- Identificar como a fonte deve complementar o Dicionario Mestre de medicamentos apos a base DCB.
+- Nao baixar arquivo de dados, nao processar carga e nao alterar dicionario final nesta fase.
+
+## Fonte pesquisada
+- Nome: ANVISA Medicamentos Registrados no Brasil.
+- Orgao responsavel: Agencia Nacional de Vigilancia Sanitaria (Anvisa).
+- Tipo de fonte: consulta oficial de registros e conjunto de dados abertos/publicos.
+
+## URLs oficiais encontradas
+- https://www.gov.br/anvisa/pt-br/sistemas/consulta-a-registro-de-medicamentos
+- https://consultas.anvisa.gov.br/#/medicamentos/
+- https://dados.gov.br/dados/conjuntos-dados/medicamentos-registrados-no-brasil
+- https://www.gov.br/anvisa/pt-br/assuntos/noticias-anvisa/2021/anvisa-disponibiliza-dez-novas-bases-de-dados-abertos
+- https://www.gov.br/anvisa/pt-br/acessoainformacao/dadosabertos/arquivos/PlanodeDadosAbertosAnvisa20232025.pdf
+- https://dados.anvisa.gov.br/dados/Documentacao_e_Dicionario_de_Dados_Registros_Validos_Medicamento_V1.pdf
+
+## Arquivos criados
+- data/dicionario_mestre/externo/diagnostico_anvisa_medicamentos_registrados.md
+- data/dicionario_mestre/processado/plano_fase_2_anvisa_medicamentos_registrados.md
+- data/dicionario_mestre/processado/checklist_fase_2_anvisa_medicamentos_registrados.csv
+
+## Principais campos esperados
+- Nome comercial/produto.
+- Principio ativo.
+- Concentracao.
+- Forma farmaceutica.
+- Apresentacao.
+- Via de uso, se disponivel na fonte.
+- Numero de registro.
+- Empresa detentora.
+- Situacao do registro.
+- Data de validade/publicacao, se disponivel.
+- Categoria/classe regulatoria, se disponivel.
+
+## Recomendacao tecnica
+- Prosseguir para FASE 2.1 com captura bruta controlada somente apos aprovacao.
+- Confirmar o formato operacional real da base publica antes de qualquer processamento.
+- Usar Medicamentos Registrados para complementar campos comerciais/regulatorios que nao sao papel da DCB.
+- Vincular com DCB por principio ativo/denominacao, sem SKU_MASTER e sem fonte interna.
+
+## Confirmacoes FASE 2.0
+- Nenhum download de arquivo de dados foi feito.
+- Nenhum dicionario final foi alterado.
+- Banco nao foi alterado.
+- Nenhuma fonte interna foi usada.
+- Nenhum SKU_MASTER foi aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db, data/dicionario_mestre/interno/ nao foram alterados.
+- Commit ainda nao feito antes da validacao.

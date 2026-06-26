@@ -1,0 +1,14 @@
+item;status;bloqueia_proxima_fase;observacao
+FASE 1.8 commitada;OK;SIM;Commit 3815535 confirmado no historico local.
+dicionario DCB aplicado e revisado;OK;SIM;Dicionario de medicamentos possui 12.715 registros DCB e FASE 1.8 apta para iniciar FASE 2.
+fonte oficial identificada;OK;SIM;ANVISA Medicamentos Registrados no Brasil.
+URL oficial registrada;OK;SIM;URLs gov.br, consultas.anvisa.gov.br e dados.gov.br registradas no diagnostico.
+formato provavel identificado;OK;SIM;Portal de consulta e conjunto de dados aberto, com formato tabular a confirmar na captura futura.
+campos esperados registrados;OK;SIM;Campos provaveis registrados no diagnostico e no plano.
+riscos registrados;OK;SIM;Riscos de JS, formato, multiplicidade e vinculacao registrados.
+plano de captura futura definido;OK;SIM;FASES 2.1 a 2.6 propostas.
+nenhum arquivo baixado nesta fase;OK;SIM;Somente paginas oficiais foram consultadas, sem download de dados.
+nenhum banco usado;OK;SIM;Nenhum banco foi acessado.
+nenhuma fonte interna usada;OK;SIM;Somente fontes oficiais externas foram consultadas.
+nenhum SKU_MASTER aplicado;OK;SIM;SKU_MASTER nao foi aplicado.
+nenhum dicionario final alterado;OK;SIM;Dicionarios finais nao foram alterados.
