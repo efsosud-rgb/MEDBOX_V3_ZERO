@@ -1816,3 +1816,52 @@ APTO_PARA_CAPTURA_BRUTA_CONTROLADA_AMOSTRA_100
 
 ## Próxima fase recomendada
 FASE 2.14B — captura bruta controlada, somente após comando explícito.
+
+---
+
+## Checkpoint - FASE 2.14B — Captura bruta controlada ANVISA MEDREG 100
+
+Data/hora local: 2026-06-26 14:08:18 -03:00
+
+## Objetivo
+Executar captura bruta controlada, limitada e auditável para os 100 registros preparados na FASE 2.14A, usando apenas fonte pública oficial ANVISA autorizada, sem alterar dicionário final e sem alterar banco.
+
+## Arquivo de entrada
+- data/dicionario_mestre/processado/amostra_medreg_100_para_captura.csv
+
+## Arquivos criados
+- scripts/dicionario_mestre/capturar_bruto_anvisa_medreg_100.py
+- data/dicionario_mestre/bruto/anvisa_medreg_100_captura_bruta.csv
+- data/dicionario_mestre/bruto/anvisa_medreg_100_log_captura.csv
+- data/dicionario_mestre/processado/checklist_captura_bruta_anvisa_medreg_100.csv
+- data/dicionario_mestre/externo/relatorio_captura_bruta_anvisa_medreg_100.md
+
+## Fontes consultadas
+- ANVISA Consultas: https://consultas.anvisa.gov.br/#/medicamentos/
+
+## Resultado da captura
+- Total de registros na amostra: 100
+- Total consultado: 14
+- Total com captura OK: 0
+- Total sem resultado: 11
+- Total com falha: 0
+- Total bloqueado/não automatizável: 3
+- Motivo de parada segura: 3 respostas consecutivas HTTP 429 em fonte ANVISA
+
+## Confirmações FASE 2.14B
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- Não houve consulta fora da amostra.
+- Não houve captura acima de 100 registros.
+- Não houve download de base completa.
+- HTML bruto não foi salvo nem commitado.
+- Screenshots não foram salvas nem commitadas.
+- FASE 2.15 não foi executada.
+
+## Decisão técnica
+NAO_APTO_CAPTURA_AUTOMATICA_SEM_REVISAR_ABORDAGEM
+
+## Próxima fase recomendada
+Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executada ainda porque não há dados brutos suficientes para processar os campos-alvo.

@@ -1,0 +1,23 @@
+﻿item,status,observacao
+git_status_verificado,OK,git status executado antes das alteracoes
+branch_verificada,OK,branch melhoria/auditoria-sku-master-todos-produtos confirmada
+documentos_fases_anteriores_lidos,OK,CHECKPOINT AGENTS CLAUDE README e artefatos 2.13/2.14A lidos
+amostra_100_lida,OK,amostra_medreg_100_para_captura.csv lida
+amostra_100_validada,OK,100 registros; 100 com registro_anvisa; 85 com dcb/cas; 15 sem dcb/cas
+script_captura_criado,OK,scripts/dicionario_mestre/capturar_bruto_anvisa_medreg_100.py
+max_registros_100_configurado,OK,MAX_REGISTROS=100
+pausa_timeout_configurados,OK,PAUSA_SEGUNDOS=2.0; TIMEOUT_SEGUNDOS=20
+fonte_anvisa_consultas_usada_como_principal,OK,consultas.anvisa.gov.br usada como fonte principal autorizada
+bulario_usado_apenas_complementar_quando_viavel,NAO_EXECUTADO,nao houve dados estruturados da fonte principal para complementar com bulario
+captura_limitada_a_amostra_100,OK,execucao tentou somente registros da amostra e parou com seguranca apos 14 consultas
+dados_brutos_salvos_em_bruto,OK,data/dicionario_mestre/bruto/anvisa_medreg_100_captura_bruta.csv
+log_tecnico_seguro_gerado,OK,data/dicionario_mestre/bruto/anvisa_medreg_100_log_captura.csv
+html_bruto_nao_commitado,OK,nenhum HTML bruto foi salvo ou commitado
+screenshots_nao_commitadas,OK,nenhuma screenshot foi salva ou commitada
+banco_nao_alterado,OK,banco e arquivos db nao alterados
+dicionario_final_nao_alterado,OK,dicionarios finais preservados
+sku_master_nao_aplicado,OK,SKU_MASTER nao aplicado
+fonte_interna_nao_usada,OK,data/dicionario_mestre/interno nao usada
+falhas_registradas_sem_interromper,OK,SEM_RESULTADO e BLOQUEADO_OU_NAO_AUTOMATIZAVEL registrados; parada segura apos HTTP 429 consecutivo
+checkpoint_atualizado,OK,CHECKPOINT.md atualizado com FASE 2.14B
+apto_para_fase_2_15,PENDENTE,nao ha dados brutos suficientes; revisar abordagem antes de processar
