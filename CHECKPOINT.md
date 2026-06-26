@@ -1450,3 +1450,49 @@ Comando: python scripts/dicionario_mestre/aplicar_pre_carga_anvisa_medicamentos_
 - Nenhuma fonte interna usada.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.7 — Revisao pos-aplicacao ANVISA Medicamentos Registrados
+Data: 2026-06-26
+
+## Modo: READ-ONLY (dicionario_mestre_medicamentos.csv nao alterado)
+
+## Resultados da auditoria pos-apply
+- Total dicionario final: 23.060
+- Backup pre-apply: 12.715 (preservado intacto)
+- Registros ANVISA_MEDREG inseridos: 10.345
+  - ANVISA_MEDREG_<numreg> (padrao): 10.301
+  - ANVISA_MEDREG_PROC_<processo> (baixo risco): 44
+- Registros DCB alterados: 0 (100% PRESERVADOS E INTACTOS)
+- IDs MEDREG duplicados: 0
+- Colisao de IDs com DCB: 0
+
+## Checklist de consistencia (23 itens)
+- 22 OK / 1 FALHA / 0 BLOQUEANTES
+- Falha nao-bloqueante: C17_sem_principio_ativo (14 registros MEDREG sem principio_ativo)
+
+## Pendencias de enriquecimento identificadas
+- forma_farmaceutica: enriquecer via ANVISA Consultas
+- concentracao: enriquecer via ANVISA Consultas
+- apresentacao: enriquecer via ANVISA Consultas
+- via_uso: enriquecer via ANVISA Consultas
+- dcb: cruzamento com registros ANVISA_DCB por principio_ativo
+- cas: PubChem por principio_ativo
+- atc: WHO ATC Index
+
+## Decisao
+APTO_PARA_PLANEJAR_ENRIQUECIMENTO
+
+## Arquivos gerados (somente leitura do dicionario)
+- data/dicionario_mestre/processado/consistencia_pos_aplicacao_anvisa_medicamentos_registrados.csv (23 itens)
+- data/dicionario_mestre/processado/pendencias_enriquecimento_anvisa_medicamentos_registrados.csv (7 campos)
+- data/dicionario_mestre/processado/amostra_pos_aplicacao_anvisa_medicamentos_registrados.csv (59 amostras)
+- docs/auditoria_pos_aplicacao_anvisa_medicamentos_registrados.md
+
+## Confirmacoes FASE 2.7
+- dicionario_mestre_medicamentos.csv NAO foi alterado nesta fase (read-only).
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, .claude/, arquivos .db nao alterados.

@@ -1,0 +1,8 @@
+﻿campo;qtd_vazios;pct_vazios;qtd_preenchidos;pct_preenchidos;prioridade_enriquecimento;sugestao_fonte
+forma_farmaceutica;10345;100.0%;0;0.0%;ALTA;ANVISA Consultas / Bulario Eletronico
+concentracao;10345;100.0%;0;0.0%;ALTA;ANVISA Consultas / Bulario Eletronico
+apresentacao;10345;100.0%;0;0.0%;ALTA;ANVISA Consultas / Bulario Eletronico
+via_uso;10345;100.0%;0;0.0%;ALTA;ANVISA Consultas / Bulario Eletronico
+dcb;10345;100.0%;0;0.0%;ALTA;Cruzamento com registros ANVISA_DCB (nome_padrao ~ principio_ativo)
+cas;10345;100.0%;0;0.0%;ALTA;PubChem / ChemSpider por principio_ativo
+atc;10345;100.0%;0;0.0%;ALTA;WHO ATC Index por principio_ativo / DCB

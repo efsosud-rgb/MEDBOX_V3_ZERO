@@ -1,0 +1,24 @@
+﻿item;status;bloqueia_qualidade;esperado;obtido;observacao
+C01_total_dicionario;OK;NAO;23060;23060;total de registros no dicionario pos-apply
+C02_backup_preservado;OK;NAO;12715;12715;registros no backup pre-apply
+C03_medreg_inseridos;OK;NAO;10345;10345;registros ANVISA_MEDREG_* no dicionario
+C04_soma_logica;OK;NAO;23060;23060;DCB=12715 + MEDREG=10345
+C05_padrao_ids_count;OK;NAO;10301;10301;registros com ID ANVISA_MEDREG_<numreg>
+C06_baixo_risco_ids_count;OK;NAO;44;44;registros com ID ANVISA_MEDREG_PROC_<processo>
+C07_ids_unicos;OK;NAO;0;0;IDs duplicados nos registros MEDREG
+C08_colisao_ids_dcb;OK;NAO;0;0;IDs MEDREG que colidiram com IDs do backup DCB
+C09_backup_ids_preservados;OK;NAO;0;0;IDs do backup que nao aparecem no dicionario final
+C10_dcb_integros;OK;NAO;0;0;registros DCB com campos alterados (nome/principio/fonte/confianca)
+C11_fonte_tipo_correta;OK;NAO;0;0;registros MEDREG com fonte_tipo != EXTERNA_OFICIAL
+C12_confianca_correta;OK;NAO;0;0;registros MEDREG com confianca != ALTA
+C13_status_revisao_correto;OK;NAO;0;0;registros MEDREG com status_revisao != PRE_VALIDADO_FONTE_OFICIAL
+C14_rastreabilidade_observacao;OK;NAO;0;0;registros MEDREG sem REGISTRO: ou PROCESSO: no campo observacao
+C15_ids_formato_correto;OK;NAO;0;0;IDs MEDREG com formato invalido
+C16_sem_nome_padrao;OK;NAO;0;0;registros MEDREG sem nome_padrao
+C17_sem_principio_ativo;FALHA;NAO;0;14;registros MEDREG sem principio_ativo
+C18_sem_id_dicionario;OK;NAO;0;0;registros MEDREG com id_dicionario vazio
+C19_sem_data_coleta;OK;NAO;0;0;registros MEDREG sem data_coleta
+C20_sem_url_fonte;OK;NAO;0;0;registros MEDREG sem url_fonte
+C21_forma_farmaceutica_vazia;OK;NAO;-;10,345/10,345 (100.0%);campo a enriquecer em fase futura
+C22_dcb_vazio;OK;NAO;-;10,345/10,345 (100.0%);campo a enriquecer por cruzamento com ANVISA_DCB
+C23_atc_vazio;OK;NAO;-;10,345/10,345;campo a enriquecer por fontes externas
