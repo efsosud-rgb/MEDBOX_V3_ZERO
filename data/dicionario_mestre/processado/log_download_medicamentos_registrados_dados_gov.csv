@@ -1,0 +1,6 @@
+data_hora,etapa,status,mensagem
+2026-06-26T16:51:47-03:00,consultar_api_dados_gov,INICIADO,https://dados.gov.br/dados/api/3/action/package_show?id=medicamentos-registrados-no-brasil
+2026-06-26T16:51:48-03:00,consultar_api_dados_gov,PENDENTE,HTTP 401
+2026-06-26T16:51:48-03:00,consultar_pagina_dados_gov,INICIADO,https://dados.gov.br/dados/conjuntos-dados/medicamentos-registrados-no-brasil
+2026-06-26T16:51:48-03:00,identificar_recursos_pagina,PENDENTE,0 link(s) estruturado(s) encontrados
+2026-06-26T16:51:48-03:00,download,PENDENTE,Nenhum link baixavel estruturado localizado

@@ -1,0 +1,2 @@
+data_hora,fonte_id,nome_arquivo,url_origem,caminho_local,tamanho_bytes,sha256,status,observacao
+2026-06-26T16:51:48-03:00,medicamentos_registrados_dados_gov,,https://dados.gov.br/dados/conjuntos-dados/medicamentos-registrados-no-brasil,,0,,PENDENTE_LINK_DOWNLOAD_NAO_LOCALIZADO,Pagina/API nao expuseram link estruturado simples; nenhuma fonte alternativa usada.

@@ -1979,3 +1979,29 @@ Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executa
 - Segurança do Windows não foi desativada.
 - Decisão técnica: APTO_COM_PENDENCIAS_PDF_NAV
 - Próxima fase recomendada: FASE 2.14F — criação dos scripts de download estruturado.
+
+## Checkpoint - FASE 2.14G-1 — Download controlado Medicamentos registrados / dados.gov.br
+
+- Data/hora local: 2026-06-26 16:52:40 -03:00
+- Objetivo: executar download controlado de uma única fonte oficial estruturada para validar o pipeline de ingestão.
+- Fonte autorizada: Medicamentos registrados no Brasil / dados.gov.br — https://dados.gov.br/dados/conjuntos-dados/medicamentos-registrados-no-brasil
+- Arquivos baixados: nenhum; tentativa controlada terminou com `PENDENTE_LINK_DOWNLOAD_NAO_LOCALIZADO`.
+- Diretório bruto usado: data/dicionario_mestre/bruto/medicamentos_registrados_dados_gov/
+- Resultado da validação: executada, mas sem arquivo bruto para validar; status `PENDENTE_ARQUIVO_NAO_BAIXADO`.
+- Campos úteis encontrados: nenhum, porque nenhum arquivo estruturado foi baixado.
+- Manifesto criado: data/dicionario_mestre/bruto/medicamentos_registrados_dados_gov/manifesto_download.csv
+- Log criado: data/dicionario_mestre/processado/log_download_medicamentos_registrados_dados_gov.csv
+- Validação criada: data/dicionario_mestre/processado/validacao_medicamentos_registrados_dados_gov.csv
+- Apenas uma fonte foi tentada.
+- CMED não foi baixada.
+- DCB não foi baixada.
+- Bulário não foi baixado.
+- Farmacopeia não foi baixada.
+- ANVISA Consultas por registro não foi usada.
+- Scraping não foi executado.
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- Decisão técnica: PENDENTE_REVISAR_DOWNLOAD_MEDICAMENTOS_REGISTRADOS
+- Próxima fase recomendada: revisar link ou método de download da fonte Medicamentos registrados antes de avançar para CMED.

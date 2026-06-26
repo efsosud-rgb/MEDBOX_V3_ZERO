@@ -1,0 +1,24 @@
+﻿item,status,observacao
+git_status_verificado,OK,
+branch_verificada,OK,
+scripts_download_lidos,OK,
+fonte_unica_autorizada,OK,Somente medicamentos_registrados_dados_gov foi executada com --executar
+download_medicamentos_registrados_executado,PENDENTE,Tentativa controlada executada; link estruturado nao localizado
+manifesto_download_criado,OK,Manifesto criado com PENDENTE_LINK_DOWNLOAD_NAO_LOCALIZADO
+log_download_criado,OK,
+script_validacao_criado,OK,
+validacao_executada,PENDENTE,Executada; nenhum arquivo bruto encontrado para validar
+campos_uteis_identificados,PENDENTE,Nenhum arquivo bruto foi baixado
+somente_uma_fonte_baixada,OK,Nenhuma outra fonte foi tentada
+cmed_nao_baixada,OK,
+dcb_nao_baixada,OK,
+bulario_nao_baixado,OK,
+farmacopeia_nao_baixada,OK,
+anvisa_consultas_por_registro_nao_usada,OK,
+scraping_nao_executado,OK,
+banco_nao_alterado,OK,
+dicionario_final_nao_alterado,OK,
+fonte_interna_nao_usada,OK,
+sku_master_nao_aplicado,OK,
+checkpoint_atualizado,OK,
+apto_para_download_controlado_cmed,PENDENTE,Revisar link ou metodo de download de Medicamentos registrados antes de avancar
