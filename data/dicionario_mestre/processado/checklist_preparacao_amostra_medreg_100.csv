@@ -1,0 +1,23 @@
+﻿item,status,observacao
+git_status_verificado,OK,git status executado antes das alteracoes
+branch_verificada,OK,branch melhoria/auditoria-sku-master-todos-produtos confirmada
+documentos_fase_2_13_lidos,OK,diagnostico tecnico e checklist da FASE 2.13 lidos
+arquivo_fonte_medreg_identificado,OK,data/dicionario_mestre/dicionario_mestre_medicamentos.csv
+total_medreg_validado,OK,10345 registros ANVISA_MEDREG encontrados
+campo_origem_validado,OK,fonte_nome e id_dicionario identificam ANVISA_MEDREG
+campo_registro_anvisa_validado,OK,registro derivado de id_dicionario ANVISA_MEDREG_<numero>
+criterio_dcb_cas_aplicado_quando_disponivel,OK,85 selecionados com dcb/cas e 15 sem dcb/cas
+criterio_campos_vazios_aplicado_quando_disponivel,OK,amostra possui 0 linhas com forma/concentracao/apresentacao/via preenchidos
+amostra_100_gerada,OK,100 registros gerados em amostra_medreg_100_para_captura.csv
+amostra_contem_registros_com_dcb_cas,OK,85 registros com dcb/cas
+amostra_contem_registros_sem_dcb_cas,OK,15 registros sem dcb/cas
+amostra_evitar_repeticao_excessiva,OK,100 principios ativos unicos e 99 produtos unicos
+internet_nao_acessada,OK,nenhum acesso de rede executado
+scraping_nao_executado,OK,nenhum crawler ou scraping executado
+captura_bruta_nao_executada,OK,nenhuma consulta ANVISA ou captura real executada
+banco_nao_alterado,OK,banco e arquivos db nao alterados
+dicionario_final_nao_alterado,OK,dicionario mestre medicamentos apenas lido
+sku_master_nao_aplicado,OK,SKU_MASTER nao aplicado
+fonte_interna_nao_usada,OK,data/dicionario_mestre/interno nao usada
+checkpoint_atualizado,OK,CHECKPOINT.md atualizado com FASE 2.14A
+apto_para_fase_2_14b,OK,APTO_PARA_CAPTURA_BRUTA_CONTROLADA_AMOSTRA_100

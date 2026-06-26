@@ -1772,3 +1772,47 @@ APTO_PARA_PREPARAR_CAPTURA_BRUTA_CONTROLADA_AMOSTRA_100
 
 ## Próxima fase recomendada
 FASE 2.14 — captura bruta controlada, amostra 100, somente após comando explícito.
+
+---
+
+## Checkpoint - FASE 2.14A — Preparação da amostra 100 MEDREG
+
+Data/hora local: 2026-06-26 13:59:21 -03:00
+
+## Objetivo
+Preparar, sem acesso à internet e sem captura bruta, uma amostra controlada de 100 registros ANVISA_MEDREG para futura captura na FASE 2.14B.
+
+## Arquivo fonte usado
+- data/dicionario_mestre/dicionario_mestre_medicamentos.csv (somente leitura)
+
+## Arquivos criados
+- scripts/dicionario_mestre/preparar_amostra_medreg_100.py
+- data/dicionario_mestre/processado/amostra_medreg_100_para_captura.csv
+- data/dicionario_mestre/processado/checklist_preparacao_amostra_medreg_100.csv
+- data/dicionario_mestre/externo/relatorio_preparacao_amostra_medreg_100.md
+
+## Totais
+- Total de registros ANVISA_MEDREG encontrados: 10.345
+- Total de registros elegíveis com registro válido e campos-alvo vazios: 10.301
+- Total de registros selecionados: 100
+- Selecionados com dcb/cas: 85
+- Selecionados sem dcb/cas: 15
+- Campos-alvo preenchidos na amostra: 0
+
+## Confirmações FASE 2.14A
+- Internet não foi acessada.
+- Scraping não foi executado.
+- Crawler não foi executado.
+- Captura bruta não foi executada.
+- Nenhuma consulta ANVISA foi feita.
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- FASE 2.14B não foi executada.
+
+## Decisão técnica
+APTO_PARA_CAPTURA_BRUTA_CONTROLADA_AMOSTRA_100
+
+## Próxima fase recomendada
+FASE 2.14B — captura bruta controlada, somente após comando explícito.
