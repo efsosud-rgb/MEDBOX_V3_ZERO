@@ -1496,3 +1496,41 @@ APTO_PARA_PLANEJAR_ENRIQUECIMENTO
 - Nenhuma fonte interna usada.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, .claude/, arquivos .db nao alterados.
+
+---
+
+# Checkpoint - FASE 2.8 — Planejamento enriquecimento ANVISA MEDREG
+Data: 2026-06-26
+
+## Modo: READ-ONLY (dicionario_mestre_medicamentos.csv nao alterado)
+
+## Resultado do diagnostico de cruzamento DCB x ANVISA_MEDREG
+- Total DCB: 12.715
+- Total ANVISA_MEDREG: 10.345
+- MATCH_EXATO_UNICO: 7.984 (77,2%)
+- MATCH_MULTIPLO: 0 (0,0%)
+- SEM_MATCH: 2.347 (22,7%)
+- SEM_PRINCIPIO_ATIVO: 11 (0,1%)
+- REVISAR_NORMALIZACAO: 3 (0,0%)
+- Pode enriquecer automaticamente (MATCH_EXATO_UNICO): 7.984
+
+## Checklist
+- 15 itens / 0 falhas / 0 bloqueantes
+
+## Decisao tecnica
+APTO_PARA_PREPARAR_DRY_RUN_ENRIQUECIMENTO_DCB
+
+## Arquivos gerados
+- scripts/dicionario_mestre/planejar_enriquecimento_anvisa_medreg.py
+- data/dicionario_mestre/processado/diagnostico_cruzamento_dcb_anvisa_medreg.csv (10.345 linhas)
+- data/dicionario_mestre/processado/amostra_cruzamento_dcb_anvisa_medreg.csv (134 amostras)
+- data/dicionario_mestre/processado/checklist_enriquecimento_anvisa_medreg.csv (15 itens)
+- data/dicionario_mestre/processado/plano_enriquecimento_anvisa_medreg.md
+
+## Confirmacoes FASE 2.8
+- dicionario_mestre_medicamentos.csv NAO foi alterado (read-only confirmado, 8.694.344 bytes).
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum SKU_MASTER aplicado.
+- Nenhum download realizado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.

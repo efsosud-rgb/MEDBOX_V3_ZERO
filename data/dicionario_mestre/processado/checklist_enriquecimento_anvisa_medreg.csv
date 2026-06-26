@@ -1,0 +1,16 @@
+﻿item;status;esperado;encontrado;bloqueia_proxima_fase;observacao
+dicionario_final_existe;OK;existe;existe;NAO;
+total_dcb;OK;12715;12715;NAO;
+total_anvisa_medreg;OK;10345;10345;NAO;
+total_diagnostico;OK;10345;10345;NAO;
+total_match_exato_unico;OK;-;7984;NAO;informativo
+total_match_multiplo;OK;-;0;NAO;informativo
+total_sem_match;OK;-;2347;NAO;informativo
+total_sem_principio_ativo;OK;-;11;NAO;informativo
+total_revisar_normalizacao;OK;-;3;NAO;informativo
+enriquecimento_automatico_somente_match_exato_unico;OK;7984;7984;NAO;pode_enriquecer_automaticamente=SIM somente para MATCH_EXATO_UNICO
+dicionario_final_nao_alterado;OK;8694344;8694344;NAO;tamanho do arquivo antes e depois de executar este script
+banco_nao_alterado;OK;nao_acessado;nao_acessado;NAO;
+fonte_interna_nao_usada;OK;nao_usada;nao_usada;NAO;
+sku_master_nao_aplicado;OK;nao_aplicado;nao_aplicado;NAO;
+arquivos_protegidos_nao_alterados;OK;intactos;intactos;NAO;
