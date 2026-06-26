@@ -1,0 +1,25 @@
+﻿item;status;esperado;encontrado;bloqueia_proxima_fase;observacao
+dicionario_final_existe;OK;existe;existe;NAO;
+backup_existe;OK;existe;existe;NAO;
+total_backup;OK;23060;23060;NAO;
+total_final;OK;23060;23060;NAO;
+total_dcb;OK;12715;12715;NAO;
+total_anvisa_medreg;OK;10345;10345;NAO;
+total_medreg_com_dcb;OK;7984;7984;NAO;
+total_medreg_com_cas;OK;7984;7984;NAO;
+total_medreg_com_dcb_e_cas;OK;7984;7984;NAO;
+total_medreg_sem_dcb_cas;OK;2361;2361;NAO;
+cabecalho_preservado;OK;identico_ao_backup;OK;NAO;
+todas_linhas_mesma_quantidade_colunas;OK;0;0;NAO;
+ids_unicos;OK;todos_unicos;OK;NAO;
+ids_novos_indevidos;OK;0;0;NAO;
+ids_removidos_indevidos;OK;0;0;NAO;
+dcb_originais_preservados;OK;0;0;NAO;
+somente_dcb_cas_alterados;OK;0;0;NAO;nenhum campo fora de dcb/cas foi alterado nos MEDREG
+classificacao_nao_alterada;OK;0;0;NAO;
+sem_enriquecimento_indevido;OK;0;0;NAO;nenhum registro fora do dry-run foi enriquecido
+sem_sobrescrita_valor_nao_vazio;OK;0;0;NAO;
+enriquecimento_completo;OK;0;0;NAO;registros previstos no dry-run que ficaram sem dcb/cas
+diff_bate_com_aplicacao;OK;dcb=7984,cas=7984;dcb=7984,cas=7984;NAO;
+banco_nao_alterado;OK;nao_acessado;nao_acessado;NAO;
+fonte_interna_nao_usada;OK;nao_usada;nao_usada;NAO;

@@ -1621,3 +1621,56 @@ Comando: python scripts/dicionario_mestre/aplicar_enriquecimento_dcb_anvisa_medr
 - Nenhuma fonte interna usada.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.11 — Revisao pos-enriquecimento DCB/CAS ANVISA MEDREG
+Data: 2026-06-26
+
+## Modo: READ-ONLY (dicionario_mestre_medicamentos.csv nao alterado nesta fase)
+
+## Resultado da auditoria
+- Total dicionario: 23.060 (intacto)
+- DCB: 12.715 (100% preservados intactos)
+- ANVISA_MEDREG: 10.345
+- MEDREG com dcb preenchido: 7.984 (77,2%)
+- MEDREG com cas preenchido: 7.984 (77,2%)
+- MEDREG com dcb e cas simultaneos: 7.984
+- MEDREG ainda sem dcb/cas: 2.361 (22,8%)
+- IDs inseridos/removidos indevidamente: 0
+- DCB com campos alterados: 0
+- Campos fora do escopo alterados nos MEDREG: 0
+- Classificacao MEDREG alterada: 0
+- Sobrescritas de campo nao vazio: 0
+- Enriquecimentos indevidos: 0
+- Diff FASE 2.9 confere com resultado: SIM
+
+## Checklist de consistencia
+- 24 itens / 0 falhas / 0 bloqueantes
+
+## Pendencias remanescentes (0 bloqueantes)
+- FORMA_FARMACEUTICA_VAZIA: 10.345 (todos os MEDREG — enriquecer via ANVISA Consultas)
+- CONCENTRACAO_VAZIA: 10.345
+- APRESENTACAO_VAZIA: 10.345
+- VIA_USO_VAZIA: 10.345
+- DCB_VAZIO: 2.361 (SEM_MATCH + SEM_PA + REVISAR)
+- CAS_VAZIO: 2.361
+- SEM_PRINCIPIO_ATIVO: 14
+
+## Decisao tecnica
+APTO_PARA_PLANEJAR_FONTE_FORMA_CONCENTRACAO_APRESENTACAO
+
+## Arquivos gerados
+- scripts/dicionario_mestre/revisar_pos_enriquecimento_dcb_anvisa_medreg.py
+- data/dicionario_mestre/processado/consistencia_pos_enriquecimento_dcb_anvisa_medreg.csv (24 itens)
+- data/dicionario_mestre/processado/pendencias_pos_enriquecimento_dcb_anvisa_medreg.csv (46.116 pendencias)
+- data/dicionario_mestre/processado/amostra_pos_enriquecimento_dcb_anvisa_medreg.csv (197 amostras)
+- data/dicionario_mestre/processado/auditoria_pos_enriquecimento_dcb_anvisa_medreg.md
+
+## Confirmacoes FASE 2.11
+- dicionario_mestre_medicamentos.csv NAO alterado nesta fase (read-only, 8.917.376 bytes).
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum SKU_MASTER aplicado.
+- Nenhum download realizado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
