@@ -1370,3 +1370,52 @@ APTO_PARA_PREPARAR_APLICACAO_CONTROLADA
 - Nenhum download realizado.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.6A — Dry-run aplicacao ANVISA Medicamentos Registrados
+Data: 2026-06-26
+
+## Script criado
+- scripts/dicionario_mestre/aplicar_pre_carga_anvisa_medicamentos_registrados.py
+
+## Pre-carga usada
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados_elegiveis_padrao.csv
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados_elegiveis_baixo_risco.csv
+  (35 registros BAIXO_RISCO inativos excluidos do dry-run)
+
+## Dicionario final
+- Apenas lido (nao alterado)
+- Total atual: 12715 registros (todos ANVISA_DCB)
+
+## Totais do dry-run
+- Total elegiveis (apos filtro inativos): 10345
+  (10301 ELEGIVEL_PADRAO + 44 ELEGIVEL_BAIXO_RISCO ativos)
+  (35 ELEGIVEL_BAIXO_RISCO inativos excluidos)
+- Total INSERIR_PREVISTO: 10345
+- Total IGNORAR_DUPLICADO_ID: 0
+- Total IGNORAR_DUPLICADO_RASTREABILIDADE: 0
+- Total REVISAR_ANTES_APLICAR: 0
+- Total previsto apos apply: 23060
+
+## Checklist: 20 itens, 0 falhas, 0 bloqueantes
+
+## Arquivos gerados
+- data/dicionario_mestre/processado/dry_run_aplicacao_anvisa_medicamentos_registrados.csv
+- data/dicionario_mestre/processado/diff_aplicacao_anvisa_medicamentos_registrados.csv
+- data/dicionario_mestre/processado/checklist_aplicacao_anvisa_medicamentos_registrados.csv
+- data/dicionario_mestre/processado/plano_aplicacao_anvisa_medicamentos_registrados.md
+
+## Apply NAO executado
+Apply requer aprovacao humana explicita e flag --confirmar.
+
+## Backup planejado
+backups/dicionario_mestre/dicionario_mestre_medicamentos_ANTES_ANVISA_MEDREG_YYYYMMDD_HHMMSS.csv
+
+## Confirmacoes FASE 2.6A
+- Dicionario final nao alterado.
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum download realizado.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.

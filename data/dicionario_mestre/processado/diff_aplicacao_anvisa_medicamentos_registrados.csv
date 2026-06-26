@@ -1,0 +1,17 @@
+﻿tipo_diff;chave;valor_atual;valor_novo;origem;impacto;observacao
+RESUMO;total_atual_dicionario;12715;12715;dicionario_mestre_medicamentos.csv;nenhum;registros atuais nao alterados
+RESUMO;total_inserir_previsto;0;10345;pre_carga_anvisa_medicamentos_registrados;+10345 registros;inserir somente registros INSERIR_PREVISTO
+RESUMO;total_previsto_apos_apply;12715;23060;calculo;+10345;
+RESUMO;total_ignorados_id_existente;-;0;dry_run;nenhum;"IDs ja existentes no dicionario; nao serao reinseridos"
+RESUMO;total_ignorados_rastreabilidade_dup;-;0;dry_run;nenhum;"IDs duplicados entre novos registros; apenas primeira ocorrencia inserida"
+RESUMO;total_revisar_antes_aplicar;-;0;dry_run;nenhum;"registros com nome_padrao vazio; nao serao inseridos"
+CAMPO_VAZIO_PROPOSITAL;dcb;-;(vazio);limitacao_da_fonte;nenhum;dcb nao disponivel na fonte ANVISA_MEDICAMENTOS_REGISTRADOS
+CAMPO_VAZIO_PROPOSITAL;cas;-;(vazio);limitacao_da_fonte;nenhum;cas nao disponivel na fonte ANVISA_MEDICAMENTOS_REGISTRADOS
+CAMPO_VAZIO_PROPOSITAL;atc;-;(vazio);limitacao_da_fonte;nenhum;atc nao disponivel na fonte ANVISA_MEDICAMENTOS_REGISTRADOS
+CAMPO_VAZIO_PROPOSITAL;sku_master_padrao;-;(vazio);limitacao_da_fonte;nenhum;sku_master_padrao nao disponivel na fonte ANVISA_MEDICAMENTOS_REGISTRADOS
+CAMPO_VAZIO_PROPOSITAL;concentracao;-;(vazio);limitacao_da_fonte;nenhum;concentracao nao disponivel na fonte ANVISA_MEDICAMENTOS_REGISTRADOS
+CAMPO_VAZIO_PROPOSITAL;forma_farmaceutica;-;(vazio);limitacao_da_fonte;nenhum;forma_farmaceutica nao disponivel na fonte ANVISA_MEDICAMENTOS_REGISTRADOS
+CAMPO_VAZIO_PROPOSITAL;apresentacao;-;(vazio);limitacao_da_fonte;nenhum;apresentacao nao disponivel na fonte ANVISA_MEDICAMENTOS_REGISTRADOS
+CAMPO_VAZIO_PROPOSITAL;via_uso;-;(vazio);limitacao_da_fonte;nenhum;via_uso nao disponivel na fonte ANVISA_MEDICAMENTOS_REGISTRADOS
+GARANTIA;registros_existentes_nao_alterados;12715;12715;logica_script;nenhum;"apply insere apenas novos registros; nao atualiza existentes"
+GARANTIA;dicionario_final_nao_alterado_dry_run;intacto;intacto;modo_dry_run;nenhum;dry_run nao altera o dicionario final

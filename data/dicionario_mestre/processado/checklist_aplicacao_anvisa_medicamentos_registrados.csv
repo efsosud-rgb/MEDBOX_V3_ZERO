@@ -1,0 +1,21 @@
+﻿item;status;esperado;encontrado;bloqueia_apply;observacao
+fase_2_5_commitada;OK;sim;sim;NAO;
+dicionario_final_existe;OK;sim;sim;NAO;
+cabecalho_dicionario_preservado;OK;22 colunas;22 colunas;NAO;
+pre_carga_elegivel_existe;OK;sim;sim;NAO;
+total_elegiveis;OK;>0;10345;NAO;
+total_inserir_previsto;OK;>0;10345;NAO;
+ids_novos_unicos;OK;sim;sim;NAO;
+sem_coluna_obrigatoria_vazia_para_id;OK;id_dicionario gerado para todos;OK;NAO;
+sem_coluna_obrigatoria_vazia_para_nome;OK;0;0;NAO;
+fonte_nome_valida;OK;ANVISA_MEDICAMENTOS_REGISTRADOS;ANVISA_MEDICAMENTOS_REGISTRADOS;NAO;
+confianca_alta;OK;ALTA;ALTA;NAO;
+status_revisao_valido;OK;PRE_VALIDADO_FONTE_OFICIAL;PRE_VALIDADO_FONTE_OFICIAL;NAO;
+sem_nao_elegiveis_no_dry_run;OK;sim;sim;NAO;
+sem_inativos_no_dry_run;OK;sim;sim;NAO;
+apply_nao_executado;OK;nao executado;nao executado;NAO;"dry-run confirmado; apply NAO foi executado"
+dicionario_final_nao_alterado;OK;nao alterado;nao alterado;NAO;
+banco_nao_alterado;OK;nao usado;nao usado;NAO;
+fonte_interna_nao_usada;OK;nao acessado;nao acessado;NAO;
+sku_master_nao_aplicado;OK;nao aplicado;nao aplicado;NAO;
+backup_planejado;OK;planejado;backup sera criado em backups/dicionario_mestre/ antes do apply;NAO;nome: dicionario_mestre_medicamentos_ANTES_ANVISA_MEDREG_YYYYMMDD_HHMMSS.csv
