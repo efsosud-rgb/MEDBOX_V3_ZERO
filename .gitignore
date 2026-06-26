@@ -45,3 +45,8 @@ app.py.bak_*
 
 # Banco local do MEDBOX
 banco/
+**pycache**/
+data/dicionario_mestre/tmp/
+data/dicionario_mestre/downloads_tmp/
+logs/bionexo/
+data/bionexo/

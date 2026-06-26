@@ -1,0 +1,23 @@
+﻿item,status,observacao
+git_status_verificado,OK,
+branch_verificada,OK,
+python_verificado,OK,Python 3.14.5
+pip_verificado,OK,pip base 26.1.1; pip .venv 26.1.2
+ambiente_virtual_configurado,OK,.venv criado nesta fase
+requirements_ingestao_criado,OK,
+bibliotecas_python_instaladas,OK,
+playwright_browsers_nao_instalados,OK,
+java_nao_instalado,OK,
+ghostscript_nao_instalado,OK,
+script_diagnostico_criado,OK,
+diagnostico_importacoes_executado,OK,26 OK; 1 pendencia camelot bloqueado por politica do Windows
+relatorio_instalacao_criado,OK,
+base_dados_nao_baixada,OK,
+captura_nao_executada,OK,
+scraping_nao_executado,OK,
+banco_nao_alterado,OK,
+dicionario_final_nao_alterado,OK,
+fonte_interna_nao_usada,OK,
+sku_master_nao_aplicado,OK,
+checkpoint_atualizado,OK,
+apto_para_preparar_scripts_download,OK,

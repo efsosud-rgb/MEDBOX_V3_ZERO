@@ -1899,3 +1899,32 @@ Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executa
 - SKU_MASTER não foi aplicado.
 - Decisão técnica: APTO_PARA_PLANEJAR_INGESTAO_MULTI_FONTE_ESTRUTURADA
 - Próxima fase recomendada: FASE 2.14D — planejamento de ingestão multi-fonte estruturada.
+
+## Checkpoint - FASE 2.14E — Instalação controlada do toolkit Python de ingestão multi-fonte
+
+- Data/hora local: 2026-06-26 16:24:02 -03:00
+- Objetivo: instalar bibliotecas Python para futura ingestão multi-fonte do Dicionário Mestre MEDBOX.
+- Ambiente virtual usado: .venv criado nesta fase.
+- Arquivos criados:
+  - scripts/dicionario_mestre/requirements_ingestao_multi_fonte.txt
+  - scripts/dicionario_mestre/diagnosticar_toolkit_ingestao.py
+  - data/dicionario_mestre/processado/diagnostico_toolkit_ingestao_multi_fonte.csv
+  - data/dicionario_mestre/processado/checklist_instalacao_toolkit_ingestao_multi_fonte.csv
+  - data/dicionario_mestre/externo/relatorio_instalacao_toolkit_ingestao_multi_fonte.md
+- Arquivos alterados:
+  - .gitignore
+  - CHECKPOINT.md
+- Bibliotecas instaladas: requests, httpx, tenacity, tqdm, python-dotenv, pandas, openpyxl, pyxlsb, fastexcel, polars, duckdb, pyarrow, beautifulsoup4, lxml, selectolax, playwright, pymupdf, pdfplumber, pypdf, camelot-py, tabula-py, rapidfuzz, Unidecode, python-slugify, regex, jsonlines, sqlite-utils.
+- Resumo do diagnóstico de importação: 26 bibliotecas com OK e 1 pendência; camelot falhou por OSError [WinError 4551] devido a política de Controle de Aplicativo do Windows.
+- Nenhuma base foi baixada.
+- Nenhuma captura foi executada.
+- Scraping não foi executado.
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- Navegadores Playwright não foram instalados nesta fase.
+- Java não foi instalado nesta fase.
+- Ghostscript não foi instalado nesta fase.
+- Decisão técnica: APTO_PARA_PREPARAR_SCRIPTS_DOWNLOAD_ESTRUTURADO
+- Próxima fase recomendada: FASE 2.14F — criação dos scripts de download estruturado, sem aplicação no dicionário final.

@@ -1,0 +1,28 @@
+biblioteca,status,versao,observacao
+requests,OK,2.34.2,importacao realizada sem acesso a internet
+httpx,OK,0.28.1,importacao realizada sem acesso a internet
+tenacity,OK,9.1.4,importacao realizada sem acesso a internet
+tqdm,OK,4.68.3,importacao realizada sem acesso a internet
+dotenv,OK,1.2.2,importacao realizada sem acesso a internet
+pandas,OK,3.0.3,importacao realizada sem acesso a internet
+openpyxl,OK,3.1.5,importacao realizada sem acesso a internet
+pyxlsb,OK,1.0.10,importacao realizada sem acesso a internet
+fastexcel,OK,0.20.2,importacao realizada sem acesso a internet
+polars,OK,1.42.0,importacao realizada sem acesso a internet
+duckdb,OK,1.5.4,importacao realizada sem acesso a internet
+pyarrow,OK,24.0.0,importacao realizada sem acesso a internet
+bs4,OK,4.15.0,importacao realizada sem acesso a internet
+lxml,OK,6.1.1,importacao realizada sem acesso a internet
+selectolax,OK,0.4.10,importacao realizada sem acesso a internet
+playwright,OK,1.60.0,importacao realizada sem acesso a internet
+fitz,OK,1.27.2.3,importacao realizada sem acesso a internet
+pdfplumber,OK,0.11.10,importacao realizada sem acesso a internet
+pypdf,OK,6.14.2,importacao realizada sem acesso a internet
+camelot,ERRO,,OSError: [WinError 4551] Uma política de Controle de Aplicativo bloqueou este arquivo
+tabula,OK,2.10.0,importacao realizada sem acesso a internet
+rapidfuzz,OK,3.14.5,importacao realizada sem acesso a internet
+unidecode,OK,1.4.0,importacao realizada sem acesso a internet
+slugify,OK,8.0.4,importacao realizada sem acesso a internet
+regex,OK,2026.5.9,importacao realizada sem acesso a internet
+jsonlines,OK,4.0.0,importacao realizada sem acesso a internet
+sqlite_utils,OK,3.39,importacao realizada sem acesso a internet
