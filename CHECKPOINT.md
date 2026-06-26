@@ -1325,3 +1325,48 @@ APTO_PARA_REVISAR_PRE_CARGA
 - Nenhum download realizado.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.5 — Revisao pre-carga ANVISA Medicamentos Registrados
+Data: 2026-06-26
+
+## Script criado
+- scripts/dicionario_mestre/revisar_pre_carga_anvisa_medicamentos_registrados.py
+
+## Arquivos de pre-carga analisados
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados.csv (consolidado)
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados_elegiveis_padrao.csv
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados_elegiveis_baixo_risco.csv
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados_nao_elegiveis.csv
+
+## Totais
+- Total consolidado: 43240
+- Total ELEGIVEL_PADRAO: 10301
+- Total ELEGIVEL_BAIXO_RISCO: 79
+- Total NAO_ELEGIVEL: 32860
+
+## Pendencias
+- Total de pendencias: 62307
+- Total de pendencias bloqueantes para FASE 2.6: 0
+  (pendencias sao campos ausentes por limitacao da fonte - nao bloqueantes)
+
+## Checklist: 22 itens, 0 falhas, 0 bloqueantes
+
+## Arquivos gerados
+- data/dicionario_mestre/processado/amostra_revisao_pre_carga_anvisa_medicamentos_registrados.csv (285 registros)
+- data/dicionario_mestre/processado/revisao_pre_carga_anvisa_medicamentos_registrados.md
+- data/dicionario_mestre/processado/pendencias_revisao_pre_carga_anvisa_medicamentos_registrados.csv (62307 pendencias)
+- data/dicionario_mestre/processado/checklist_revisao_pre_carga_anvisa_medicamentos_registrados.csv
+
+## Decisao tecnica
+APTO_PARA_PREPARAR_APLICACAO_CONTROLADA
+
+## Confirmacoes FASE 2.5
+- Pre-carga FASE 2.4 nao alterada.
+- Dicionarios finais nao alterados.
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum download realizado.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
