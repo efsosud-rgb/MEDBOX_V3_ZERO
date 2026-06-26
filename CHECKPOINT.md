@@ -2005,3 +2005,34 @@ Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executa
 - SKU_MASTER não foi aplicado.
 - Decisão técnica: PENDENTE_REVISAR_DOWNLOAD_MEDICAMENTOS_REGISTRADOS
 - Próxima fase recomendada: revisar link ou método de download da fonte Medicamentos registrados antes de avançar para CMED.
+
+## Checkpoint - FASE 2.14E-C — Instalação de ferramentas externas de apoio à extração de dados
+
+- Data/hora local: 2026-06-26 17:05:28 -03:00
+- Objetivo: instalar e diagnosticar ferramentas que facilitem a extração, limpeza, análise e cruzamento de dados públicos para o Dicionário Mestre MEDBOX.
+- Ferramentas priorizadas pelo usuário: OpenRefine, Tabula Desktop, DBeaver Community, Excalibur, Camelot, Playwright Chromium, Java e bibliotecas Python já instaladas.
+- Resultado OpenRefine: OK; instalado via winget e localizado fora do PATH em `C:\Users\admph\AppData\Local\Programs\OpenRefine\openrefine.exe`.
+- Resultado Tabula Desktop: OK; instalado via winget e localizado fora do PATH em `C:\Users\admph\AppData\Local\Microsoft\WinGet\Packages\tabulapdf.tabula_Microsoft.Winget.Source_8wekyb3d8bbwe\tabula\tabula.exe`.
+- Resultado DBeaver: OK; instalado via winget e localizado fora do PATH em `C:\Users\admph\AppData\Local\DBeaver\dbeaver.exe`.
+- Resultado Excalibur: OK; `excalibur-py` instalado no `.venv`, importação local OK, versão 1.0.1.
+- Resultado Camelot: OK; importação local OK, versão 2.0.0.
+- Resultado Playwright: OK; importação local OK, versão 1.60.0.
+- Resultado Java: OK; Temurin 21.0.11 localizado fora do PATH em `C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot\bin\java.exe`.
+- Arquivos criados:
+  - scripts/dicionario_mestre/diagnosticar_apps_extracao_dados.py
+  - data/dicionario_mestre/processado/diagnostico_apps_extracao_dados.csv
+  - data/dicionario_mestre/processado/checklist_instalacao_apps_extracao_dados.csv
+  - data/dicionario_mestre/externo/relatorio_instalacao_apps_extracao_dados.md
+- Arquivos alterados:
+  - scripts/dicionario_mestre/requirements_ingestao_multi_fonte.txt
+  - CHECKPOINT.md
+- Nenhuma base foi baixada.
+- Nenhuma captura foi executada.
+- Scraping não foi executado.
+- Banco não foi alterado.
+- Dicionário final não foi alterado.
+- Fonte interna não foi usada.
+- SKU_MASTER não foi aplicado.
+- Segurança do Windows não foi desativada.
+- Decisão técnica: APTO_PARA_DOWNLOAD_CONTROLADO_COM_TOOLKIT_EXPANDIDO
+- Próxima fase recomendada: FASE 2.14G-1B — download controlado direto ANVISA DADOS_ABERTOS_MEDICAMENTOS.csv.

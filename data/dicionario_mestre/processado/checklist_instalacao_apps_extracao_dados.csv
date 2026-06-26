@@ -1,0 +1,27 @@
+﻿item,status,observacao
+git_status_verificado,OK,
+branch_verificada,OK,
+winget_verificado,OK,winget v1.28.240
+openrefine_instalado_ou_pendente,OK,Instalado via winget; localizado fora do PATH
+tabula_desktop_instalado_ou_pendente,OK,Instalado via winget; localizado fora do PATH
+dbeaver_instalado_ou_pendente,OK,Instalado via winget; localizado fora do PATH
+excalibur_instalado_ou_pendente,OK,excalibur-py 1.0.1 instalado no .venv e registrado no requirements
+camelot_retestado,OK,camelot 2.0.0
+playwright_retestado,OK,playwright 1.60.0
+java_retestado,OK,Temurin 21.0.11 localizado fora do PATH
+pdfplumber_retestado,OK,pdfplumber 0.11.10
+pymupdf_retestado,OK,PyMuPDF 1.27.2.3
+tabula_py_retestado,OK,tabula-py 2.10.0
+duckdb_retestado,OK,DuckDB 1.5.4
+script_diagnostico_criado,OK,
+diagnostico_executado,OK,12 OK; 0 pendencias
+relatorio_criado,OK,
+base_dados_nao_baixada,OK,
+captura_nao_executada,OK,
+scraping_nao_executado,OK,
+banco_nao_alterado,OK,
+dicionario_final_nao_alterado,OK,
+fonte_interna_nao_usada,OK,
+sku_master_nao_aplicado,OK,
+seguranca_windows_nao_desativada,OK,
+checkpoint_atualizado,OK,

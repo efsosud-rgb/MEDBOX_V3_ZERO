@@ -1,0 +1,13 @@
+ferramenta,tipo,status,versao_ou_resultado,observacao
+winget,sistema,OK,v1.28.240,PATH: C:\Users\admph\AppData\Local\Microsoft\WindowsApps\winget.EXE
+Java,sistema,OK,"openjdk version ""21.0.11"" 2026-04-21 LTS OpenJDK Runtime Environment Temurin-21.0.11+10 (build 21.0.11+10-LTS) OpenJDK 64-Bit Server VM Temurin-21.0.11+10 (build 21.0.11+10-LTS, mixed mode, sharing)",Localizado fora do PATH: C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot\bin\java.exe
+OpenRefine,app,OK,C:\Users\admph\AppData\Local\Programs\OpenRefine\openrefine.exe,Localizado fora do PATH; PATH permanente nao foi alterado.
+Tabula Desktop,app,OK,C:\Users\admph\AppData\Local\Microsoft\WinGet\Packages\tabulapdf.tabula_Microsoft.Winget.Source_8wekyb3d8bbwe\tabula\tabula.exe,Localizado fora do PATH; PATH permanente nao foi alterado.
+DBeaver Community,app,OK,C:\Users\admph\AppData\Local\DBeaver\dbeaver.exe,Localizado fora do PATH; PATH permanente nao foi alterado.
+Excalibur,python,OK,1.0.1,Importacao local OK.
+Camelot,python,OK,2.0.0,Importacao local OK.
+pdfplumber,python,OK,0.11.10,Importacao local OK.
+PyMuPDF,python,OK,1.27.2.3,Importacao local OK.
+tabula-py,python,OK,2.10.0,Importacao local OK.
+DuckDB,python,OK,1.5.4,Importacao local OK.
+Playwright,python,OK,1.60.0,Importacao local OK.

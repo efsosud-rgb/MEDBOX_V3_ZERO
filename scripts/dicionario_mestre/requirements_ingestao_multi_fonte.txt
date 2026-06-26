@@ -25,3 +25,4 @@ python-slugify
 regex
 jsonlines
 sqlite-utils
+excalibur-py
