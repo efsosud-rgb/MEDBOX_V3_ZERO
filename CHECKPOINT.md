@@ -949,3 +949,59 @@ Data: 2026-06-26
 - Nenhum SKU_MASTER foi aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, .db e data/dicionario_mestre/interno/ nao foram alterados.
 - Nenhum commit feito ainda.
+
+# Checkpoint - FASE 1.6 — Plano de aplicacao controlada DCB medicamentos
+
+Data: 2026-06-26
+
+## Script criado
+- scripts/dicionario_mestre/aplicar_carga_dcb_medicamentos.py
+- Possui modo `--dry-run`.
+- Possui modo `--apply`, protegido por `--confirmar`, mas `--apply` nao foi executado.
+- Valida cabecalho esperado do dicionario final.
+- Valida que o dicionario final tem apenas cabecalho.
+- Exige backup antes de qualquer apply futuro.
+- Bloqueia aplicacao se o dicionario final tiver dados inesperados.
+
+## Dry-run executado
+- Comando:
+  - `python scripts/dicionario_mestre/aplicar_carga_dcb_medicamentos.py --dry-run`
+- Total de registros simulados: 12.715
+- Arquivo gerado:
+  - data/dicionario_mestre/processado/dry_run_aplicacao_dcb_medicamentos.csv
+- Nenhuma escrita foi feita no dicionario final.
+
+## Checklist gerado
+- data/dicionario_mestre/processado/checklist_aplicacao_dcb_medicamentos.csv
+- Todos os itens ficaram com status OK.
+- Confirmado no checklist:
+  - FASE 1.5 commitada.
+  - Carga previa existe.
+  - Diff existe.
+  - Revisao aprovada.
+  - Dicionario final existe.
+  - Dicionario final tem cabecalho esperado.
+  - Dicionario final tem 0 linhas de dados.
+  - Backup sera obrigatorio no apply.
+  - Dry-run executado.
+  - Nenhuma pendencia bloqueante.
+  - Nenhuma fonte interna usada.
+  - Nenhum banco usado.
+  - `--apply` nao executado.
+
+## Plano gerado
+- data/dicionario_mestre/processado/plano_aplicacao_dcb_medicamentos.md
+- Explica que a DCB entra como base de principio ativo, nao como apresentacao comercial.
+- Explica que sku_master_padrao, concentracao, forma_farmaceutica, apresentacao, via_uso e atc ficam para fases posteriores.
+- Registra backup obrigatorio, comando futuro de aplicacao, riscos e criterios para autorizar apply.
+
+## Confirmacoes FASE 1.6
+- Dicionario final nao foi alterado.
+- Banco nao foi alterado.
+- Nenhum SQL de escrita foi executado.
+- Nenhuma fonte interna foi usada.
+- Nenhum download foi feito.
+- Nenhuma mesclagem real foi feita.
+- Nenhum SKU_MASTER foi aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, .db e data/dicionario_mestre/interno/ nao foram alterados.
+- Nenhum commit feito ainda para FASE 1.6.

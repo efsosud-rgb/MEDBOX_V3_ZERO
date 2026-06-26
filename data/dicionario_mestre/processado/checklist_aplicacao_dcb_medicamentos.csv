@@ -1,0 +1,15 @@
+﻿item;status;bloqueia_aplicacao;observacao
+working tree limpo antes da fase;OK;NAO;FASE 1.6 iniciada apos commit da FASE 1.5 com status limpo.
+FASE 1.5 commitada;OK;NAO;Commit da FASE 1.5 confirmado antes do dry-run.
+carga previa existe;OK;SIM;C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\processado\carga_previa_dicionario_medicamentos_anvisa_dcb.csv
+diff existe;OK;SIM;C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\processado\diff_carga_dicionario_medicamentos_anvisa_dcb.csv
+revisao aprovada;OK;SIM;Revisao aprovada e sem pendencias bloqueantes.
+dicionario final existe;OK;SIM;C:\Users\admph\OneDrive\Área de Trabalho\MEDBOX_V3_ZERO\data\dicionario_mestre\dicionario_mestre_medicamentos.csv
+dicionario final tem cabecalho esperado;OK;SIM;Cabecalho confere com o schema esperado.
+dicionario final tem 0 linhas de dados;OK;SIM;Dicionario final possui apenas cabecalho.
+backup sera obrigatorio no apply;OK;SIM;Script exige backup antes de qualquer apply futuro.
+dry-run executado;OK;NAO;Dry-run executado sem escrita no dicionario final.
+nenhuma pendencia bloqueante;OK;SIM;Revisao registra 0 pendencias bloqueantes.
+nenhuma fonte interna usada;OK;NAO;Script usa apenas carga, diff, revisao e dicionario final.
+nenhum banco usado;OK;NAO;Script nao acessa banco de dados.
+--apply nao executado;OK;SIM;Somente dry-run foi executado nesta fase.
