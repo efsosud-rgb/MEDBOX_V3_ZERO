@@ -16,7 +16,7 @@ REVISAO_PATH = PROCESSADO_DIR / "revisao_carga_previa_dcb_medicamentos.md"
 DRY_RUN_PATH = PROCESSADO_DIR / "dry_run_aplicacao_dcb_medicamentos.csv"
 CHECKLIST_PATH = PROCESSADO_DIR / "checklist_aplicacao_dcb_medicamentos.csv"
 PLANO_PATH = PROCESSADO_DIR / "plano_aplicacao_dcb_medicamentos.md"
-BACKUP_DIR = BASE_DIR / "backups"
+BACKUP_DIR = BASE_DIR / "backups" / "dicionario_mestre"
 
 EXPECTED_HEADER = [
     "id_dicionario",
@@ -226,7 +226,10 @@ def run(dry_run: bool, apply: bool, confirmar: bool) -> int:
     add_check(checklist, "nenhuma pendencia bloqueante", review_ok, True, "Revisao registra 0 pendencias bloqueantes.", "Ha pendencias bloqueantes ou revisao invalida.")
     add_check(checklist, "nenhuma fonte interna usada", True, False, "Script usa apenas carga, diff, revisao e dicionario final.", "Fonte interna usada.")
     add_check(checklist, "nenhum banco usado", True, False, "Script nao acessa banco de dados.", "Banco usado.")
-    add_check(checklist, "--apply nao executado", not apply, True, "Somente dry-run foi executado nesta fase.", "--apply foi executado.")
+    if apply:
+        add_check(checklist, "--apply autorizado com confirmacao", confirmar, False, "--apply autorizado por confirmacao explicita.", "--apply sem confirmacao.")
+    else:
+        add_check(checklist, "--apply nao executado", True, False, "Somente dry-run foi executado nesta fase.", "--apply foi executado.")
 
     dry_rows = build_dry_run(carga, diff)
     if dry_run and not apply:
@@ -244,7 +247,7 @@ def run(dry_run: bool, apply: bool, confirmar: bool) -> int:
             raise SystemExit("ERRO: checklist possui bloqueios para aplicacao.")
         BACKUP_DIR.mkdir(exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = BACKUP_DIR / f"dicionario_mestre_medicamentos_antes_dcb_{stamp}.csv"
+        backup_path = BACKUP_DIR / f"dicionario_mestre_medicamentos_ANTES_DCB_{stamp}.csv"
         shutil.copy2(DICIONARIO_PATH, backup_path)
         if not backup_path.exists() or backup_path.stat().st_size == 0:
             raise SystemExit("ERRO: backup obrigatorio nao foi criado.")

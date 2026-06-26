@@ -1,0 +1,20 @@
+﻿item;status;esperado;encontrado;bloqueia_commit;observacao
+total_linhas;OK;12716;12716;SIM;
+total_registros;OK;12715;12715;SIM;
+total_colunas;OK;22 colunas em todas as linhas;[22];SIM;
+cabecalho_preservado;OK;cabecalho igual ao da carga;True;SIM;
+ids_dcb;OK;todos iniciam com DCB_;True;SIM;
+sem_id_vazio;OK;0 vazios;True;SIM;
+sem_nome_padrao_vazio;OK;0 vazios;True;SIM;
+sem_dcb_vazio;OK;0 vazios;True;SIM;
+sem_cas_vazio;OK;0 vazios;True;SIM;
+fonte_nome_anvisa_dcb;OK;ANVISA_DCB em todos;True;SIM;
+confianca_alta;OK;ALTA em todos;True;SIM;
+validado_externamente_preenchido;OK;preenchido em todos;True;SIM;
+validado_internamente_nao;OK;nao/n?o/N em todos;True;SIM;
+backup_criado;OK;backup criado em backups/dicionario_mestre;backups\dicionario_mestre\dicionario_mestre_medicamentos_ANTES_DCB_20260626_094804.csv;SIM;
+backup_estado_anterior;OK;backup somente com cabecalho anterior;linhas=1 larguras=[22];SIM;
+banco_nao_alterado;OK;sem acesso/alteracao de banco;True;SIM;
+fonte_interna_nao_usada;OK;nenhuma fonte interna usada;True;SIM;
+sku_master_nao_aplicado;OK;SKU_MASTER nao aplicado;True;SIM;
+arquivos_protegidos_nao_alterados;OK;app.py/core/templates/uploads/.claude/.db/interno sem alteracao;True;SIM;

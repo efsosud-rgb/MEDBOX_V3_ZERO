@@ -1005,3 +1005,58 @@ Data: 2026-06-26
 - Nenhum SKU_MASTER foi aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, .db e data/dicionario_mestre/interno/ nao foram alterados.
 - Nenhum commit feito ainda para FASE 1.6.
+
+# Checkpoint - FASE 1.7 — Aplicacao controlada DCB medicamentos
+
+Data: 2026-06-26
+
+## Autorizacao humana
+- Usuario aprovou explicitamente:
+  - "Aprovo aplicar a DCB no dicionario_mestre_medicamentos.csv"
+
+## Bloqueios iniciais identificados
+- A primeira orientacao de apply foi bloqueada antes de qualquer escrita porque o script criaria backup fora do subdiretorio permitido.
+- A segunda tentativa de apply foi bloqueada antes de qualquer escrita porque o checklist tratava `--apply nao executado` como bloqueante mesmo em apply autorizado.
+
+## Microcorrecoes realizadas
+- scripts/dicionario_mestre/aplicar_carga_dcb_medicamentos.py
+- Caminho do backup corrigido para:
+  - backups/dicionario_mestre/
+- Nome do backup corrigido para:
+  - dicionario_mestre_medicamentos_ANTES_DCB_YYYYMMDD_HHMMSS.csv
+- Checklist `--apply nao executado` ajustado para nao bloquear quando `--apply --confirmar` esta autorizado.
+
+## Script usado
+- scripts/dicionario_mestre/aplicar_carga_dcb_medicamentos.py
+
+## Comando executado com confirmacao
+- `python scripts/dicionario_mestre/aplicar_carga_dcb_medicamentos.py --apply --confirmar`
+
+## Backup criado
+- backups/dicionario_mestre/dicionario_mestre_medicamentos_ANTES_DCB_20260626_094804.csv
+- Backup validado como estado anterior do dicionario: apenas cabecalho.
+
+## Arquivo final alterado
+- data/dicionario_mestre/dicionario_mestre_medicamentos.csv
+
+## Resultado da aplicacao
+- Total de registros aplicados: 12.715
+- Total de linhas finais: 12.716 incluindo cabecalho
+- Cabecalho preservado: sim
+- Todas as linhas com 22 colunas: sim
+- IDs `DCB_`: sim
+- `fonte_nome = ANVISA_DCB`: sim
+- `confianca = ALTA`: sim
+
+## Arquivos gerados
+- data/dicionario_mestre/processado/relatorio_aplicacao_dcb_medicamentos.md
+- data/dicionario_mestre/processado/validacao_pos_aplicacao_dcb_medicamentos.csv
+
+## Confirmacoes FASE 1.7
+- Banco nao foi alterado.
+- Nenhum SQL de escrita foi executado em banco.
+- Nenhuma fonte interna foi usada.
+- Nenhum download foi feito.
+- Nenhum SKU_MASTER foi aplicado.
+- app.py, core/, templates/, uploads/, .claude/, arquivos .db, data/dicionario_mestre/interno/ nao foram alterados.
+- Commit ainda nao feito antes da validacao.
