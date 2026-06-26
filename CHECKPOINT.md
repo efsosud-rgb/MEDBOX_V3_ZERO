@@ -895,3 +895,57 @@ Data: 2026-06-25
 - data/dicionario_mestre/interno/ nao foi alterada.
 - app.py, core/, templates/, uploads/, backups/, .claude/ e .db nao foram alterados.
 - Nenhum commit feito ainda.
+
+# Checkpoint - FASE 1.5 — Revisao da carga previa DCB medicamentos
+
+Data: 2026-06-26
+
+## Script criado
+- scripts/dicionario_mestre/revisar_carga_previa_dcb_medicamentos.py
+- Le somente arquivos locais de entrada da carga previa DCB.
+- Nao acessa internet, banco, SQL ou fontes internas.
+- Gera CSV UTF-8 com BOM, separador ";", de forma reexecutavel.
+
+## Arquivos analisados
+- data/dicionario_mestre/processado/carga_previa_dicionario_medicamentos_anvisa_dcb.csv
+- data/dicionario_mestre/processado/diff_carga_dicionario_medicamentos_anvisa_dcb.csv
+- data/dicionario_mestre/processado/duplicidades_previa_dcb_medicamentos.csv
+- data/dicionario_mestre/processado/termos_revisao_previa_dcb_medicamentos.csv
+
+## Amostra gerada
+- data/dicionario_mestre/processado/amostra_carga_previa_dcb_medicamentos.csv
+- Total de linhas de dados: 2.231
+- Inclui primeiros registros, registros por classificacao, registros por subcategoria,
+  registros ligados aos CAS duplicados, termos para revisao, amostra aleatoria seed=42,
+  nomes mais longos e nomes mais curtos.
+- Duplicatas entre grupos foram preservadas por desenho da revisao.
+
+## Pendencias geradas
+- data/dicionario_mestre/processado/pendencias_carga_previa_dcb_medicamentos.csv
+- Total de pendencias: 1.877
+- CAS_DUPLICADO: 1.817 pendencias ligadas a 24 grupos de CAS duplicado.
+- TERMO_REVISAO: 54 pendencias.
+- COLUNA_SEM_EQUIVALENTE_DCB: 6 pendencias estruturais esperadas.
+- Pendencias por severidade:
+  - MEDIA: 1.871
+  - BAIXA: 6
+- Pendencias bloqueantes: 0
+
+## Relatorio gerado
+- data/dicionario_mestre/processado/revisao_carga_previa_dcb_medicamentos.md
+- Total de registros na carga: 12.715
+- Total de acoes previstas no diff: 12.715
+- Decisao tecnica recomendada: APROVAR_CARGA_DCB_BASE_PRINCIPIO_ATIVO
+- A DCB deve entrar como base de principios ativos e denominacoes oficiais, nao como apresentacao comercial.
+- Concentracao, forma farmaceutica, apresentacao, via de uso e ATC devem vir em fases posteriores.
+
+## Confirmacoes FASE 1.5
+- Dicionarios finais nao foram alterados.
+- Banco nao foi alterado.
+- Nenhum SQL foi executado.
+- Nenhuma fonte interna foi usada.
+- Nenhum download foi feito.
+- Nenhuma mesclagem foi feita.
+- Nenhum SKU_MASTER foi aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, .db e data/dicionario_mestre/interno/ nao foram alterados.
+- Nenhum commit feito ainda.
