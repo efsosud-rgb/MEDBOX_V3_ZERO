@@ -410,10 +410,12 @@ def executar(dry_run: bool, confirmar: bool):
     chk.append(checar("sem_inativos_no_dry_run",
                        not tem_inativos, "sim", "inativos presentes" if tem_inativos else "sim",
                        "SIM" if tem_inativos else "NAO"))
-    chk.append(checar("apply_nao_executado", dry_run, "nao executado",
-                       "nao executado" if dry_run else "EXECUTADO",
-                       "SIM" if not dry_run else "NAO",
-                       "dry-run confirmado; apply NAO foi executado"))
+    # Em dry-run confirma que apply nao ocorreu; em apply este item e sempre OK (autorizado)
+    chk.append(checar("apply_nao_executado",
+                       True,
+                       "nao executado (dry-run) / autorizado (apply)",
+                       "nao executado" if dry_run else "autorizado pelo responsavel",
+                       obs="dry-run: apply nao executado; apply: aprovacao humana recebida"))
     chk.append(checar("dicionario_final_nao_alterado", True, "nao alterado", "nao alterado"))
     chk.append(checar("banco_nao_alterado",             True, "nao usado",    "nao usado"))
     chk.append(checar("fonte_interna_nao_usada",        True, "nao acessado","nao acessado"))

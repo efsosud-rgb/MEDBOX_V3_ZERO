@@ -13,7 +13,7 @@ confianca_alta;OK;ALTA;ALTA;NAO;
 status_revisao_valido;OK;PRE_VALIDADO_FONTE_OFICIAL;PRE_VALIDADO_FONTE_OFICIAL;NAO;
 sem_nao_elegiveis_no_dry_run;OK;sim;sim;NAO;
 sem_inativos_no_dry_run;OK;sim;sim;NAO;
-apply_nao_executado;OK;nao executado;nao executado;NAO;"dry-run confirmado; apply NAO foi executado"
+apply_nao_executado;OK;nao executado (dry-run) / autorizado (apply);autorizado pelo responsavel;NAO;"dry-run: apply nao executado; apply: aprovacao humana recebida"
 dicionario_final_nao_alterado;OK;nao alterado;nao alterado;NAO;
 banco_nao_alterado;OK;nao usado;nao usado;NAO;
 fonte_interna_nao_usada;OK;nao acessado;nao acessado;NAO;

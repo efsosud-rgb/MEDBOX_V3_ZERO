@@ -1419,3 +1419,34 @@ backups/dicionario_mestre/dicionario_mestre_medicamentos_ANTES_ANVISA_MEDREG_YYY
 - Nenhum download realizado.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.6B — Aplicacao real ANVISA Medicamentos Registrados
+Data: 2026-06-26
+
+## Apply executado com aprovacao humana explicita
+Comando: python scripts/dicionario_mestre/aplicar_pre_carga_anvisa_medicamentos_registrados.py --apply --confirmar
+
+## Resultado
+- Registros antes: 12715 (todos ANVISA_DCB)
+- Registros inseridos: 10345 (10301 ELEGIVEL_PADRAO + 44 ELEGIVEL_BAIXO_RISCO ativos)
+- Registros apos apply: 23060
+- Registros DCB preservados: 12715 (intactos)
+- 35 ELEGIVEL_BAIXO_RISCO inativos excluidos (filtro no script)
+
+## Backup criado
+- backups/dicionario_mestre/dicionario_mestre_medicamentos_ANTES_ANVISA_MEDREG_20260626_130122.csv
+  (backup automatico criado pelo script antes da escrita)
+
+## Arquivos alterados
+- data/dicionario_mestre/dicionario_mestre_medicamentos.csv (12715 → 23060 registros)
+
+## Confirmacoes FASE 2.6B
+- Apply executado com aprovacao humana explicita.
+- Backup criado antes da escrita.
+- Registros DCB preservados intactos.
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, .claude/, arquivos .db e interno nao alterados.

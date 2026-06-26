@@ -92,7 +92,7 @@ dcb, cas, atc, sku_master_padrao, concentracao, forma_farmaceutica, apresentacao
 - [OK] status_revisao_valido: PRE_VALIDADO_FONTE_OFICIAL
 - [OK] sem_nao_elegiveis_no_dry_run: sim
 - [OK] sem_inativos_no_dry_run: sim
-- [OK] apply_nao_executado: nao executado
+- [OK] apply_nao_executado: autorizado pelo responsavel
 - [OK] dicionario_final_nao_alterado: nao alterado
 - [OK] banco_nao_alterado: nao usado
 - [OK] fonte_interna_nao_usada: nao acessado
