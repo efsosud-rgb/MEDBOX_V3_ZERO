@@ -1285,3 +1285,43 @@ REVISAR_ANTES_PRE_CARGA
 - Nenhum download realizado.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.4 — Pre-carga ANVISA Medicamentos Registrados
+Data: 2026-06-26
+
+## Script criado
+- scripts/dicionario_mestre/preparar_pre_carga_anvisa_medicamentos_registrados.py
+
+## Arquivo intermediario usado
+- data/dicionario_mestre/processado/anvisa_medicamentos_registrados_normalizado.csv
+
+## Total de registros analisados
+43240
+
+## Grupos de elegibilidade
+- ELEGIVEL_PADRAO:      10301 (Ativo + numero_registro + nome ou PA)
+- ELEGIVEL_BAIXO_RISCO: 79 (sem numero_registro + com processo + nome ou PA)
+- NAO_ELEGIVEL:         32860 (principalmente Inativo ou sem rastreabilidade minima)
+
+## Arquivos de pre-carga gerados
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados.csv (consolidado - 43240 linhas)
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados_elegiveis_padrao.csv (10301 linhas)
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados_elegiveis_baixo_risco.csv (79 linhas)
+- data/dicionario_mestre/processado/pre_carga_anvisa_medicamentos_registrados_nao_elegiveis.csv (32860 linhas)
+- data/dicionario_mestre/processado/checklist_pre_carga_anvisa_medicamentos_registrados.csv (17 itens, 0 falhas)
+- data/dicionario_mestre/processado/relatorio_pre_carga_anvisa_medicamentos_registrados.md
+
+## Decisao tecnica
+APTO_PARA_REVISAR_PRE_CARGA
+
+## Confirmacoes FASE 2.4
+- Intermediario FASE 2.2 nao alterado.
+- Auditoria FASE 2.3 nao alterada.
+- Dicionarios finais nao alterados.
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum download realizado.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.

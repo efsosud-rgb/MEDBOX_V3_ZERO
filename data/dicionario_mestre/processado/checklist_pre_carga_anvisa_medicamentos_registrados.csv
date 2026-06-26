@@ -1,0 +1,18 @@
+﻿item;status;esperado;encontrado;bloqueia_proxima_fase;observacao
+arquivo_intermediario_existe;OK;sim;sim;NAO;
+total_intermediario;OK;43240;43240;NAO;
+total_pre_carga;OK;>0;43240;NAO;
+total_elegivel_padrao;OK;>0;10301;NAO;
+total_elegivel_baixo_risco;OK;>=0;79;NAO;
+total_nao_elegivel;OK;>=0;32860;NAO;
+ids_pre_carga_unicos;OK;sim;sim;NAO;
+rastreabilidade_elegiveis_preenchida;OK;todos preenchidos;OK;NAO;
+sem_nome_e_principio_nos_elegiveis;OK;0;0;NAO;
+status_processamento_ok_nos_elegiveis;OK;0 excluidos;0;NAO;
+numero_registro_presente_no_padrao;OK;0 sem numero_registro;0;NAO;
+processo_presente_no_baixo_risco;OK;0 sem processo;0;NAO;
+dicionario_final_nao_alterado;OK;nao alterado;nao alterado;NAO;
+banco_nao_alterado;OK;nao usado;nao usado;NAO;
+fonte_interna_nao_usada;OK;nao acessado;nao acessado;NAO;
+sku_master_nao_aplicado;OK;nao aplicado;nao aplicado;NAO;
+arquivos_protegidos_nao_alterados;OK;nenhum alterado;nenhum alterado;NAO;
