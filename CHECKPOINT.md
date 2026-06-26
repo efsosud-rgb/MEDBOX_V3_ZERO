@@ -1243,3 +1243,45 @@ Data: 2026-06-26
 - Nenhum download realizado.
 - Nenhum SKU_MASTER aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.3 — Auditoria intermediario ANVISA Medicamentos Registrados
+Data: 2026-06-26
+
+## Script criado
+- scripts/dicionario_mestre/auditar_anvisa_medicamentos_registrados.py
+
+## Arquivo intermediario auditado
+- data/dicionario_mestre/processado/anvisa_medicamentos_registrados_normalizado.csv
+
+## Totais
+- Total de registros auditados: 43240
+- Total de colunas: 27
+
+## Pendencias
+- Total de pendencias: 154536
+- Total de pendencias bloqueantes: 10691 (tipo: NUMERO_REGISTRO_AUSENTE — medicamentos BAIXO RISCO sem exigencia de registro)
+
+## Duplicidades
+- Total de grupos de duplicidade: 2001
+- Tipos: NUMERO_REGISTRO, NOME_PA_EMPRESA, PA_CONC_FORMA_APRES, NOME_NORMALIZADO, PA_NORMALIZADO
+
+## Arquivos gerados
+- data/dicionario_mestre/processado/amostra_anvisa_medicamentos_registrados.csv (171 registros)
+- data/dicionario_mestre/processado/auditoria_anvisa_medicamentos_registrados.md
+- data/dicionario_mestre/processado/duplicidades_anvisa_medicamentos_registrados.csv (2001 grupos)
+- data/dicionario_mestre/processado/pendencias_anvisa_medicamentos_registrados.csv (154536 linhas)
+
+## Decisao tecnica
+REVISAR_ANTES_PRE_CARGA
+(bloqueantes sao medicamentos BAIXO RISCO sem numero_registro, esperado para essa categoria)
+
+## Confirmacoes FASE 2.3
+- Intermediario FASE 2.2 nao alterado.
+- Dicionarios finais nao alterados.
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum download realizado.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
