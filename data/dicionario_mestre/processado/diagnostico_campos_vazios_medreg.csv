@@ -1,0 +1,23 @@
+﻿item;total;percentual;observacao
+total_medreg;10345;100%;total de registros ANVISA_MEDICAMENTOS_REGISTRADOS no dicionario
+sem_forma_farmaceutica;10345;100.0%;forma_farmaceutica vazia — 100% dos MEDREG
+sem_concentracao;10345;100.0%;concentracao vazia — 100% dos MEDREG
+sem_apresentacao;10345;100.0%;apresentacao vazia — 100% dos MEDREG
+sem_via_uso;10345;100.0%;via_uso vazia — 100% dos MEDREG
+sem_todos_4_campos;10345;100.0%;nenhum dos 4 campos preenchido — todos os MEDREG
+com_dcb_preenchido;7984;77.2%;dcb preenchido apos FASE 2.10
+sem_dcb;2361;22.8%;sem dcb — SEM_MATCH ou SEM_PRINCIPIO_ATIVO ou REVISAR
+com_cas_preenchido;7984;77.2%;cas preenchido apos FASE 2.10
+sem_cas;2361;22.8%;sem cas
+total_dcb_no_dicionario;12715;-;registros ANVISA_DCB — para referencia
+classif_genérico;3964;38.3%;classificacao regulatoria: Genérico
+classif_similar;3425;33.1%;classificacao regulatoria: Similar
+classif_novo;1237;12.0%;classificacao regulatoria: Novo
+classif_específico;659;6.4%;classificacao regulatoria: Específico
+classif_biológico;571;5.5%;classificacao regulatoria: Biológico
+classif_fitoterápico;336;3.2%;classificacao regulatoria: Fitoterápico
+classif_radiofármaco;62;0.6%;classificacao regulatoria: Radiofármaco
+classif_dinamizado;30;0.3%;classificacao regulatoria: Dinamizado
+classif_medicamento;27;0.3%;classificacao regulatoria: MEDICAMENTO
+classif_gases_medici;27;0.3%;classificacao regulatoria: Gases Medici
+classif_produto_de_t;7;0.1%;classificacao regulatoria: Produto de T

@@ -1674,3 +1674,57 @@ APTO_PARA_PLANEJAR_FONTE_FORMA_CONCENTRACAO_APRESENTACAO
 - Nenhum SKU_MASTER aplicado.
 - Nenhum download realizado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.
+
+---
+
+# Checkpoint - FASE 2.12 — Planejamento fonte forma/concentracao/apresentacao/via
+Data: 2026-06-26
+
+## Objetivo
+Planejar sem capturar dados a proxima fonte oficial para enriquecer forma_farmaceutica,
+concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
+
+## Modo: READ-ONLY (dicionario_mestre_medicamentos.csv nao alterado)
+
+## Diagnostico de campos vazios
+- Total MEDREG: 10.345
+- sem forma_farmaceutica: 10.345 (100%) — campo ausente na base DADOS_ABERTOS_MEDICAMENTOS.csv
+- sem concentracao: 10.345 (100%)
+- sem apresentacao: 10.345 (100%)
+- sem via_uso: 10.345 (100%)
+- com dcb: 7.984 | sem dcb: 2.361
+- com cas: 7.984 | sem cas: 2.361
+
+## Fontes candidatas planejadas
+- ANVISA_CONSULTAS (consultas.anvisa.gov.br/#/medicamentos/) — RECOMENDADA
+  - busca por numero de registro, campos estruturados
+- ANVISA_BULARIO (consultas.anvisa.gov.br/#/bulario/) — COMPLEMENTAR
+  - via de uso detalhada, posologia
+
+## Estrategia de captura planejada (fases futuras)
+- FASE 2.13: diagnostico oficial da fonte
+- FASE 2.14: captura bruta controlada (amostra 100 registros)
+- FASE 2.15: processamento intermediario
+- FASE 2.16: auditoria
+- FASE 2.17: dry-run de enriquecimento
+- FASE 2.18: aplicacao controlada (somente com aprovacao humana explicita)
+
+## Checklist
+- 12 itens / 0 falhas / 0 bloqueantes
+
+## Decisao tecnica
+APTO_PARA_DIAGNOSTICAR_FONTE_OFICIAL_FORMA_CONCENTRACAO_APRESENTACAO_VIA
+
+## Arquivos gerados
+- data/dicionario_mestre/processado/diagnostico_campos_vazios_medreg.csv (22 linhas)
+- data/dicionario_mestre/processado/checklist_planejamento_fontes_forma_concentracao_apresentacao_via.csv (12 itens)
+- data/dicionario_mestre/externo/plano_fontes_forma_concentracao_apresentacao_via.md
+
+## Confirmacoes FASE 2.12
+- dicionario_mestre_medicamentos.csv NAO alterado (read-only, 8.917.376 bytes).
+- Nenhum dado baixado da internet.
+- Nenhum scraping executado.
+- Banco nao alterado.
+- Nenhuma fonte interna usada.
+- Nenhum SKU_MASTER aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db e interno nao alterados.

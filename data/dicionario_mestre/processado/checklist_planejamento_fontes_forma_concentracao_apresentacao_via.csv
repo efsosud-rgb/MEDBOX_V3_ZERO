@@ -1,0 +1,13 @@
+﻿item;status;esperado;encontrado;bloqueia_proxima_fase;observacao
+fase_2_11_commitada;OK;FASE 2.11 em CHECKPOINT;OK;NAO;
+dicionario_final_lido_somente_leitura;OK;somente_leitura;somente_leitura;NAO;nenhuma escrita executada sobre o dicionario
+total_medreg_confirmado;OK;10345;10345;NAO;
+campos_vazios_confirmados;OK;10345;10345;NAO;100% dos MEDREG sem forma/concentracao/apresentacao/via
+fontes_candidatas_planejadas;OK;ANVISA_BULARIO + ANVISA_CONSULTAS;planejadas_no_documento;NAO;
+nenhum_download;OK;nenhum;nenhum;NAO;
+nenhum_scraping;OK;nenhum;nenhum;NAO;
+dicionario_final_nao_alterado;OK;8917376;8917376;NAO;
+banco_nao_alterado;OK;nao_acessado;nao_acessado;NAO;
+fonte_interna_nao_usada;OK;nao_usada;nao_usada;NAO;
+sku_master_nao_aplicado;OK;nao_aplicado;nao_aplicado;NAO;
+arquivos_protegidos_nao_alterados;OK;intactos;intactos;NAO;
