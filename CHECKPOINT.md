@@ -1163,3 +1163,45 @@ Data: 2026-06-26
 - Nenhum SKU_MASTER foi aplicado.
 - app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db, data/dicionario_mestre/interno/ nao foram alterados.
 - Commit ainda nao feito antes da validacao.
+
+# Checkpoint - FASE 2.1 — Captura bruta ANVISA Medicamentos Registrados
+
+Data: 2026-06-26
+
+## Fonte capturada
+- ANVISA Medicamentos Registrados no Brasil.
+- Orgao responsavel: ANVISA.
+- Captura bruta controlada, sem processamento e sem mesclagem.
+
+## URLs oficiais
+- Pagina oficial: https://dados.gov.br/dados/conjuntos-dados/medicamentos-registrados-no-brasil
+- Consulta oficial relacionada: https://consultas.anvisa.gov.br/#/medicamentos/
+- Recurso bruto: https://dados.anvisa.gov.br/dados/DADOS_ABERTOS_MEDICAMENTOS.csv
+- Documentacao/dicionario de dados: https://dados.anvisa.gov.br/dados/Documentacao_e_Dicionario_de_Dados_Registros_Validos_Medicamento_V1.pdf
+
+## Arquivos salvos
+- data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_original.csv
+- data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_documentacao_dicionario_dados.pdf
+- data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_metadados.txt
+- data/dicionario_mestre/processado/relatorio_captura_anvisa_medicamentos_registrados.md
+
+## Dados da captura
+- Formato: CSV
+- Tamanho do arquivo bruto: 8277598 bytes
+- SHA256 do arquivo bruto: A33B7C5FD96A80481F03DC1603524293964642AB0D3715887AEE3C66A7AB7A37
+- Documentacao salva: sim
+- Tamanho da documentacao: 1258610 bytes
+- SHA256 da documentacao: 4D2066878415AA61C42FEAF6AC6A4E7A409F200CFD9E94B1485A4DA65FFD6E29
+
+## Historico e catalogo
+- data/dicionario_mestre/processado/historico_capturas_fontes.csv atualizado com ANVISA_MEDICAMENTOS_REGISTRADOS_20260626.
+- data/dicionario_mestre/externo/catalogo_fontes_externas.csv atualizado para status capturada_bruto.
+
+## Confirmacoes FASE 2.1
+- Nenhum processamento foi feito.
+- Nenhum dicionario final foi alterado.
+- Banco nao foi alterado.
+- Nenhuma fonte interna foi usada.
+- Nenhum SKU_MASTER foi aplicado.
+- app.py, core/, templates/, uploads/, backups/, .claude/, arquivos .db, data/dicionario_mestre/interno/ nao foram alterados.
+- Commit ainda nao feito antes da validacao.

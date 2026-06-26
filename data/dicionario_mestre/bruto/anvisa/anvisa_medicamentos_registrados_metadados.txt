@@ -1,0 +1,15 @@
+id_fonte: ANVISA_MEDICAMENTOS_REGISTRADOS
+nome_fonte: ANVISA Medicamentos Registrados no Brasil
+orgao_responsavel: ANVISA
+data_hora_captura: 2026-06-26 10:14:43 -03:00
+url_pagina_oficial: https://dados.gov.br/dados/conjuntos-dados/medicamentos-registrados-no-brasil
+url_recurso_bruto: https://dados.anvisa.gov.br/dados/DADOS_ABERTOS_MEDICAMENTOS.csv
+url_documentacao: https://dados.anvisa.gov.br/dados/Documentacao_e_Dicionario_de_Dados_Registros_Validos_Medicamento_V1.pdf
+arquivo_bruto_salvo: data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_original.csv
+arquivo_documentacao_salvo: data/dicionario_mestre/bruto/anvisa/anvisa_medicamentos_registrados_documentacao_dicionario_dados.pdf
+formato: CSV
+tamanho_bytes: 8277598
+sha256_arquivo_bruto: A33B7C5FD96A80481F03DC1603524293964642AB0D3715887AEE3C66A7AB7A37
+sha256_documentacao: 4D2066878415AA61C42FEAF6AC6A4E7A409F200CFD9E94B1485A4DA65FFD6E29
+status_captura: bruto_capturado
+observacao: captura bruta, sem processamento, sem normalizacao, sem mesclagem e sem alteracao do dicionario final.
