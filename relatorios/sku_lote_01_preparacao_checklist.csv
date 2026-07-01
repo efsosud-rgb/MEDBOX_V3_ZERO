@@ -1,0 +1,13 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas arquivos bionexo nao rastreados ignorados
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+relatorio_pendencias_lido,OK,relatorios/sku_master_pendencias_finais.md
+banco_somente_leitura,OK,banco/medbox_v3.db acessado via mode=ro e funcoes de leitura existentes do modulo
+duplicatas_100_exportadas,OK,457 itens em 147 grupos exportados para relatorios/sku_lote_01_duplicatas_100.csv
+riscos_classificados,OK,78 grupos BAIXO (208 itens); 37 grupos MEDIO (115 itens); 32 grupos ALTO (134 itens)
+regras_bloqueio_cascata_criadas,OK,relatorios/sku_lote_01_regras_bloqueio_cascata.md com 8 categorias e casos reais
+amostra_manual_criada,OK,relatorios/sku_lote_01_amostra_correcao_manual.csv com 100 linhas em 25 grupos risco BAIXO
+banco_nao_alterado,OK,apenas SELECT executados; nenhuma escrita realizada
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada nesta fase; cascata automatica nao utilizada
+codigo_nao_alterado,OK,app.py/core/templates nao modificados
+checkpoint_atualizado,OK,secao SKU-LOTE-01 adicionada ao CHECKPOINT.md

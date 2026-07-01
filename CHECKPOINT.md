@@ -1726,6 +1726,19 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APTO_PARA_CORRECAO_EM_LOTES_CONTROLADOS
 - Próxima fase recomendada: SKU-LOTE-01 (não iniciada, aguardando autorização do usuário).
 
+## Checkpoint - SKU-LOTE-01 — Preparação segura do primeiro lote SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: preparar o primeiro lote de consolidação de duplicatas 100% iguais do SKU_MASTER, sem alterar banco, sem aplicar cascata automática e sem aplicar qualquer correção.
+- Arquivos criados: `relatorios/sku_lote_01_duplicatas_100.csv`, `relatorios/sku_lote_01_regras_bloqueio_cascata.md`, `relatorios/sku_lote_01_amostra_correcao_manual.csv`, `relatorios/sku_lote_01_preparacao.md`, `relatorios/sku_lote_01_preparacao_checklist.csv`.
+- Total de grupos duplicados: 147 (457 itens).
+- Risco BAIXO: 78 grupos / 208 itens. Risco MEDIO: 37 grupos / 115 itens. Risco ALTO: 32 grupos / 134 itens.
+- Amostra para revisão manual: 100 linhas, 25 grupos, todos risco BAIXO.
+- Confirmação: banco não alterado (somente `SELECT`); SKU_MASTER não aplicado; cascata automática não utilizada; `app.py`, `core/` e `templates/` não alterados nesta fase.
+- Achado relevante: checagem heurística de risco ALTO por regex pode gerar falso positivo (ex.: número colado a letra "N7,5MM"), documentado como caso real nas regras de bloqueio — reforça que toda consolidação exige revisão manual, nunca aplicação automática.
+- Decisão técnica: APTO_PARA_REVISAO_MANUAL_LOTE_01
+- Próxima fase recomendada: aplicação manual e controlada da amostra de 100 linhas (fora do escopo desta fase), aguardando autorização e revisão do usuário.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
