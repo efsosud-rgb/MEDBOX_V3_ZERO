@@ -1,0 +1,16 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas arquivos bionexo nao rastreados ignorados
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+resultados_pesquisa_lidos,OK,relatorios/sku_internet_02_resultados_pesquisa.csv
+memoria_equivalencias_criada,OK,data/dicionario_mestre/interno/memoria_equivalencias_sku_master.csv com 6 registros VALIDADO_USUARIO
+candidatos_fortes_promovidos,OK,HEPTRIS/VERSA/NOXX/NASOJET ALTO FLUXO/RINOSORO/CLORETO DE SODIO 0,9% JET
+casos_multiplas_apresentacoes_nao_promovidos,OK,NASONEW isolado e NASOJET isolado permanecem bloqueados
+caso_bloqueio_critico_nao_promovido,OK,CLORETO DE SODIO 10% 10ML permanece pendente, nao vira soro fisiologico
+caso_nao_encontrado_nao_promovido,OK,PRODUTO DESCONHECIDO XYZ permanece sem sugestao
+urls_fonte_preservadas,OK,todos os registros promovidos mantem url_fonte real da pesquisa
+relatorio_criado,OK,relatorios/sku_memoria_02_promocao_pesquisa_externa.md
+banco_nao_alterado,OK,nenhuma conexao com banco/medbox_v3.db nesta fase
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+cascata_automatica_nao_executada,OK,nenhuma propagacao realizada
+tela_nao_integrada,OK,app.py e templates nao alterados nesta fase
+checkpoint_atualizado,OK,secao SKU-MEMORIA-02 adicionada ao CHECKPOINT.md

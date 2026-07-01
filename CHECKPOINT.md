@@ -1792,6 +1792,20 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: pesquisa externa real controlada funcional para pequenos lotes de teste; candidatos `RINOSORO` e `CLORETO DE SODIO 0,9% JET VIA NASAL FRASCO 100ML` prontos para validação do usuário e possível promoção à memória.
 - Próxima fase recomendada: validar com o usuário os candidatos fortes para promoção à memória, resolver a ambiguidade de `NASONEW`/`NASOJET` cruzando com dados reais do catálogo, e só depois ampliar gradualmente a lista de termos pesquisados.
 
+## Checkpoint - SKU-MEMORIA-02 — Promoção de candidatos fortes da pesquisa externa para memória validada
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: promover os candidatos fortes da pesquisa externa controlada (`SKU-INTERNET-02`, commit `b9d7d81`) para memória validada, mantendo bloqueados os casos ambíguos, sem alterar banco, sem aplicar SKU_MASTER e sem integrar na tela.
+- Arquivos criados/atualizados:
+  - `data/dicionario_mestre/interno/memoria_equivalencias_sku_master.csv` (novo, 6 registros `VALIDADO_USUARIO`)
+  - `relatorios/sku_memoria_02_promocao_pesquisa_externa.md`
+  - `relatorios/sku_memoria_02_checklist.csv`
+- Registros promovidos (status `VALIDADO_USUARIO`, `fonte_origem = PESQUISA_EXTERNA_CONTROLADA`, `confianca = ALTA`): HEPTRIS 40MG → ENOXAPARINA SODICA 40MG/0,4ML; VERSA 80MG → ENOXAPARINA SODICA 80MG/0,8ML; NOXX 60MG → ENOXAPARINA SODICA 60MG/0,6ML; NASOJET ALTO FLUXO → SORO FISIOLOGICO NASAL ALTO FLUXO 30 SACHES + FRASCO 240ML; RINOSORO 0,9% SPRAY 100ML → SORO FISIOLOGICO NASAL SPRAY 0,9% 100ML; CLORETO DE SODIO 0,9% JET VIA NASAL FRASCO 100ML → SORO FISIOLOGICO NASAL SPRAY 0,9% 100ML.
+- Registros mantidos bloqueados (não promovidos): NASONEW isolado e NASOJET isolado (`MULTIPLAS_APRESENTACOES`), CLORETO DE SODIO 10% 10ML (bloqueio crítico de concentração — não é soro fisiológico), PRODUTO DESCONHECIDO XYZ (`NAO_ENCONTRADO`).
+- Confirmação: banco não alterado; SKU_MASTER não aplicado; nenhuma cascata automática; `app.py`/`templates/` não alterados; nenhuma nova pesquisa ao catálogo inteiro (apenas processamento do resultado já coletado).
+- Decisão técnica: memória de equivalências ampliada com 6 registros de alta confiança, rastreáveis por URL de fonte real.
+- Próxima fase recomendada: cruzar `precos_fornecedores.descricao_original` com `NASONEW`/`NASOJET` para resolver a ambiguidade sem nova pesquisa externa, e seguir o plano acelerado de lotes (`SKU-LOTE-02` em diante) usando a memória ampliada como apoio à revisão manual.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
