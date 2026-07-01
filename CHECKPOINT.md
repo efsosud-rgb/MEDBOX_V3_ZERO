@@ -1806,6 +1806,19 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: memória de equivalências ampliada com 6 registros de alta confiança, rastreáveis por URL de fonte real.
 - Próxima fase recomendada: cruzar `precos_fornecedores.descricao_original` com `NASONEW`/`NASOJET` para resolver a ambiguidade sem nova pesquisa externa, e seguir o plano acelerado de lotes (`SKU-LOTE-02` em diante) usando a memória ampliada como apoio à revisão manual.
 
+## Checkpoint - SKU-MEMORIA-03 — Cruzamento da memória validada com produtos reais do banco
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: cruzar os 6 registros de `memoria_equivalencias_sku_master.csv` com produtos reais de `banco/medbox_v3.db` (somente leitura), gerando prévia de sugestões seguras sem aplicar nada.
+- Arquivos criados: `relatorios/sku_memoria_03_previa_matches_banco.csv` (31 linhas), `relatorios/sku_memoria_03_cruzamento_banco.md`, `relatorios/sku_memoria_03_checklist.csv`.
+- Total de produtos candidatos localizados por palavra-chave (bruto): 106; após filtrar falsos positivos (ex.: "VERSA" dentro de "UNIVERSAL") e itens fora do escopo desta memória específica, 31 produtos classificados.
+- Resultado: 5 `MATCH_MEMORIA_VALIDADA`, 10 `MATCH_ASSINATURA_TECNICA`, 11 `BLOQUEADO_CONFLITO_ATRIBUTOS`, 3 `PENDENTE_REVISAO`, 2 `SEM_MATCH`. Total de matches seguros: 15.
+- Achado relevante: produtos com marca HEPTRIS (60mg, 80mg) e VERSA (40mg) batem por assinatura técnica com as memórias de NOXX 60mg e HEPTRIS 40mg respectivamente — confirma na prática a regra de reutilizar o mesmo SKU_MASTER entre marcas equivalentes, mantendo a marca real do produto.
+- Achado de risco: `SORO FISIOLOGICO 20% 10ML` (id 4549) e `CLORETO DE SODIO 0,09% 500ML` (id 897) são exemplos reais de descrição potencialmente enganosa/contaminada no banco, corretamente não promovidos automaticamente.
+- Confirmação: banco não alterado (somente `SELECT`, modo `mode=ro`); SKU_MASTER não aplicado; nenhuma cascata automática; nenhuma pesquisa à internet nesta fase; `app.py`/`templates/` não alterados.
+- Decisão técnica: APTO_PARA_REVISAO_MANUAL dos 15 matches seguros antes de qualquer aplicação real.
+- Próxima fase recomendada: revisão humana dos 15 matches seguros via tela de Auditoria SKU Master (aplicação manual, produto a produto, fora do escopo desta fase), e nova pesquisa pontual para HEPTRIS 20mg (sem cobertura na memória atual).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)

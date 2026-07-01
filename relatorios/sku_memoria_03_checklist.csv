@@ -1,0 +1,20 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas arquivos bionexo nao rastreados ignorados
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+memoria_validada_lida,OK,data/dicionario_mestre/interno/memoria_equivalencias_sku_master.csv com 6 registros
+banco_aberto_somente_leitura,OK,banco/medbox_v3.db acessado via mode=ro
+produtos_candidatos_localizados,OK,106 linhas candidatas brutas por palavra-chave (HEPTRIS/VERSA/NOXX/NASOJET/RINOSORO/NASONEW/CLORETO DE SODIO)
+falsos_positivos_filtrados,OK,23 de 24 hits de VERSA eram substring de UNIVERSAL; corretamente excluidos
+matches_memoria_validada_identificados,OK,5 produtos com match direto e exato a uma entrada da memoria
+matches_assinatura_tecnica_identificados,OK,10 produtos com mesma assinatura tecnica mas marca comercial diferente da memoria
+bloqueios_conflito_atributos_identificados,OK,11 produtos bloqueados por concentracao/volume/forma/quantidade divergente
+pendentes_revisao_identificados,OK,3 produtos com atributo essencial ausente ou ambiguo
+sem_match_identificados,OK,2 produtos (HEPTRIS 20mg) sem cobertura na memoria atual
+csv_previa_gerado,OK,relatorios/sku_memoria_03_previa_matches_banco.csv com 31 linhas
+relatorio_criado,OK,relatorios/sku_memoria_03_cruzamento_banco.md
+banco_nao_alterado,OK,apenas SELECT executados; nenhum UPDATE/DELETE/INSERT
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+cascata_automatica_nao_executada,OK,nenhuma propagacao realizada
+internet_nao_pesquisada,OK,fase usou somente memoria local e banco
+tela_nao_integrada,OK,app.py e templates nao alterados nesta fase
+checkpoint_atualizado,OK,secao SKU-MEMORIA-03 adicionada ao CHECKPOINT.md
