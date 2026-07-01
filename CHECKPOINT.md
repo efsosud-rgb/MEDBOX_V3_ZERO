@@ -1891,6 +1891,18 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APLICACAO_CONTROLADA_COM_PENDENCIAS (4 aplicados com sucesso; 2 permanecem pendentes por anomalia de dados na planilha, não por erro de execução)
 - Próxima fase recomendada: usuário confirma o volume real (50ml ou 100ml) dos produtos `10676`/`9601` por outra fonte (nota fiscal, embalagem física) e corrige `sku_master_sugerido` na planilha antes de nova tentativa de aprovação.
 
+## Checkpoint - SKU-MEMORIA-08 — Diagnóstico família SONDA
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: diagnosticar em detalhe a família `SONDA` (291 produtos ativos sem SKU_MASTER, a maior família pendente identificada pelo Codex) e preparar planilha de revisão/aprovação manual, sem alterar banco e sem aplicar SKU_MASTER.
+- Total de produtos analisados: 291 (confirma exatamente a contagem do diagnóstico do Codex).
+- Arquivos criados: `relatorios/sku_memoria_08_sonda_diagnostico.csv` (291 linhas), `relatorios/sku_memoria_08_sonda_grupos.csv` (64 grupos), `relatorios/sku_memoria_08_sonda_aprovacao_manual.xlsx` (3 abas: `APROVACAO_SONDA`, `GRUPOS_SONDA`, `INSTRUCOES`), `relatorios/sku_memoria_08_sonda_relatorio.md`, `relatorios/sku_memoria_08_sonda_checklist.csv`.
+- Resultado por status: 109 `CANDIDATO_SEGURO`, 62 `PENDENTE_REVISAO`, 57 `BLOQUEADO_ATRIBUTO_CRITICO` (texto OCR corrompido), 61 `SEM_SUBFAMILIA_CLARA` (famílias distintas: gastrostomia, endotraqueal aramada, Carlens, acessórios), 2 `DUPLICADO_POTENCIAL` (confirmado real: ids 6278/7431, mesma sonda uretral Nº12).
+- Subfamílias: FOLEY 77, ASPIRACAO TRAQUEAL 61, NASOGASTRICA 19, URETRAL 18, ENTERAL 11, RETAL 10, LEVINE 9, NASOENTERAL 5, NELATON 1, OUTRAS/INDEFINIDAS 80.
+- Confirmação: banco não alterado (somente `SELECT`, modo `mode=ro`); SKU_MASTER não aplicado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado.
+- Decisão técnica: APTO_PARA_REVISAO_USUARIO
+- Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_08_sonda_aprovacao_manual.xlsx`, priorizando os 109 candidatos seguros e os maiores grupos da aba `GRUPOS_SONDA`; depois, fase de aplicação controlada (mesmo padrão de `SKU-MEMORIA-05A`/`05B`/`07`, com backup prévio).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)

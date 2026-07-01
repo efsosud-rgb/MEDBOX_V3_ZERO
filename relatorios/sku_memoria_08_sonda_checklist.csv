@@ -1,0 +1,24 @@
+item,status,observacao
+git_status_verificado,OK,branch sincronizada com origin antes de iniciar; apenas itens bionexo pendentes
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+banco_aberto_somente_leitura,OK,banco/medbox_v3.db acessado via mode=ro
+total_sonda_levantado,OK,291 produtos ativos sem sku_master confirmam contagem do Codex
+subfamilias_classificadas,OK,10 subfamilias esperadas + OUTRAS/INDEFINIDAS para familias distintas (gastrostomia/endotraqueal/Carlens/acessorios)
+atributos_criticos_extraidos,OK,numero/calibre, FR/CH, vias, balao, material, esteril, adulto/infantil, comprimento, apresentacao
+regex_corrigidas_apos_revisao,OK,corrigido bug de vias com zero a esquerda (02/03 VIAS) e ampliado fallback FR como calibre
+csv_diagnostico_gerado,OK,relatorios/sku_memoria_08_sonda_diagnostico.csv com 291 linhas
+csv_grupos_gerado,OK,relatorios/sku_memoria_08_sonda_grupos.csv com 64 grupos
+duplicado_potencial_detectado,OK,2 casos reais confirmados (ids 6278 e 7431, mesma sonda uretral N12)
+descricoes_corrompidas_bloqueadas,OK,57 produtos com texto OCR corrompido marcados BLOQUEADO_ATRIBUTO_CRITICO, sem sugestao
+excel_aprovacao_gerado,OK,relatorios/sku_memoria_08_sonda_aprovacao_manual.xlsx com 3 abas (APROVACAO_SONDA/GRUPOS_SONDA/INSTRUCOES)
+validacao_dropdown_criada,OK,lista APROVAR/REJEITAR/REVISAR na coluna decisao_usuario
+relatorio_criado,OK,relatorios/sku_memoria_08_sonda_relatorio.md
+py_compile_executado,OK,python -m py_compile app.py sem erros
+banco_nao_alterado,OK,nenhuma escrita executada nesta fase
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+cascata_nao_usada,OK,nenhuma propagacao realizada
+dicionario_mestre_nao_alterado,OK,nenhum arquivo em data/dicionario_mestre/ tocado
+bionexo_nao_tocado,OK,nenhum arquivo bionexo tocado
+codigo_nao_alterado,OK,app.py/templates/core nao alterados
+push_nao_realizado,OK,nenhum git push executado nesta fase
+checkpoint_atualizado,OK,secao SKU-MEMORIA-08 adicionada ao CHECKPOINT.md
