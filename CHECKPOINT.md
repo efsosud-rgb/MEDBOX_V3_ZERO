@@ -1714,6 +1714,18 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APTO_PARA_MAPEAR_PENDENCIAS_SKU_MASTER
 - Próxima fase recomendada: SKU-PENDENCIAS-01 (mapear pendências reais do módulo Auditoria SKU Master no branch local, independente da branch do Jules) — aguardando autorização do usuário para iniciar.
 
+## Checkpoint - SKU-PENDENCIAS-01 — Mapeamento final das pendências SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: mapear, com números e exemplos reais, o que falta para concluir a padronização SKU_MASTER, usando apenas consultas somente leitura.
+- Banco analisado: `banco/medbox_v3.db` (caminho oficial definido em `core/banco.py`), acessado em modo `mode=ro`; nenhuma escrita realizada.
+- Principais contagens: 11.105 produtos cadastrados (10.839 ativos/auditáveis, 266 inativos); 29 corrigidos (`sku_corrigido=1`) e 10.810 pendentes entre os ativos; 6.256 sem SKU Master; 7.687 sem fabricante; 0 ocorrências dos códigos de fabricante problemático `UN`/`SR`/`S R`/`MD` (já resolvidos em fases anteriores); 457 itens em 147 grupos 100% duplicados; 1.935 itens com sugestão automática de cascata. Classificação: LIMPO 4.178, SUSPEITO 1.473, CONTAMINADO_FORTE 3.939, SKU_PENDENTE 792, DUPLICADO 457.
+- Arquivos criados: `relatorios/sku_master_pendencias_finais.md`, `relatorios/sku_master_pendencias_finais_checklist.csv`.
+- Confirmação: banco não alterado (somente `SELECT`); dicionário final/Dicionário Mestre MEDREG não alterado; SKU_MASTER não aplicado em massa; `app.py`, `core/` e `templates/` não alterados nesta fase.
+- Risco relevante identificado: a sugestão automática de cascata (fuzzy match) aproxima produtos com volume/tamanho/medida diferentes em casos reais (ex.: seringa 5ML sugerida como 10ML) — necessita revisão humana antes de aplicação em lote.
+- Decisão técnica: APTO_PARA_CORRECAO_EM_LOTES_CONTROLADOS
+- Próxima fase recomendada: SKU-LOTE-01 (não iniciada, aguardando autorização do usuário).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)

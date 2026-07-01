@@ -1,0 +1,21 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas arquivos bionexo nao rastreados ignorados
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+modulo_auditoria_validado,OK,APTO_PARA_USO; busca/edicao/cascata/csv/marcacao de corrigido confirmados por leitura de codigo
+banco_identificado,OK,banco/medbox_v3.db conforme core/banco.py DB_PATH
+consultas_somente_leitura_executadas,OK,sqlite3 mode=ro e funcoes de leitura existentes do modulo
+total_produtos_calculado,OK,11105 cadastrados; 10839 ativos/auditaveis
+total_auditavel_calculado,OK,10839
+total_pendentes_calculado,OK,10810 ativos com sku_corrigido diferente de 1
+sem_sku_master_calculado,OK,6256 ativos sem sku_master preenchido
+sem_fabricante_calculado,OK,7687 ativos sem fabricante preenchido
+fabricantes_problematicos_calculados,OK,nenhum codigo UN/SR/S R/MD isolado encontrado hoje na base
+duplicatas_100_calculadas,OK,457 itens em 147 grupos 100% duplicados
+grupos_cascata_estimados,OK,1935 itens com sugestao automatica de cascata calculada pelo modulo
+exemplos_reais_listados,OK,ate 30 exemplos por categoria no relatorio md
+banco_nao_alterado,OK,apenas SELECT executados; nenhuma escrita realizada
+dicionario_final_nao_alterado,OK,nao acessado nesta fase
+sku_master_nao_aplicado_em_massa,OK,nenhuma correcao aplicada nesta fase
+codigo_nao_alterado,OK,app.py/core/templates nao modificados
+relatorio_criado,OK,relatorios/sku_master_pendencias_finais.md
+checkpoint_atualizado,OK,secao SKU-PENDENCIAS-01 adicionada ao CHECKPOINT.md
