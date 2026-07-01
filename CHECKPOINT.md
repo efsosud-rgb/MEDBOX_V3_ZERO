@@ -1839,6 +1839,19 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Confirmação: banco não alterado; SKU_MASTER não aplicado; nenhuma cascata; nenhuma pesquisa à internet; `app.py`/`templates/`/`core/` não alterados.
 - Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha Excel; depois, fase futura de aplicação controlada lê apenas as linhas `APROVAR`.
 
+## Checkpoint - SKU-MEMORIA-05A — Validação da planilha revisada
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: ler a planilha `sku_memoria_04_aprovacao_manual.xlsx` já revisada pelo usuário, validar `decisao_usuario`, contar decisões e preparar prévia segura de aplicação, sem aplicar nada no banco.
+- Planilha lida: `relatorios/sku_memoria_04_aprovacao_manual.xlsx` (aba `APROVACAO_SKU`).
+- Total: 15 APROVAR, 0 REJEITAR, 0 REVISAR, 0 vazio, 0 inválido.
+- Total apto para aplicar: 15. Total bloqueado: 0.
+- Arquivos criados: `relatorios/sku_memoria_05a_pre_aplicacao_aprovados.csv` (15 linhas), `relatorios/sku_memoria_05a_validacao_planilha.md`, `relatorios/sku_memoria_05a_checklist.csv`.
+- Achados relevantes: 3 produtos (3906/3907/3908) têm categoria atual `"MARCAS UQ"` e 3 produtos (268/269/1946) têm categoria `"MEDICAMENTO"` (singular) — valores não padronizados, mas preenchidos, portanto não serão sobrescritos nesta fase por regra explícita. `id 4285` já está com `sku_corrigido=1` (correção anterior), sem conflito com a alteração prevista. Marca (via `precos_fornecedores.marca`) seria preenchida em 7 dos 15 produtos (onde está vazia); nos demais já há valor preenchido (`VIATRIS`, `EUROFARMA LABORATORIOS S.`) e não será sobrescrito.
+- Confirmação: banco não alterado (somente `SELECT`, modo `mode=ro`); SKU_MASTER não aplicado; nenhuma cascata; nenhuma pesquisa à internet; `app.py`/`templates/`/`core/` não alterados.
+- Decisão técnica: APTO_PARA_APLICACAO_CONTROLADA
+- Próxima fase recomendada: aplicação real controlada das 15 linhas aprovadas, com backup do banco antes de qualquer escrita, aplicação uma a uma (ou lote pequeno) via `core/auditoria_sku_master.py`, respeitando a não sobrescrita de marca/categoria já preenchidas.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)

@@ -1,0 +1,19 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas planilha revisada e itens bionexo pendentes
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+planilha_revisada_lida,OK,relatorios/sku_memoria_04_aprovacao_manual.xlsx aba APROVACAO_SKU
+decisao_usuario_validada,OK,apenas valores APROVAR encontrados; nenhum valor invalido
+contagem_decisoes_realizada,OK,15 APROVAR; 0 REJEITAR; 0 REVISAR; 0 vazio; 0 invalido
+banco_aberto_somente_leitura,OK,banco/medbox_v3.db acessado via mode=ro
+produtos_aprovados_validados_no_banco,OK,15 de 15 produtos encontrados e ativos
+campos_obrigatorios_verificados,OK,produto_id/sku_master_sugerido/tipo_match/confianca presentes em todas as linhas aprovadas
+csv_pre_aplicacao_gerado,OK,relatorios/sku_memoria_05a_pre_aplicacao_aprovados.csv com 15 linhas
+regra_marca_categoria_aplicada,OK,marca/categoria ja preenchidas nao foram marcadas para sobrescrita
+conflito_critico_verificado,OK,nenhum conflito de concentracao/dose/volume/via/forma encontrado
+relatorio_criado,OK,relatorios/sku_memoria_05a_validacao_planilha.md
+banco_nao_alterado,OK,apenas SELECT executados; nenhum UPDATE/DELETE/INSERT
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+cascata_nao_executada,OK,nenhuma propagacao realizada
+internet_nao_pesquisada,OK,fase usou apenas planilha e banco local
+codigo_nao_alterado,OK,app.py/templates/core nao alterados
+checkpoint_atualizado,OK,secao SKU-MEMORIA-05A adicionada ao CHECKPOINT.md
