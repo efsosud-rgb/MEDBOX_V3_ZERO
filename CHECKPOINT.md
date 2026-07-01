@@ -1701,6 +1701,19 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - ANVISA_BULARIO (consultas.anvisa.gov.br/#/bulario/) — COMPLEMENTAR
   - via de uso detalhada, posologia
 
+## Checkpoint - SKU-JULES-EXTRACAO-01 — Extração segura das correções úteis do Jules
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: comparar a branch do Jules (`origin/fix-auditoria-sku-ui-segura-215623574388919273`) com o branch local atual e extrair manualmente apenas correções úteis do módulo Auditoria SKU Master, sem merge, sem rebase e sem cherry-pick inteiro.
+- Branch do Jules analisada: `origin/fix-auditoria-sku-ui-segura-215623574388919273` (HEAD `b055691`), via `git show` (sem checkout).
+- Decisão confirmada: não fazer merge/rebase/cherry-pick inteiro — merge-base é `aad0f6e`, muito anterior aos ~140 commits locais mais recentes; aplicar a branch inteira apagaria `app.py`, `core/`, `templates/` e `data/dicionario_mestre/`.
+- Arquivos analisados: `app.py` (rotas de auditoria), `core/auditoria_sku_master.py`, `templates/sku_master_auditoria.html`.
+- Resultado: após normalizar diferenças de CRLF/LF, a comparação linha a linha mostrou que todas as correções relevantes do Jules (filtro legado removido, `q`+`page`, API com `total`, CSV alinhado, proteção de `produto_padrao` via whitelist `campos_editaveis`, uso de `textContent`/`createElement` em vez de `innerHTML` inseguro, preservação de rotas, auditoria para todos os produtos) já estão presentes e idênticas no branch local.
+- Arquivos alterados: nenhum. Nenhuma alteração de código foi necessária.
+- Confirmações de segurança: banco não alterado; `.db` não alterado; dicionário final/Dicionário Mestre MEDREG não alterado; SKU_MASTER não aplicado em massa; Bionexo não tocado.
+- Decisão técnica: APTO_PARA_MAPEAR_PENDENCIAS_SKU_MASTER
+- Próxima fase recomendada: SKU-PENDENCIAS-01 (mapear pendências reais do módulo Auditoria SKU Master no branch local, independente da branch do Jules) — aguardando autorização do usuário para iniciar.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
