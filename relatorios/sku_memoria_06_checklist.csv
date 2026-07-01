@@ -1,0 +1,24 @@
+item,status,observacao
+git_status_verificado,OK,branch sincronizada com origin antes de iniciar; apenas itens bionexo pendentes
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+pesquisa_externa_realizada,OK,6 termos pesquisados via busca controlada em fontes publicas gratuitas
+fontes_sem_bloqueio,OK,nenhuma fonte retornou bloqueio/captcha/paywall nesta rodada
+csv_pesquisa_gerado,OK,relatorios/sku_memoria_06_pesquisa_pendencias.csv com 6 linhas
+heptris_20mg_confirmado,OK,enoxaparina sodica 20mg/0,2ml confirmado por bula oficial Viatris/Mylan
+rinosoro_gotas_confirmado,OK,cloreto de sodio 0,9% gotas 30ml confirmado por 5 farmacias distintas
+cloreto_sodio_jet_pendente_correto,OK,volume ausente identificado corretamente; nao gerou sugestao automatica
+bloqueio_concentracao_nao_necessario,OK,nenhum caso de 10%/20%/3%/0,09% encontrado nesta rodada
+banco_cruzado_somente_leitura,OK,banco/medbox_v3.db acessado via mode=ro
+csv_previa_matches_gerado,OK,relatorios/sku_memoria_06_previa_matches_banco.csv com 6 linhas (4 MATCH_MEMORIA_VALIDADA + 2 PENDENTE_REVISAO)
+excel_aprovacao_gerado,OK,relatorios/sku_memoria_06_aprovacao_manual.xlsx com abas APROVACAO_SKU e INSTRUCOES
+validacao_dropdown_criada,OK,lista APROVAR/REJEITAR/REVISAR na coluna decisao_usuario
+relatorio_criado,OK,relatorios/sku_memoria_06_relatorio.md
+py_compile_executado,OK,python -m py_compile app.py sem erros
+banco_nao_alterado,OK,nenhuma escrita executada nesta fase
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+cascata_nao_usada,OK,nenhuma propagacao realizada
+dicionario_mestre_nao_alterado,OK,nenhum arquivo em data/dicionario_mestre/ tocado
+bionexo_nao_tocado,OK,nenhum arquivo bionexo tocado
+codigo_nao_alterado,OK,app.py/templates/core nao alterados
+push_nao_realizado,OK,nenhum git push executado nesta fase
+checkpoint_atualizado,OK,secao SKU-MEMORIA-06 adicionada ao CHECKPOINT.md

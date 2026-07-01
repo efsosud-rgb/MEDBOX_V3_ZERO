@@ -1864,6 +1864,18 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APLICACAO_CONTROLADA_CONCLUIDA
 - Próxima fase recomendada: revisão do usuário sobre o relatório pós-aplicação antes de ampliar para um lote maior; considerar, em fase futura com autorização explícita, resolver as divergências de marca (fabricante vs. nome comercial) e de categoria não padronizada (`"MARCAS UQ"`, `"MEDICAMENTO"`) identificadas como pendências.
 
+## Checkpoint - SKU-MEMORIA-06 — Novo lote de pesquisa e aprovação SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: pesquisar/enriquecer 3 pendências reais identificadas na revisão visual pós-aplicação (`HEPTRIS 20MG`, `RINOSORO FR 30ML GOTA SOL NASAL`, `CLORETO DE SODIO 0,9% FR SPRAY NASAL JET`), cruzar com o banco e preparar nova planilha de aprovação manual, sem alterar banco e sem aplicar SKU_MASTER.
+- Termos pesquisados: `HEPTRIS 20MG`, `RINOSORO FR 30ML GOTA SOL NASAL`, `CLORETO DE SODIO 0,9% FR SPRAY NASAL JET`, `CLORETO DE SODIO 0,9% SPRAY NASAL JET`, `RINOSORO GOTAS 30ML`, `SORO FISIOLOGICO NASAL GOTAS 30ML`.
+- Arquivos criados: `relatorios/sku_memoria_06_pesquisa_pendencias.csv` (6 linhas), `relatorios/sku_memoria_06_previa_matches_banco.csv` (6 linhas), `relatorios/sku_memoria_06_aprovacao_manual.xlsx` (aba `APROVACAO_SKU` + `INSTRUCOES`), `relatorios/sku_memoria_06_relatorio.md`, `relatorios/sku_memoria_06_checklist.csv`.
+- Total de candidatos para aprovação: 6 (4 `MATCH_MEMORIA_VALIDADA` seguros: HEPTRIS 20mg × 2 produtos, RINOSORO gotas × 2 produtos; 2 `PENDENTE_REVISAO`: cloreto de sódio nasal sem volume confirmado, não devem ser aprovados nesta rodada).
+- Achado relevante: pesquisa real confirmou que a marca Nasojet 0,9% existe em pelo menos 2 volumes (50ml e 100ml) — por isso `CLORETO DE SODIO 0,9%, FR SPRAY NASAL JET` (id 10676) e `CLORETO DE SODIO 9MG\ML VIA NASAL SPRAY` (id 9601) permanecem sem sugestão de SKU_MASTER, corretamente pendentes.
+- Confirmação: banco não alterado (somente `SELECT`, modo `mode=ro`); SKU_MASTER não aplicado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado.
+- Decisão técnica: APTO_PARA_REVISAO_USUARIO
+- Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_06_aprovacao_manual.xlsx`; depois, fase de aplicação controlada do segundo lote (mesmo padrão de `SKU-MEMORIA-05A`/`05B`, com backup prévio).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
