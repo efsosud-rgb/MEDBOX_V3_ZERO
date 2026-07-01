@@ -1852,6 +1852,18 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APTO_PARA_APLICACAO_CONTROLADA
 - Próxima fase recomendada: aplicação real controlada das 15 linhas aprovadas, com backup do banco antes de qualquer escrita, aplicação uma a uma (ou lote pequeno) via `core/auditoria_sku_master.py`, respeitando a não sobrescrita de marca/categoria já preenchidas.
 
+## Checkpoint - SKU-MEMORIA-05B — Aplicação controlada dos aprovados SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: aplicar no banco, com backup prévio e transação controlada, os 15 registros aprovados (`decisao_usuario = APROVAR`) validados na fase `SKU-MEMORIA-05A`.
+- Backup criado: `backups/medbox_v3_antes_sku_memoria_05b_20260701_163015.db` (9.342.976 bytes; `integrity_check: ok`; 11.105 produtos conferidos antes da escrita).
+- Total de itens aprovados: 15. Total aplicado: 15. Total com erro: 0 (transação única `BEGIN`/`COMMIT`, sem necessidade de `ROLLBACK`).
+- Arquivos criados: `relatorios/sku_memoria_05b_pos_aplicacao.csv`, `relatorios/sku_memoria_05b_aplicacao_controlada.md`, `relatorios/sku_memoria_05b_checklist.csv`.
+- Confirmações: `produto_padrao` não alterado em nenhum dos 15 produtos (verificado byte a byte pós-aplicação); nenhuma cascata usada; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados (apenas leitura de código); `python -m py_compile app.py` OK.
+- Resultado: `sku_master` atualizado nos 15 produtos; `sku_corrigido=1` e `corrigido_em` marcados em todos; marca preenchida em 6 produtos (`HEPTRIS`, onde estava vazia); categoria preenchida em 1 produto (`id 4283` → `MEDICAMENTOS`); marca/categoria já preenchidas preservadas em todos os demais (regra de não sobrescrita respeitada). 1 produto (`id 8592`) não recebeu marca por ausência de registro em `precos_fornecedores`. 22 registros de auditoria criados em `auditoria_sku` com `origem_correcao='SKU-MEMORIA-05B'`.
+- Decisão técnica: APLICACAO_CONTROLADA_CONCLUIDA
+- Próxima fase recomendada: revisão do usuário sobre o relatório pós-aplicação antes de ampliar para um lote maior; considerar, em fase futura com autorização explícita, resolver as divergências de marca (fabricante vs. nome comercial) e de categoria não padronizada (`"MARCAS UQ"`, `"MEDICAMENTO"`) identificadas como pendências.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)

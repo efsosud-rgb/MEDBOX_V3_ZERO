@@ -1,0 +1,23 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar (apenas planilha revisada modificada e itens bionexo)
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+planilha_revisada_confirmada,OK,15 linhas com decisao_usuario=APROVAR confirmadas
+pre_aplicacao_confirmada,OK,15 linhas com status_pre_aplicacao=APTO_PARA_APLICAR confirmadas
+pasta_backups_confirmada,OK,backups/ ja existia
+backup_banco_criado,OK,backups/medbox_v3_antes_sku_memoria_05b_20260701_163015.db
+backup_tamanho_validado,OK,9342976 bytes; integrity_check ok; 11105 produtos conferem
+codigo_auditoria_lido,OK,core/auditoria_sku_master.py (_conectar_escrita/registrar_auditoria_sku/schema produtos) lido antes da escrita
+transacao_controlada_aplicada,OK,BEGIN/COMMIT unico; 15 de 15 aplicados; 0 erros; rollback automatico se houvesse falha
+produto_padrao_preservado,OK,verificado byte a byte pos-aplicacao; nenhuma divergencia
+cascata_nao_aplicada,OK,cada produto atualizado individualmente
+marca_categoria_preservadas_quando_preenchidas,OK,nenhum valor ja preenchido foi sobrescrito
+sku_corrigido_marcado,OK,sku_corrigido=1 e corrigido_em atualizados nos 15 produtos
+auditoria_sku_registrada,OK,22 registros criados (15 sku_master + 1 categoria + 6 marca) com origem_correcao=SKU-MEMORIA-05B
+csv_pos_aplicacao_gerado,OK,relatorios/sku_memoria_05b_pos_aplicacao.csv com 15 linhas
+relatorio_criado,OK,relatorios/sku_memoria_05b_aplicacao_controlada.md
+py_compile_executado,OK,python -m py_compile app.py sem erros
+banco_db_nao_commitado,OK,banco/ e backups/ nao adicionados ao git
+dicionario_mestre_nao_alterado,OK,nenhum arquivo em data/dicionario_mestre/ tocado
+bionexo_nao_tocado,OK,nenhum arquivo bionexo tocado
+codigo_nao_alterado,OK,app.py/templates/core nao alterados (apenas leitura)
+checkpoint_atualizado,OK,secao SKU-MEMORIA-05B adicionada ao CHECKPOINT.md
