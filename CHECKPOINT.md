@@ -1829,6 +1829,16 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: planilha pronta para preenchimento do usuário; nenhuma aplicação deve ocorrer sem `decisao_usuario = APROVAR` explícito.
 - Próxima fase recomendada: aguardar o usuário preencher `decisao_usuario` nas 15 linhas; depois, fase futura de aplicação controlada lê apenas as linhas `APROVAR` e aplica uma a uma via tela de Auditoria SKU Master, com preview/backup.
 
+## Checkpoint - SKU-MEMORIA-04B — Planilha Excel de aprovação SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: converter `sku_memoria_04_aprovacao_manual.csv` em uma planilha Excel profissional (tabela com filtros, primeira linha congelada, lista suspensa de decisão, destaque visual), sem alterar banco e sem aplicar nada.
+- Arquivo Excel criado: `relatorios/sku_memoria_04_aprovacao_manual.xlsx`, com abas `APROVACAO_SKU` (dados) e `INSTRUCOES` (texto explicativo).
+- Quantidade de linhas: 15 (5 `MATCH_MEMORIA_VALIDADA` + 10 `MATCH_ASSINATURA_TECNICA`), mesma base da fase `SKU-MEMORIA-04`.
+- Recursos aplicados: tabela `TabelaAprovacaoSKU` com autofiltro, `freeze_panes = A2`, larguras de coluna ajustadas, destaque estático por `tipo_match`, validação de dados (lista `APROVAR`/`REJEITAR`/`REVISAR`) e formatação condicional dinâmica na coluna `decisao_usuario`.
+- Confirmação: banco não alterado; SKU_MASTER não aplicado; nenhuma cascata; nenhuma pesquisa à internet; `app.py`/`templates/`/`core/` não alterados.
+- Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha Excel; depois, fase futura de aplicação controlada lê apenas as linhas `APROVAR`.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
