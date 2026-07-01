@@ -1,0 +1,31 @@
+item,status,observacao
+git_status_verificado,OK,branch a frente do origin por 1 commit; planilha revisada modificada
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+planilha_lida,OK,relatorios/sku_memoria_08_sonda_aprovacao_manual.xlsx aba APROVACAO_SONDA
+decisoes_contadas,OK,291 APROVAR; 0 REJEITAR; 0 REVISAR; 0 vazio; 0 invalido
+decisao_invalida_verificada,OK,nenhuma encontrada; fase nao foi interrompida
+sku_final_definido_por_linha,OK,sku_master_corrigido_usuario vazio em todas as linhas; usado sku_master_sugerido_preliminar (ja incorpora edicoes do usuario)
+bugs_de_comparacao_corrigidos_antes_de_aplicar,OK,zero a esquerda em numero (8 vs 08) e SILICONIZADA vs PVC explicito
+conflitos_criticos_verificados,OK,tipo/numero/vias/balao/material comparados entre descricao original e sku final
+bloqueio_texto_corrompido_aplicado,OK,57 linhas bloqueadas mesmo com reconstrucao manual do usuario
+bloqueio_subfamilia_indefinida_aplicado,OK,61 linhas bloqueadas (gastrostomia/endotraqueal/Carlens/acessorios)
+bloqueio_pendente_sem_correcao_aplicado,OK,61 linhas bloqueadas (balao/numero ainda ausente no SKU final)
+csv_validacao_pre_aplicacao_gerado,OK,relatorios/sku_memoria_09_sonda_validacao_pre_aplicacao.csv com 291 linhas
+backup_banco_criado,OK,backups/medbox_v3_antes_sku_memoria_09_sonda_20260701_184425.db
+backup_validado,OK,9351168 bytes; integrity_check ok; 11105 produtos conferem
+transacao_controlada_aplicada,OK,BEGIN/COMMIT unico; 112 de 112 produtos aptos aplicados; 0 erros
+produto_padrao_preservado,OK,verificado durante a transacao para cada um dos 291 produtos
+cascata_nao_aplicada,OK,cada produto atualizado individualmente
+marca_nao_alterada,OK,nenhuma alteracao de marca nesta fase
+categoria_correlatos_regra_aplicada,OK,nenhum produto aplicado tinha categoria vazia; regra nao precisou atuar
+sku_corrigido_marcado,OK,sku_corrigido=1 nos 112 produtos aplicados
+auditoria_sku_registrada,OK,112 registros criados com origem_correcao=SKU-MEMORIA-09-SONDA
+csv_pos_aplicacao_gerado,OK,relatorios/sku_memoria_09_sonda_pos_aplicacao.csv com 291 linhas
+relatorio_criado,OK,relatorios/sku_memoria_09_sonda_aplicacao_controlada.md
+py_compile_executado,OK,python -m py_compile app.py sem erros
+banco_db_nao_commitado,OK,banco/ e backups/ nao adicionados ao git
+dicionario_mestre_nao_alterado,OK,nenhum arquivo em data/dicionario_mestre/ tocado
+bionexo_nao_tocado,OK,nenhum arquivo bionexo tocado
+codigo_nao_alterado,OK,app.py/templates/core nao alterados
+push_nao_realizado,OK,nenhum git push executado nesta fase
+checkpoint_atualizado,OK,secao SKU-MEMORIA-09 adicionada ao CHECKPOINT.md

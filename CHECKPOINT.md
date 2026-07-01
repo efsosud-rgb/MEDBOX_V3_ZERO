@@ -1903,6 +1903,22 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APTO_PARA_REVISAO_USUARIO
 - Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_08_sonda_aprovacao_manual.xlsx`, priorizando os 109 candidatos seguros e os maiores grupos da aba `GRUPOS_SONDA`; depois, fase de aplicação controlada (mesmo padrão de `SKU-MEMORIA-05A`/`05B`/`07`, com backup prévio).
 
+## Checkpoint - SKU-MEMORIA-09 — Aplicação controlada SONDA
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: validar a planilha revisada `sku_memoria_08_sonda_aprovacao_manual.xlsx` e aplicar no banco, com backup prévio, apenas as linhas seguras — bloqueando qualquer inconsistência crítica mesmo quando marcada `APROVAR`, dado o alto risco da família SONDA.
+- Planilha lida: aba `APROVACAO_SONDA` (291 linhas).
+- Total: 291 APROVAR, 0 REJEITAR, 0 REVISAR, 0 vazio, 0 inválido.
+- Total apto: 112. Total bloqueado: 179 (57 texto corrompido + 61 subfamília indefinida + 61 pendente sem correção).
+- Backup criado: `backups/medbox_v3_antes_sku_memoria_09_sonda_20260701_184425.db` (9.351.168 bytes; `integrity_check: ok`; 11.105 produtos conferidos).
+- Total aplicado: 112. Total com erro: 0.
+- Achado relevante: usuário editou `sku_master_sugerido_preliminar` diretamente (258/291 linhas), não a coluna dedicada de correção — sistema usou esse valor automaticamente como final. Validação bloqueou 179 linhas mesmo com `APROVAR`, incluindo 57 com reconstrução manual de texto corrompido (risco julgado alto demais para esta família) e 61 onde a edição não resolveu o atributo crítico ausente (geralmente volume de balão em Foley).
+- Dois bugs de comparação corrigidos antes de aplicar: falso conflito de número por zero à esquerda (8 vs 08) e falso conflito de material (SILICONIZADA confundido com SILICONE quando o texto dizia PVC explicitamente).
+- Arquivos criados: `relatorios/sku_memoria_09_sonda_validacao_pre_aplicacao.csv` (291 linhas), `relatorios/sku_memoria_09_sonda_pos_aplicacao.csv` (291 linhas), `relatorios/sku_memoria_09_sonda_aplicacao_controlada.md`, `relatorios/sku_memoria_09_sonda_checklist.csv`.
+- Confirmação: `produto_padrao` não alterado; nenhuma cascata; marca não alterada; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado; banco/backups não commitados.
+- Decisão técnica: APLICACAO_CONTROLADA_COM_PENDENCIAS (112 aplicados com sucesso; 179 permanecem bloqueados por regras de segurança explícitas da família)
+- Próxima fase recomendada: tratar os 179 bloqueados em sub-fases dedicadas — texto corrompido (consulta a nota fiscal/embalagem física), subfamílias indefinidas (gastrostomia, endotraqueal aramada — diagnóstico próprio), e pendentes sem correção (confirmar atributo crítico faltante por outra fonte).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
