@@ -1,0 +1,15 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas arquivos bionexo nao rastreados ignorados
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+previa_matches_lida,OK,relatorios/sku_memoria_03_previa_matches_banco.csv com 31 linhas
+filtro_status_seguro_aplicado,OK,apenas MATCH_MEMORIA_VALIDADA e MATCH_ASSINATURA_TECNICA
+total_linhas_aprovacao,OK,15 linhas (5 MATCH_MEMORIA_VALIDADA + 10 MATCH_ASSINATURA_TECNICA)
+coluna_decisao_usuario_vazia,OK,pronta para preenchimento manual (APROVAR/REJEITAR/REVISAR)
+csv_aprovacao_gerado,OK,relatorios/sku_memoria_04_aprovacao_manual.csv
+relatorio_criado,OK,relatorios/sku_memoria_04_aprovacao_manual.md
+banco_nao_alterado,OK,nenhuma conexao com banco/medbox_v3.db nesta fase
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+cascata_nao_executada,OK,nenhuma propagacao realizada
+internet_nao_pesquisada,OK,fase usou apenas o csv da fase anterior
+codigo_nao_alterado,OK,app.py e templates nao alterados
+checkpoint_atualizado,OK,secao SKU-MEMORIA-04 adicionada ao CHECKPOINT.md

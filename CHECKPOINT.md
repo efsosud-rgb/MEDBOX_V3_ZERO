@@ -1819,6 +1819,16 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APTO_PARA_REVISAO_MANUAL dos 15 matches seguros antes de qualquer aplicação real.
 - Próxima fase recomendada: revisão humana dos 15 matches seguros via tela de Auditoria SKU Master (aplicação manual, produto a produto, fora do escopo desta fase), e nova pesquisa pontual para HEPTRIS 20mg (sem cobertura na memória atual).
 
+## Checkpoint - SKU-MEMORIA-04 — Aprovação manual dos matches seguros da memória
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: isolar os 15 matches seguros (`MATCH_MEMORIA_VALIDADA` + `MATCH_ASSINATURA_TECNICA`) da fase `SKU-MEMORIA-03` em uma planilha de decisão manual (`APROVAR`/`REJEITAR`/`REVISAR`), sem aplicar nada no banco.
+- Arquivos criados: `relatorios/sku_memoria_04_aprovacao_manual.csv` (15 linhas, coluna `decisao_usuario` vazia), `relatorios/sku_memoria_04_aprovacao_manual.md`, `relatorios/sku_memoria_04_checklist.csv`.
+- Composição: 5 `MATCH_MEMORIA_VALIDADA` + 10 `MATCH_ASSINATURA_TECNICA`. Os 11 bloqueados, 3 pendentes e 2 sem match da fase anterior não entraram nesta planilha.
+- Confirmação: banco não alterado; nenhuma conexão com `banco/medbox_v3.db` nesta fase; SKU_MASTER não aplicado; nenhuma cascata; nenhuma pesquisa à internet; `app.py`/`templates/` não alterados.
+- Decisão técnica: planilha pronta para preenchimento do usuário; nenhuma aplicação deve ocorrer sem `decisao_usuario = APROVAR` explícito.
+- Próxima fase recomendada: aguardar o usuário preencher `decisao_usuario` nas 15 linhas; depois, fase futura de aplicação controlada lê apenas as linhas `APROVAR` e aplica uma a uma via tela de Auditoria SKU Master, com preview/backup.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
