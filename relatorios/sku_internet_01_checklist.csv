@@ -1,0 +1,17 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas arquivos bionexo nao rastreados ignorados
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+plano_pesquisa_externa_criado,OK,data/dicionario_mestre/externo/plano_pesquisa_externa_sku_master.md
+fontes_publicas_definidas,OK,google/farmacias/consulta remedios/bulas/fabricantes/anvisa/cmed; sem fontes pagas
+modelo_enriquecimento_criado,OK,data/dicionario_mestre/interno/modelo_enriquecimento_externo_sku_master.csv com 7 exemplos
+regras_pesquisa_externa_criadas,OK,data/dicionario_mestre/interno/regras_pesquisa_externa_sku_master.md
+script_diagnostico_criado,OK,scripts/dicionario_mestre/testar_fluxo_pesquisa_externa_sku.py
+script_nao_acessa_internet,OK,script le apenas csvs locais de memoria e modelo de enriquecimento
+script_executado,OK,7 descricoes testadas com sucesso
+saida_fluxo_simulado_gerada,OK,relatorios/sku_internet_01_fluxo_simulado.csv
+bloqueio_multiplas_apresentacoes_validado,OK,NASOJET isolado corretamente bloqueado por multiplas apresentacoes
+memoria_reaproveitada_validada,OK,HEPTRIS/VERSA/NOXX/NASOJET ALTO FLUXO reutilizados da memoria sem nova pesquisa
+banco_nao_alterado,OK,nenhuma conexao com banco/medbox_v3.db nesta fase
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+tela_nao_integrada,OK,app.py e templates nao alterados nesta fase
+checkpoint_atualizado,OK,secao SKU-INTERNET-01 adicionada ao CHECKPOINT.md

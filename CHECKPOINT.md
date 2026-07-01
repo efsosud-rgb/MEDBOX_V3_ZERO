@@ -1757,6 +1757,25 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: metodologia pronta como apoio à decisão humana, não integrada à tela.
 - Próxima fase recomendada: ampliar famílias validadas com o usuário e, quando houver volume suficiente, avaliar integração do motor de sugestão na tela de Auditoria SKU Master (fase futura, não iniciada).
 
+## Checkpoint - SKU-INTERNET-01 — Planejamento do motor controlado de pesquisa externa SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: planejar a camada de pesquisa/enriquecimento externo (internet) que complementa a metodologia global — estrutura de dados, regras de segurança e script de diagnóstico simulado, sem acessar internet, sem alterar banco, sem aplicar SKU_MASTER e sem integrar na tela.
+- Arquivos criados:
+  - `data/dicionario_mestre/externo/plano_pesquisa_externa_sku_master.md`
+  - `data/dicionario_mestre/interno/modelo_enriquecimento_externo_sku_master.csv` (7 exemplos: NASONEW, NASOJET, NASOJET ALTO FLUXO, HEPTRIS 40MG, VERSA 80MG, NOXX 60MG, RINOSORO 0,9% SPRAY 100ML)
+  - `data/dicionario_mestre/interno/regras_pesquisa_externa_sku_master.md`
+  - `scripts/dicionario_mestre/testar_fluxo_pesquisa_externa_sku.py`
+  - `relatorios/sku_internet_01_fluxo_simulado.csv`
+  - `relatorios/sku_internet_01.md`
+  - `relatorios/sku_internet_01_checklist.csv`
+- Fontes públicas permitidas definidas: Google, farmácias, Consulta Remédios, bulas oficiais, sites de fabricantes, ANVISA/Bulário, CMED, catálogos de fabricantes, páginas públicas de fornecedores — sem fontes pagas, sem burlar captcha/login/Cloudflare/limite de acesso.
+- Regra crítica reforçada: nome comercial com múltiplas apresentações conhecidas (ex.: `NASOJET`) nunca vira SKU_MASTER único automaticamente — status `MULTIPLAS_APRESENTACOES` bloqueia aplicação.
+- Resultado do teste simulado: 7 entradas testadas — 4 `VALIDADO_USUARIO` (reaproveitadas da memória sem nova pesquisa), 2 `PENDENTE_REVISAO` (NASONEW, e indiretamente RINOSORO no modelo), 1 `MULTIPLAS_APRESENTACOES` (NASOJET isolado) — nenhum resultado inventado sem base.
+- Confirmação: banco não alterado (script não conecta a `banco/medbox_v3.db`); SKU_MASTER não aplicado; nenhum scraping real realizado; `app.py` e `templates/` não alterados; Dicionário Mestre MEDREG e Bionexo não tocados.
+- Decisão técnica: estrutura de planejamento pronta; pesquisa externa real ainda não implementada.
+- Próxima fase recomendada: implementar pesquisa externa real controlada (fase futura, escopo próprio) e resolver a ambiguidade de `NASOJET` cadastrando cada apresentação real como família/memória própria, após validação do usuário.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
