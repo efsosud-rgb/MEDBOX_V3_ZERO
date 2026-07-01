@@ -1,0 +1,12 @@
+﻿descricao_entrada,sku_master_sugerido,familia_detectada,status,motivo
+"CLORETO DE SODIO 0,9% 1000ML","SORO FISIOLOGICO 0,9% 1000ML",SORO FISIOLOGICO,OK_MEMORIA_VALIDADA,"Regra cloreto de sodio 0,9% vira soro fisiologico"
+CLORETO DE SODIO 9MG/ML VIA NASAL SPRAY 50ML,"SORO FISIOLOGICO NASAL SPRAY 0,9% 50ML",SORO FISIOLOGICO NASAL,OK_MEMORIA_VALIDADA,"9MG/ML equivale a 0,9%; nasal/spray diferencia"
+NASOJET,,SORO FISIOLOGICO NASAL ALTO FLUXO,PENDENTE_REVISAO,"Familia SORO FISIOLOGICO NASAL ALTO FLUXO identificada, mas apresentacao (saches/volume) incompleta na entrada"
+NASOJET ALTO FLUXO 30 SACHES FRASCO 240ML,SORO FISIOLOGICO NASAL ALTO FLUXO 30 SACHES + FRASCO 240ML,SORO FISIOLOGICO NASAL ALTO FLUXO,OK_REGRA_FAMILIA,Marca NASOJET reduzida para soro fisiologico nasal alto fluxo com apresentacao completa
+HEPTRIS 40MG,"ENOXAPARINA SODICA 40MG/0,4ML",ENOXAPARINA,OK_MEMORIA_VALIDADA,Nome comercial reduzido para principio ativo dose/volume
+VERSA 80MG,"ENOXAPARINA SODICA 80MG/0,8ML",ENOXAPARINA,OK_MEMORIA_VALIDADA,Nome comercial reduzido para principio ativo dose/volume
+NOXX 60MG,"ENOXAPARINA SODICA 60MG/0,6ML",ENOXAPARINA,OK_MEMORIA_VALIDADA,Nome comercial reduzido para principio ativo dose/volume
+CLEXANE 40MG,"ENOXAPARINA SODICA 40MG/0,4ML",ENOXAPARINA,OK_MEMORIA_VALIDADA,Nome comercial reduzido para principio ativo dose/volume
+CLORETO DE SODIO 10% 10ML,,,PENDENTE_REVISAO,Nenhuma memoria validada nem regra de familia reconhecida para esta descricao; requer revisao humana
+CLORETO DE SODIO 20% 10ML,,,PENDENTE_REVISAO,Nenhuma memoria validada nem regra de familia reconhecida para esta descricao; requer revisao humana
+PRODUTO DESCONHECIDO XYZ,,,PENDENTE_REVISAO,Nenhuma memoria validada nem regra de familia reconhecida para esta descricao; requer revisao humana

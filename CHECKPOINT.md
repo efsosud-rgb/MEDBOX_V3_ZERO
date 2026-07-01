@@ -1739,6 +1739,24 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APTO_PARA_REVISAO_MANUAL_LOTE_01
 - Próxima fase recomendada: aplicação manual e controlada da amostra de 100 linhas (fora do escopo desta fase), aguardando autorização e revisão do usuário.
 
+## Checkpoint - SKU-METODOLOGIA-GLOBAL-01 — Metodologia global de padronização SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: registrar a mudança de paradigma validada pelo usuário — SKU_MASTER deve ser o produto/princípio ativo real reduzido e padronizado (não apenas a descrição de origem limpa) — e preparar memória, regras de família e script de diagnóstico, sem alterar banco, sem aplicar SKU_MASTER em massa e sem integrar nada na tela.
+- Arquivos criados:
+  - `data/dicionario_mestre/interno/metodologia_global_sku_master.md`
+  - `data/dicionario_mestre/interno/exemplos_validados_sku_master.csv` (7 exemplos validados)
+  - `data/dicionario_mestre/interno/regras_familias_sku_master.csv` (4 famílias: SORO FISIOLOGICO, SORO FISIOLOGICO NASAL, SORO FISIOLOGICO NASAL ALTO FLUXO, ENOXAPARINA)
+  - `scripts/dicionario_mestre/testar_metodologia_global_sku_master.py`
+  - `relatorios/sku_metodologia_global_01_teste.csv`
+  - `relatorios/sku_metodologia_global_01.md`
+  - `relatorios/sku_metodologia_global_01_checklist.csv`
+- Regra de marca e categoria adicionada: marca ausente é preenchida com nome comercial coletado externamente (ou fica vazia para revisão); categoria ausente vira `MEDICAMENTOS` quando é medicamento, senão `CORRELATOS`; marca e categoria nunca alteram o texto do SKU_MASTER.
+- Resultado do teste do script: 11 descrições testadas — 6 `OK_MEMORIA_VALIDADA`, 1 `OK_REGRA_FAMILIA`, 4 `PENDENTE_REVISAO` (incluindo bloqueio correto de `CLORETO DE SODIO 10%/20%` não virarem `SORO FISIOLOGICO 0,9%`).
+- Confirmação: banco não alterado (script não conecta a `banco/medbox_v3.db`); SKU_MASTER não aplicado; nenhuma cascata automática; `app.py` e `templates/` não alterados; Dicionário Mestre MEDREG e Bionexo não tocados.
+- Decisão técnica: metodologia pronta como apoio à decisão humana, não integrada à tela.
+- Próxima fase recomendada: ampliar famílias validadas com o usuário e, quando houver volume suficiente, avaliar integração do motor de sugestão na tela de Auditoria SKU Master (fase futura, não iniciada).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)

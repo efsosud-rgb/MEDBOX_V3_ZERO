@@ -1,0 +1,16 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas arquivos bionexo nao rastreados ignorados
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+metodologia_documentada,OK,data/dicionario_mestre/interno/metodologia_global_sku_master.md
+exemplos_validados_criados,OK,7 linhas em data/dicionario_mestre/interno/exemplos_validados_sku_master.csv
+regras_familias_criadas,OK,4 familias iniciais em data/dicionario_mestre/interno/regras_familias_sku_master.csv
+regra_marca_categoria_documentada,OK,incluida na metodologia e no relatorio desta fase
+script_diagnostico_criado,OK,scripts/dicionario_mestre/testar_metodologia_global_sku_master.py
+script_nao_acessa_banco,OK,script le apenas arquivos csv locais em data/dicionario_mestre/interno
+script_executado,OK,11 descricoes testadas com sucesso
+saida_teste_gerada,OK,relatorios/sku_metodologia_global_01_teste.csv
+bloqueios_criticos_validados_no_teste,OK,cloreto de sodio 10%/20% nao convertido para soro fisiologico 0,9%
+banco_nao_alterado,OK,nenhuma conexao com banco/medbox_v3.db nesta fase
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+tela_nao_integrada,OK,app.py e templates nao alterados nesta fase
+checkpoint_atualizado,OK,secao SKU-METODOLOGIA-GLOBAL-01 adicionada ao CHECKPOINT.md

@@ -1,0 +1,8 @@
+﻿descricao_original,sku_master_correto,familia,motivo,status_validacao,observacao
+"CLORETO DE SODIO 0,9% 1000ML","SORO FISIOLOGICO 0,9% 1000ML",SORO FISIOLOGICO,"Regra cloreto de sodio 0,9% vira soro fisiologico",VALIDADO_USUARIO,
+CLORETO DE SODIO 9MG/ML VIA NASAL SPRAY 50ML,"SORO FISIOLOGICO NASAL SPRAY 0,9% 50ML",SORO FISIOLOGICO NASAL,"9MG/ML equivale a 0,9%; nasal/spray diferencia",VALIDADO_USUARIO,
+NASOJET ALTO FLUXO 30 SACHES + FRASCO 240ML,SORO FISIOLOGICO NASAL ALTO FLUXO 30 SACHES + FRASCO 240ML,SORO FISIOLOGICO NASAL ALTO FLUXO,Alto fluxo/saches/frasco 240ml diferenciam,VALIDADO_USUARIO,
+HEPTRIS 40MG,"ENOXAPARINA SODICA 40MG/0,4ML",ENOXAPARINA,Nome comercial reduzido para principio ativo dose/volume,VALIDADO_USUARIO,
+VERSA 80MG,"ENOXAPARINA SODICA 80MG/0,8ML",ENOXAPARINA,Nome comercial reduzido para principio ativo dose/volume,VALIDADO_USUARIO,
+NOXX 60MG,"ENOXAPARINA SODICA 60MG/0,6ML",ENOXAPARINA,Nome comercial reduzido para principio ativo dose/volume,VALIDADO_USUARIO,
+CLEXANE 40MG,"ENOXAPARINA SODICA 40MG/0,4ML",ENOXAPARINA,Nome comercial reduzido para principio ativo dose/volume,VALIDADO_USUARIO,
