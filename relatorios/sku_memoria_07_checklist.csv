@@ -1,0 +1,25 @@
+item,status,observacao
+git_status_verificado,OK,branch a frente do origin por 1 commit; planilha revisada modificada
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+planilha_revisada_lida,OK,relatorios/sku_memoria_06_aprovacao_manual.xlsx aba APROVACAO_SKU
+decisoes_contadas,OK,6 APROVAR; 0 REJEITAR; 0 REVISAR; 0 vazio; 0 invalido pela lista permitida
+anomalia_detectada_e_tratada,OK,2 linhas APROVAR com sku_master_sugerido inconsistente (provavel autopreenchimento Excel); bloqueadas por seguranca
+backup_banco_criado,OK,backups/medbox_v3_antes_sku_memoria_07_20260701_170900.db
+backup_validado,OK,9347072 bytes; integrity_check ok; 11105 produtos conferem
+estado_antes_capturado,OK,estado dos 6 produtos capturado por leitura fresca antes da escrita
+transacao_controlada_aplicada,OK,BEGIN/COMMIT unico; 4 de 4 produtos seguros aplicados; 0 erros
+produtos_bloqueados_nao_aplicados,OK,10676 e 9601 permanecem inalterados
+produto_padrao_preservado,OK,verificado byte a byte pos-aplicacao nos 6 produtos
+cascata_nao_aplicada,OK,cada produto atualizado individualmente
+marca_categoria_preservadas_quando_preenchidas,OK,VIATRIS (266) e COSMED (1727) preservadas; categorias nao padronizadas preservadas
+sku_corrigido_marcado,OK,sku_corrigido=1 nos 4 produtos aplicados
+auditoria_sku_registrada,OK,6 registros criados (4 sku_master + 2 marca) com origem_correcao=SKU-MEMORIA-07
+csv_pos_aplicacao_gerado,OK,relatorios/sku_memoria_07_pos_aplicacao.csv com 6 linhas
+relatorio_criado,OK,relatorios/sku_memoria_07_aplicacao_controlada.md
+py_compile_executado,OK,python -m py_compile app.py sem erros
+banco_db_nao_commitado,OK,banco/ e backups/ nao adicionados ao git
+dicionario_mestre_nao_alterado,OK,nenhum arquivo em data/dicionario_mestre/ tocado
+bionexo_nao_tocado,OK,nenhum arquivo bionexo tocado
+codigo_nao_alterado,OK,app.py/templates/core nao alterados
+push_nao_realizado,OK,nenhum git push executado nesta fase
+checkpoint_atualizado,OK,secao SKU-MEMORIA-07 adicionada ao CHECKPOINT.md

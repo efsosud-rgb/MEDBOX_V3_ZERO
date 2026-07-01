@@ -1876,6 +1876,21 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APTO_PARA_REVISAO_USUARIO
 - Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_06_aprovacao_manual.xlsx`; depois, fase de aplicação controlada do segundo lote (mesmo padrão de `SKU-MEMORIA-05A`/`05B`, com backup prévio).
 
+## Checkpoint - SKU-MEMORIA-07 — Aplicação controlada lote 06 SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: validar a planilha revisada `sku_memoria_06_aprovacao_manual.xlsx` e aplicar no banco, com backup prévio, apenas as linhas `APROVAR` seguras e consistentes.
+- Planilha lida: `relatorios/sku_memoria_06_aprovacao_manual.xlsx` (aba `APROVACAO_SKU`).
+- Total: 6 APROVAR, 0 REJEITAR, 0 REVISAR, 0 vazio, 0 inválido pela lista permitida.
+- Backup criado: `backups/medbox_v3_antes_sku_memoria_07_20260701_170900.db` (9.347.072 bytes; `integrity_check: ok`; 11.105 produtos conferidos).
+- Total aplicado: 4. Total ignorado por anomalia de dados: 2. Total com erro: 0.
+- **Achado crítico**: 2 das 6 linhas `APROVAR` (produtos `10676` e `9601`, cloreto de sódio nasal sem volume confirmado) tinham `sku_master_sugerido` divergente do CSV de origem (indício de autopreenchimento do Excel, não decisão real) — bloqueadas por segurança e **não aplicadas**, seguindo a instrução explícita do usuário de nunca aplicar esses itens sem volume confirmado.
+- Arquivos criados: `relatorios/sku_memoria_07_pos_aplicacao.csv` (6 linhas), `relatorios/sku_memoria_07_aplicacao_controlada.md`, `relatorios/sku_memoria_07_checklist.csv`.
+- Confirmações: `produto_padrao` não alterado (verificado byte a byte nos 6 produtos); nenhuma cascata usada; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado.
+- Resultado: `sku_master` atualizado em `266, 3905, 1727, 5287`; `sku_corrigido=1` marcado nos 4; marca preenchida em `3905` (HEPTRIS) e `5287` (RINOSORO), onde estava vazia; marca preservada em `266` (VIATRIS) e `1727` (COSMED); categoria preservada em todos (já preenchida, inclusive valores não padronizados `"MARCAS UQ"` e `"MEDICAMENTOS | SKU PENDENTE DE PADRONIZACAO"`). 6 registros de auditoria criados com `origem_correcao='SKU-MEMORIA-07'`.
+- Decisão técnica: APLICACAO_CONTROLADA_COM_PENDENCIAS (4 aplicados com sucesso; 2 permanecem pendentes por anomalia de dados na planilha, não por erro de execução)
+- Próxima fase recomendada: usuário confirma o volume real (50ml ou 100ml) dos produtos `10676`/`9601` por outra fonte (nota fiscal, embalagem física) e corrige `sku_master_sugerido` na planilha antes de nova tentativa de aprovação.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
