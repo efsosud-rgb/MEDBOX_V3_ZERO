@@ -1,0 +1,17 @@
+item,status,observacao
+git_status_verificado,OK,branch limpa antes de iniciar; apenas arquivos bionexo nao rastreados ignorados
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+script_pesquisa_criado,OK,scripts/dicionario_mestre/pesquisar_enriquecimento_sku_master.py
+pesquisa_real_realizada,OK,busca controlada em fontes publicas gratuitas para os 10 termos de teste
+fontes_sem_paywall_login_captcha,OK,consultaremedios/bulas de fabricante/farmacias online/agregadores de bula; nenhum bloqueio encontrado
+sem_api_paga,OK,nenhuma API paga ou Google API paga utilizada
+resultados_csv_gerado,OK,relatorios/sku_internet_02_resultados_pesquisa.csv com 10 linhas e URLs reais
+casos_multiplas_apresentacoes_identificados,OK,NASONEW e NASOJET bloqueados corretamente
+caso_bloqueio_critico_confirmado,OK,CLORETO DE SODIO 10% 10ML nao reaproveitou SKU de soro fisiologico 0,9%
+caso_nao_encontrado_real,OK,PRODUTO DESCONHECIDO XYZ sem fonte relevante encontrada
+script_executado,OK,10 termos processados com sucesso
+banco_nao_alterado,OK,nenhuma conexao com banco/medbox_v3.db nesta fase
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+tela_nao_integrada,OK,app.py e templates nao alterados nesta fase
+catalogo_inteiro_nao_pesquisado,OK,apenas os 10 termos de teste definidos nesta fase
+checkpoint_atualizado,OK,secao SKU-INTERNET-02 adicionada ao CHECKPOINT.md

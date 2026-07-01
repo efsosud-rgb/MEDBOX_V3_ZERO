@@ -1776,6 +1776,22 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: estrutura de planejamento pronta; pesquisa externa real ainda não implementada.
 - Próxima fase recomendada: implementar pesquisa externa real controlada (fase futura, escopo próprio) e resolver a ambiguidade de `NASOJET` cadastrando cada apresentação real como família/memória própria, após validação do usuário.
 
+## Checkpoint - SKU-INTERNET-02 — Pesquisa externa real controlada para SKU_MASTER
+
+- Data/hora local: 2026-07-01 -03:00
+- Objetivo: executar a primeira pesquisa externa real (não simulada) para 10 termos de teste, usando apenas busca controlada em fontes públicas gratuitas, sem scraping agressivo, sem burlar captcha/login/Cloudflare e sem API paga, gerando evidências e sugestões sem alterar o banco.
+- Arquivos criados:
+  - `scripts/dicionario_mestre/pesquisar_enriquecimento_sku_master.py`
+  - `relatorios/sku_internet_02_resultados_pesquisa.csv` (10 termos, com URLs reais)
+  - `relatorios/sku_internet_02.md`
+  - `relatorios/sku_internet_02_checklist.csv`
+- Fontes reais consultadas: Consulta Remédios, bulas oficiais de fabricante (Viatris/Mylan, Eurofarma, Blau, Natulab, Airela), farmácias online (Panvel, Araújo, Nova Esperança, Farmácia Indiana, Drogasmil, Venâncio, Pague Menos), agregadores de bula (CliqueFarma, BulasMed). Nenhum bloqueio, captcha ou paywall encontrado nesta rodada.
+- Resultado: 6 `ENCONTRADO_UNICO` (NASOJET ALTO FLUXO, HEPTRIS 40MG, VERSA 80MG, NOXX 60MG, RINOSORO 0,9% SPRAY 100ML, CLORETO DE SODIO 0,9% JET VIA NASAL FRASCO 100ML), 2 `MULTIPLAS_APRESENTACOES` (NASONEW, NASOJET), 1 `PENDENTE_REVISAO` (CLORETO DE SODIO 10% 10ML — bloqueio crítico de concentração confirmado por fonte real), 1 `NAO_ENCONTRADO` (PRODUTO DESCONHECIDO XYZ).
+- Achado novo relevante: pesquisa real revelou que `NASONEW` também tem múltiplas apresentações (forma spray "AIRES" vs. pó para solução "AR"), além de risco de confusão com o produto de nome semelhante `NASONEX` (corticoide, produto totalmente diferente) — mais cauteloso do que a suposição da fase anterior.
+- Confirmação: banco não alterado; SKU_MASTER não aplicado; nenhum scraping agressivo/captcha/login contornado; nenhuma fonte ou API paga usada; `app.py`/`templates/` não alterados; catálogo inteiro não pesquisado (apenas os 10 termos de teste).
+- Decisão técnica: pesquisa externa real controlada funcional para pequenos lotes de teste; candidatos `RINOSORO` e `CLORETO DE SODIO 0,9% JET VIA NASAL FRASCO 100ML` prontos para validação do usuário e possível promoção à memória.
+- Próxima fase recomendada: validar com o usuário os candidatos fortes para promoção à memória, resolver a ambiguidade de `NASONEW`/`NASOJET` cruzando com dados reais do catálogo, e só depois ampliar gradualmente a lista de termos pesquisados.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
