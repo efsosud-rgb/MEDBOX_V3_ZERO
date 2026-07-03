@@ -1962,6 +1962,18 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APLICACAO_USUARIO_CONCLUIDA
 - Próxima fase recomendada: revisão do usuário sobre o relatório pós-aplicação; se desejado, considerar diagnósticos dedicados futuros para as demais famílias identificadas nesta rodada (fio cirúrgico, seringa, agulha raqui, biópsia, caneta de insulina), hoje fora do escopo de padronização SKU_MASTER dedicado.
 
+## Checkpoint - SKU-MEMORIA-13 — Diagnóstico DIPIRONA
+
+- Data/hora local: 2026-07-03 -03:00
+- Objetivo: diagnosticar em detalhe a família `DIPIRONA` (32 produtos ativos sem SKU_MASTER, identificados pelo Codex) e preparar planilha de revisão/aprovação manual, sem alterar banco e sem aplicar SKU_MASTER.
+- Total analisado: 32 (confirma exatamente a contagem do Codex). Nenhum sinônimo comercial (metamizol/novalgina/anador/magnopyrol/maxalgina/dorflex) encontrado no catálogo.
+- Grupos encontrados: 9 grupos, 23 produtos — 3 grupos do Codex confirmados (`500MG/ML AMP 2ML`=5 match exato, `500MG/ML GOTAS 10ML`=3 match exato, `500MG COMP`=5 mais completo que os 2 do Codex) + 6 novos grupos (`SOL ORAL 10ML`, `1G COMPRIMIDO`, `50MG/ML SOL ORAL 100ML`, `SOL ORAL 20ML`, `1G COMPRIMIDO EFERVESCENTE`, `300MG SUPOSITORIO`).
+- Arquivos criados: `relatorios/sku_memoria_13_dipirona_diagnostico.csv` (32 linhas), `relatorios/sku_memoria_13_dipirona_grupos.csv` (9 grupos), `relatorios/sku_memoria_13_dipirona_aprovacao_manual.xlsx` (3 abas: `APROVACAO_DIPIRONA`, `GRUPOS_DIPIRONA`, `INSTRUCOES`), `relatorios/sku_memoria_13_dipirona_relatorio.md`, `relatorios/sku_memoria_13_dipirona_checklist.csv`.
+- Resultado por status: 23 `CANDIDATO_SEGURO`, 7 `ASSOCIADA_COMPOSTA` (escopolamina/orfenadrina+cafeína, match exato com Codex), 1 `PENDENTE_REVISAO` (volume ausente), 1 `SEM_APRESENTACAO_CLARA`.
+- Confirmação: banco não alterado (somente `SELECT`, modo `mode=ro`); SKU_MASTER não aplicado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado.
+- Decisão técnica: APTO_PARA_REVISAO_USUARIO
+- Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_13_dipirona_aprovacao_manual.xlsx`; depois, fase de aplicação controlada (mesmo padrão de `SKU-MEMORIA-10`/`12`, com backup prévio).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
