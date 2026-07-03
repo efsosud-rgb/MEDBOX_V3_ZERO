@@ -1919,6 +1919,22 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APLICACAO_CONTROLADA_COM_PENDENCIAS (112 aplicados com sucesso; 179 permanecem bloqueados por regras de segurança explícitas da família)
 - Próxima fase recomendada: tratar os 179 bloqueados em sub-fases dedicadas — texto corrompido (consulta a nota fiscal/embalagem física), subfamílias indefinidas (gastrostomia, endotraqueal aramada — diagnóstico próprio), e pendentes sem correção (confirmar atributo crítico faltante por outra fonte).
 
+## Checkpoint - SKU-MEMORIA-10 — Aplicação SONDA por aprovação manual do usuário
+
+- Data/hora local: 2026-07-03 -03:00
+- Objetivo: aplicar a planilha SONDA por decisão manual explícita do usuário, desativando os bloqueios semânticos da fase anterior e mantendo apenas bloqueios técnicos (decisão inválida, produto inexistente, SKU final vazio).
+- Regra explícita do usuário: "Tudo que eu der como aprovado, aprove. Eu preenchi os SKU_MASTER e a MARCA." — usuário assumiu a responsabilidade pela revisão semântica de cada linha.
+- Planilha lida: `relatorios/sku_memoria_08_sonda_aprovacao_manual.xlsx`, aba `APROVACAO_SONDA` (291 linhas, todas `APROVAR`).
+- Total apto (validação técnica): 291. Total bloqueado técnico: 0.
+- Backup criado: `backups/medbox_v3_antes_sku_memoria_10_sonda_usuario_20260703_082709.db` (9.392.128 bytes; `integrity_check: ok`; 11.105 produtos conferidos).
+- Total aplicado: 291 (112 já haviam sido aplicados na fase `SKU-MEMORIA-09`; 179 são novos, antes bloqueados por regra semântica).
+- Achado relevante: usuário decodificou manualmente 258/291 descrições (inclusive textos com OCR corrompido) e preencheu marca real (`marca_atual`) em 291/291 linhas. Marca gravada com sucesso em apenas 57 produtos — os outros 234 não têm nenhum registro em `precos_fornecedores` (tabela `produtos` não tem coluna própria de marca), limitação estrutural documentada, não um bloqueio de regra.
+- Nesta fase, marca foi atualizada com **sobrescrita autorizada** (diferente de fases anteriores que preservavam marca já preenchida), por autorização explícita do usuário.
+- Arquivos criados: `relatorios/sku_memoria_10_sonda_validacao_tecnica.csv` (291 linhas), `relatorios/sku_memoria_10_sonda_pos_aplicacao.csv` (291 linhas), `relatorios/sku_memoria_10_sonda_aplicacao_usuario.md`, `relatorios/sku_memoria_10_sonda_checklist.csv`.
+- Confirmação: `produto_padrao` não alterado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado; banco/backups não commitados.
+- Decisão técnica: APLICACAO_USUARIO_CONCLUIDA
+- Próxima fase recomendada: se desejado, avaliar uma fase futura para gravar marca dos 234 produtos sem `precos_fornecedores` (exigiria decisão sobre onde armazenar essa informação, já que a tabela `produtos` não tem coluna própria de marca — fora do escopo desta fase).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)

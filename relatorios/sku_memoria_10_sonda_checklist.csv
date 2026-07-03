@@ -1,0 +1,25 @@
+item,status,observacao
+git_status_verificado,OK,branch a frente do origin por 2 commits; arvore de trabalho limpa
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+planilha_lida,OK,relatorios/sku_memoria_08_sonda_aprovacao_manual.xlsx aba APROVACAO_SONDA (291 linhas)
+regra_usuario_aplicada,OK,bloqueios semanticos desativados por decisao explicita do usuario; mantidos apenas bloqueios tecnicos
+decisoes_contadas,OK,291 APROVAR; 0 REJEITAR/REVISAR/vazio/invalido
+csv_validacao_tecnica_gerado,OK,relatorios/sku_memoria_10_sonda_validacao_tecnica.csv com 291 linhas, todas APTO_PARA_APLICAR
+backup_banco_criado,OK,backups/medbox_v3_antes_sku_memoria_10_sonda_usuario_20260703_082709.db
+backup_validado,OK,9392128 bytes; integrity_check ok; 11105 produtos conferem
+transacao_controlada_aplicada,OK,BEGIN/COMMIT unico; 291 de 291 produtos aplicados; 0 erros
+produto_padrao_preservado,OK,verificado durante a transacao para cada um dos 291 produtos
+cascata_nao_aplicada,OK,cada produto atualizado individualmente
+marca_atualizada_com_autorizacao,OK,57 de 291 gravados (234 sem registro em precos_fornecedores, limitacao estrutural documentada)
+categoria_preservada_ou_correlatos,OK,todas as categorias ja estavam preenchidas; nenhuma sobrescrita necessaria
+sku_corrigido_marcado,OK,sku_corrigido=1 nos 291 produtos aplicados
+auditoria_sku_registrada,OK,236 registros criados (179 sku_master + 57 marca) com origem_correcao=SKU-MEMORIA-10-SONDA-USUARIO
+csv_pos_aplicacao_gerado,OK,relatorios/sku_memoria_10_sonda_pos_aplicacao.csv com 291 linhas
+relatorio_criado,OK,relatorios/sku_memoria_10_sonda_aplicacao_usuario.md
+py_compile_executado,OK,python -m py_compile app.py sem erros
+banco_db_nao_commitado,OK,banco/ e backups/ nao adicionados ao git
+dicionario_mestre_nao_alterado,OK,nenhum arquivo em data/dicionario_mestre/ tocado
+bionexo_nao_tocado,OK,nenhum arquivo bionexo tocado
+codigo_nao_alterado,OK,app.py/templates/core nao alterados
+push_nao_realizado,OK,nenhum git push executado nesta fase
+checkpoint_atualizado,OK,secao SKU-MEMORIA-10 adicionada ao CHECKPOINT.md
