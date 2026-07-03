@@ -2338,3 +2338,19 @@ Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executa
 - Confirmação: banco não alterado (somente `SELECT`, modo `mode=ro`); SKU_MASTER não aplicado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado.
 - Decisão técnica: APTO_PARA_REVISAO_USUARIO
 - Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_15_glicose_aprovacao_manual.xlsx`; depois, fase de aplicação controlada (mesmo padrão de `SKU-MEMORIA-12`/`14`, com backup prévio).
+
+
+## Checkpoint - SKU-MEMORIA-16 — Aplicação GLICOSE por aprovação manual do usuário
+
+- Data/hora local: 2026-07-03 -03:00
+- Objetivo: aplicar a planilha GLICOSE por decisão manual explícita do usuário, sem bloqueio semântico, mantendo apenas bloqueios técnicos (decisão inválida, produto inexistente, SKU final vazio).
+- Regra de aprovação manual: mesma regra global já usada em `SKU-MEMORIA-10`/`12`/`14` — APROVAR aplica, REJEITAR não aplica, REVISAR fica pendente, vazio não é aplicado; "Planilha revisada da Glicosado."
+- Planilha lida: `relatorios/sku_memoria_15_glicose_aprovacao_manual.xlsx`, aba `APROVACAO_GLICOSE` (34 linhas, todas `APROVAR`).
+- Total: 34 APROVAR, 0 REJEITAR, 0 REVISAR, 0 vazio, 0 inválido. Total apto: 34. Total bloqueado técnico: 0.
+- Backup criado: `backups/medbox_v3_antes_sku_memoria_16_glicose_usuario_20260703_131506.db` (9.584.640 bytes; `integrity_check: ok`; 11.105 produtos conferidos).
+- Total aplicado: 34. Total com erro: 0.
+- Achado relevante: usuário aprovou todas as 34 linhas, incluindo os 2 casos `PENDENTE_REVISAO` (embalagem ambígua, confirmados como ampola) e os 10 `ASSOCIADA_OUTRAS` (nutrição parenteral, anestésico com glicose, soro de reidratação oral, tiras/sensores de glicemia), cada um com SKU_MASTER próprio sem misturar com glicose simples. Usuário padronizou a nomenclatura para "SORO GLICOSADO X% YML" e optou por unificar bolsa com frasco nos mesmos grupos (decisão editorial aceita sem julgamento semântico). Nenhuma marca foi corrigida pelo usuário; marca atual preservada em todos os produtos.
+- Arquivos criados: `relatorios/sku_memoria_16_glicose_validacao_tecnica.csv` (34 linhas), `relatorios/sku_memoria_16_glicose_pos_aplicacao.csv` (34 linhas), `relatorios/sku_memoria_16_glicose_aplicacao_usuario.md`, `relatorios/sku_memoria_16_glicose_checklist.csv`.
+- Confirmação: `produto_padrao` não alterado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado; banco/backups não commitados.
+- Decisão técnica: APLICACAO_USUARIO_CONCLUIDA
+- Próxima fase recomendada: revisão do usuário sobre o relatório pós-aplicação; considerar próxima família de medicamentos/insumos para diagnóstico, se desejado.
