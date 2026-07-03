@@ -1,0 +1,26 @@
+item,status,observacao
+git_status_verificado,OK,branch a frente do origin por 1 commit; planilha revisada modificada
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+planilha_lida,OK,relatorios/sku_memoria_13_dipirona_aprovacao_manual.xlsx aba APROVACAO_DIPIRONA (32 linhas)
+regra_usuario_aplicada,OK,bloqueios semanticos desativados por decisao explicita do usuario; mantidos apenas bloqueios tecnicos
+decisoes_contadas,OK,30 APROVAR; 1 REJEITAR; 0 REVISAR; 1 vazio; 0 invalido
+csv_validacao_tecnica_gerado,OK,relatorios/sku_memoria_14_dipirona_validacao_tecnica.csv com 32 linhas
+usuario_revisou_criteriosamente,OK,rejeitou item ambiguo (5926); deixou item em branco (5404); resolveu pendencia de volume (7047); aprovou associadas com sku combinado
+backup_banco_criado,OK,backups/medbox_v3_antes_sku_memoria_14_dipirona_usuario_20260703_124009.db
+backup_validado,OK,9555968 bytes; integrity_check ok; 11105 produtos conferem
+transacao_controlada_aplicada,OK,BEGIN/COMMIT unico; 30 de 30 aptos aplicados; 0 erros
+produto_padrao_preservado,OK,verificado durante a transacao para cada um dos 30 produtos
+cascata_nao_aplicada,OK,cada produto atualizado individualmente
+marca_preservada,OK,marca_corrigida_usuario vazia em todas as linhas; marca atual preservada sem alteracao
+categoria_preservada,OK,todas as categorias ja estavam preenchidas (MEDICAMENTOS); nenhuma sobrescrita necessaria
+sku_corrigido_marcado,OK,sku_corrigido=1 nos 30 produtos aplicados
+auditoria_sku_registrada,OK,30 registros de sku_master criados com origem_correcao=SKU-MEMORIA-14-DIPIRONA-USUARIO
+csv_pos_aplicacao_gerado,OK,relatorios/sku_memoria_14_dipirona_pos_aplicacao.csv com 32 linhas
+relatorio_criado,OK,relatorios/sku_memoria_14_dipirona_aplicacao_usuario.md
+py_compile_executado,OK,python -m py_compile app.py sem erros
+banco_db_nao_commitado,OK,banco/ e backups/ nao adicionados ao git
+dicionario_mestre_nao_alterado,OK,nenhum arquivo em data/dicionario_mestre/ tocado
+bionexo_nao_tocado,OK,nenhum arquivo bionexo tocado
+codigo_nao_alterado,OK,app.py/templates/core nao alterados
+push_nao_realizado,OK,nenhum git push executado nesta fase
+checkpoint_atualizado,OK,secao SKU-MEMORIA-14 adicionada ao CHECKPOINT.md

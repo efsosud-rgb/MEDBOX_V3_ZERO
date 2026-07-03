@@ -2309,3 +2309,19 @@ Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executa
 - Segurança do Windows não foi desativada.
 - Decisão técnica: APTO_PARA_DOWNLOAD_CONTROLADO_COM_TOOLKIT_EXPANDIDO
 - Próxima fase recomendada: FASE 2.14G-1B — download controlado direto ANVISA DADOS_ABERTOS_MEDICAMENTOS.csv.
+
+
+## Checkpoint - SKU-MEMORIA-14 — Aplicação DIPIRONA por aprovação manual do usuário
+
+- Data/hora local: 2026-07-03 -03:00
+- Objetivo: aplicar a planilha DIPIRONA por decisão manual explícita do usuário, sem bloqueio semântico, mantendo apenas bloqueios técnicos (decisão inválida, produto inexistente, SKU final vazio).
+- Regra de aprovação manual: mesma regra global já usada em `SKU-MEMORIA-10`/`12` — APROVAR aplica, REJEITAR não aplica, REVISAR fica pendente, vazio não é aplicado; "Salvei a planilha com a revisão."
+- Planilha lida: `relatorios/sku_memoria_13_dipirona_aprovacao_manual.xlsx`, aba `APROVACAO_DIPIRONA` (32 linhas).
+- Total: 30 APROVAR, 1 REJEITAR, 0 REVISAR, 1 vazio, 0 inválido. Total apto: 30. Total bloqueado técnico: 0.
+- Backup criado: `backups/medbox_v3_antes_sku_memoria_14_dipirona_usuario_20260703_124009.db` (9.555.968 bytes; `integrity_check: ok`; 11.105 produtos conferidos).
+- Total aplicado: 30. Total com erro: 0.
+- Achado relevante: revisão criteriosa do usuário — rejeitou o item de apresentação ambígua (id 5926), deixou um item sem decisão (id 5404, não aplicado), resolveu a pendência de volume ausente preenchendo o valor correto (id 7047), e aprovou os 7 produtos associados/compostos fornecendo o SKU_MASTER combinado (ex.: escopolamina + dipirona) sem misturar com dipirona simples. Nenhuma marca foi corrigida pelo usuário; marca atual preservada em todos os produtos.
+- Arquivos criados: `relatorios/sku_memoria_14_dipirona_validacao_tecnica.csv` (32 linhas), `relatorios/sku_memoria_14_dipirona_pos_aplicacao.csv` (32 linhas), `relatorios/sku_memoria_14_dipirona_aplicacao_usuario.md`, `relatorios/sku_memoria_14_dipirona_checklist.csv`.
+- Confirmação: `produto_padrao` não alterado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado; banco/backups não commitados.
+- Decisão técnica: APLICACAO_USUARIO_CONCLUIDA
+- Próxima fase recomendada: revisão do usuário sobre o relatório pós-aplicação; se desejado, considerar nova fase para os 2 produtos ainda pendentes (id 5926 rejeitado, id 5404 sem decisão).
