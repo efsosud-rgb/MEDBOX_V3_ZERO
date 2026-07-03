@@ -1935,6 +1935,18 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APLICACAO_USUARIO_CONCLUIDA
 - Próxima fase recomendada: se desejado, avaliar uma fase futura para gravar marca dos 234 produtos sem `precos_fornecedores` (exigiria decisão sobre onde armazenar essa informação, já que a tabela `produtos` não tem coluna própria de marca — fora do escopo desta fase).
 
+## Checkpoint - SKU-MEMORIA-11 — Diagnóstico AGULHA HIPODERMICA
+
+- Data/hora local: 2026-07-03 -03:00
+- Objetivo: diagnosticar em detalhe a família `AGULHA` (263 produtos ativos sem SKU_MASTER, identificada pelo Codex) e preparar planilha de revisão/aprovação focada em `AGULHA HIPODERMICA`/`AGULHA HIPODERMICA ASPIRATIVA`, sem alterar banco e sem aplicar SKU_MASTER.
+- Total analisado: 263 (confirma exatamente a contagem do Codex).
+- Arquivos criados: `relatorios/sku_memoria_11_agulha_hipodermica_diagnostico.csv` (263 linhas), `relatorios/sku_memoria_11_agulha_hipodermica_grupos.csv` (9 grupos), `relatorios/sku_memoria_11_agulha_hipodermica_aprovacao_manual.xlsx` (3 abas: `APROVACAO_AGULHA`, `GRUPOS_AGULHA`, `INSTRUCOES`), `relatorios/sku_memoria_11_agulha_hipodermica_relatorio.md`, `relatorios/sku_memoria_11_agulha_hipodermica_checklist.csv`.
+- Resultado por status: 39 `CANDIDATO_SEGURO`, 3 `PENDENTE_REVISAO`, 1 `BLOQUEADO_ATRIBUTO_CRITICO` (texto OCR corrompido), 220 `OUTRA_SUBFAMILIA` (176 de família totalmente distinta que apenas menciona "agulha" — fio cirúrgico, seringa, cateter, etc. — mais 44 de subfamílias reconhecidas fora do escopo desta rodada: raqui/biopsia/caneta insulina/descartável comum).
+- Grupos confirmados: os 5 grupos originais do Codex (25X0,7, 13X4,5, 30X0,8, 40X1,2, 20X5,5) mais 3 novos grupos (30X0,7, 25X0,8, 13X0,3) e a aspirativa 25X1,2 — total 9 grupos, 39 produtos.
+- Confirmação: banco não alterado (somente `SELECT`, modo `mode=ro`); SKU_MASTER não aplicado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado.
+- Decisão técnica: APTO_PARA_REVISAO_USUARIO
+- Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_11_agulha_hipodermica_aprovacao_manual.xlsx`, priorizando os 39 candidatos seguros; depois, fase de aplicação controlada (mesmo padrão de `SKU-MEMORIA-09`/`10`, com backup prévio).
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
