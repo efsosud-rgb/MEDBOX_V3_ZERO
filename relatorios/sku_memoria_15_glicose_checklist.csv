@@ -1,0 +1,27 @@
+item,status,observacao
+git_status_verificado,OK,branch sincronizada com origin antes de iniciar; apenas itens bionexo pendentes
+branch_verificada,OK,melhoria/auditoria-sku-master-todos-produtos
+banco_aberto_somente_leitura,OK,banco/medbox_v3.db acessado via mode=ro
+total_glicose_levantado,OK,34 produtos ativos sem sku_master confirmam contagem do Codex
+sinonimos_verificados,OK,dextrose/solucao glicosada/sol glicosada/sg 5-10-25-50% ja cobertos por glicose, sem duplicatas
+apresentacoes_classificadas,OK,9 categorias esperadas cobertas (5%/10%/25%/50%/associada/outras)
+bolsa_separada_de_frasco,OK,conforme regra explicita de nao misturar embalagens diferentes
+grupos_codex_confirmados,OK,10% 500ML e 5% 500ML match exato; demais com pequena divergencia esperada e explicada no relatorio
+ausencia_grupos_100ml_1000ml_confirmada,OK,nenhum produto 5% 100ML ou 5% 1000ML encontrado, confirma achado do Codex
+csv_diagnostico_gerado,OK,relatorios/sku_memoria_15_glicose_diagnostico.csv com 34 linhas
+csv_grupos_gerado,OK,relatorios/sku_memoria_15_glicose_grupos.csv com 9 grupos (20 produtos)
+apresentacao_ambigua_identificada,OK,2 produtos pendentes por embalagem nao explicita (ampola/frasco/bolsa)
+associadas_outras_identificadas,OK,12 produtos (nutricao parenteral/anestesico/reidratacao oral/dispositivos de glicemia)
+excel_aprovacao_gerado,OK,relatorios/sku_memoria_15_glicose_aprovacao_manual.xlsx com 3 abas (APROVACAO_GLICOSE/GRUPOS_GLICOSE/INSTRUCOES)
+validacao_dropdown_criada,OK,lista APROVAR/REJEITAR/REVISAR na coluna decisao_usuario
+relatorio_criado,OK,relatorios/sku_memoria_15_glicose_relatorio.md
+py_compile_executado,OK,python -m py_compile app.py sem erros
+banco_nao_alterado,OK,nenhuma escrita executada nesta fase
+sku_master_nao_aplicado,OK,nenhuma correcao aplicada no banco
+cascata_nao_usada,OK,nenhuma propagacao realizada
+dicionario_mestre_nao_alterado,OK,nenhum arquivo em data/dicionario_mestre/ tocado
+bionexo_nao_tocado,OK,nenhum arquivo bionexo tocado
+codigo_nao_alterado,OK,app.py/templates/core nao alterados
+push_nao_realizado,OK,nenhum git push executado nesta fase
+planilha_aberta_para_usuario,OK,explorer e excel acionados
+checkpoint_atualizado,OK,secao SKU-MEMORIA-15 adicionada ao CHECKPOINT.md

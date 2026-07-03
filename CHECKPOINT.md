@@ -2325,3 +2325,16 @@ Revisar abordagem técnica antes da FASE 2.15. A FASE 2.15 não deve ser executa
 - Confirmação: `produto_padrao` não alterado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado; banco/backups não commitados.
 - Decisão técnica: APLICACAO_USUARIO_CONCLUIDA
 - Próxima fase recomendada: revisão do usuário sobre o relatório pós-aplicação; se desejado, considerar nova fase para os 2 produtos ainda pendentes (id 5926 rejeitado, id 5404 sem decisão).
+
+
+## Checkpoint - SKU-MEMORIA-15 — Diagnóstico GLICOSE
+
+- Data/hora local: 2026-07-03 -03:00
+- Objetivo: diagnosticar em detalhe a família `GLICOSE` (34 produtos ativos sem SKU_MASTER, identificados pelo Codex) e preparar planilha de revisão/aprovação manual, sem alterar banco e sem aplicar SKU_MASTER.
+- Total analisado: 34 (confirma exatamente a contagem do Codex). Nenhum sinônimo adicional (dextrose/solucao glicosada/sg 5-10-25-50%) encontrado fora do já capturado por "glicose".
+- Grupos encontrados: 9 grupos, 20 produtos — `SOLUCAO GLICOSE 10% 500ML` e `5% 500ML` confirmados com match exato ao Codex (3 cada); `50% 10ML AMP` (4), `25% 10ML AMP` (2) e `5% 250ML` (4) com pequena divergência explicada por 2 casos tratados como `PENDENTE_REVISAO` (embalagem não explícita) em vez de presumidos como ampola. Bolsa tratada como grupo distinto de frasco (`5% 250ML BOLSA` e `5% 500ML BOLSA`, 1 cada). 2 novos grupos identificados fora da lista pré-definida: `GLICOSE 75% 10ML AMP` e `SOLUCAO GLICOSE 10% 250ML`. Confirmada ausência de grupos seguros para `5% 100ML` e `5% 1000ML`, igual ao apontado pelo Codex.
+- Arquivos criados: `relatorios/sku_memoria_15_glicose_diagnostico.csv` (34 linhas), `relatorios/sku_memoria_15_glicose_grupos.csv` (9 grupos), `relatorios/sku_memoria_15_glicose_aprovacao_manual.xlsx` (3 abas: `APROVACAO_GLICOSE`, `GRUPOS_GLICOSE`, `INSTRUCOES`), `relatorios/sku_memoria_15_glicose_relatorio.md`, `relatorios/sku_memoria_15_glicose_checklist.csv`.
+- Resultado por status: 20 `CANDIDATO_SEGURO`, 12 `ASSOCIADA_OUTRAS` (nutrição parenteral, anestésico com glicose, reidratação oral, dispositivos de glicemia), 2 `PENDENTE_REVISAO` (embalagem ambígua).
+- Confirmação: banco não alterado (somente `SELECT`, modo `mode=ro`); SKU_MASTER não aplicado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado.
+- Decisão técnica: APTO_PARA_REVISAO_USUARIO
+- Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_15_glicose_aprovacao_manual.xlsx`; depois, fase de aplicação controlada (mesmo padrão de `SKU-MEMORIA-12`/`14`, com backup prévio).
