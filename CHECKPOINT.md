@@ -1947,6 +1947,21 @@ concentracao, apresentacao e via_uso nos 10.345 registros ANVISA_MEDREG.
 - Decisão técnica: APTO_PARA_REVISAO_USUARIO
 - Próxima fase recomendada: usuário preenche `decisao_usuario` na planilha `sku_memoria_11_agulha_hipodermica_aprovacao_manual.xlsx`, priorizando os 39 candidatos seguros; depois, fase de aplicação controlada (mesmo padrão de `SKU-MEMORIA-09`/`10`, com backup prévio).
 
+## Checkpoint - SKU-MEMORIA-12 — Aplicação AGULHA por aprovação manual do usuário
+
+- Data/hora local: 2026-07-03 -03:00
+- Objetivo: aplicar a planilha AGULHA HIPODERMICA por decisão manual explícita do usuário, sem bloqueio semântico, mantendo apenas bloqueios técnicos (decisão inválida, produto inexistente, SKU final vazio).
+- Regra de aprovação manual: mesma regra global já usada em `SKU-MEMORIA-10` (SONDA) — usuário assume a responsabilidade pela revisão semântica de cada linha; "Finalizei de revisar a planilha de SKU_MASTER."
+- Planilha lida: `relatorios/sku_memoria_11_agulha_hipodermica_aprovacao_manual.xlsx`, aba `APROVACAO_AGULHA` (263 linhas, todas `APROVAR`).
+- Total: 263 APROVAR, 0 REJEITAR, 0 REVISAR, 0 vazio, 0 inválido. Total apto: 263. Total bloqueado técnico: 0.
+- Backup criado: `backups/medbox_v3_antes_sku_memoria_12_agulha_usuario_20260703_120703.db` (9.474.048 bytes; `integrity_check: ok`; 11.105 produtos conferidos).
+- Total aplicado: 263. Total com erro: 0.
+- Achado relevante: usuário revisou e forneceu SKU_MASTER para **todas as 263 linhas**, não apenas as 39 candidatas hipodérmicas originais — incluindo os 220 produtos antes classificados como `OUTRA_SUBFAMILIA`/`BLOQUEADO_ATRIBUTO_CRITICO` (fio cirúrgico, seringa, agulha raqui, gengival, biópsia, e o item com texto corrompido). Nenhuma marca foi corrigida pelo usuário nesta rodada; marca atual preservada em todos os produtos.
+- Arquivos criados: `relatorios/sku_memoria_12_agulha_validacao_tecnica.csv` (263 linhas), `relatorios/sku_memoria_12_agulha_pos_aplicacao.csv` (263 linhas), `relatorios/sku_memoria_12_agulha_aplicacao_usuario.md`, `relatorios/sku_memoria_12_agulha_checklist.csv`.
+- Confirmação: `produto_padrao` não alterado; nenhuma cascata; Dicionário Mestre MEDREG não alterado; Bionexo não tocado; `app.py`/`templates/`/`core/` não alterados; `python -m py_compile app.py` OK; nenhum push realizado; banco/backups não commitados.
+- Decisão técnica: APLICACAO_USUARIO_CONCLUIDA
+- Próxima fase recomendada: revisão do usuário sobre o relatório pós-aplicação; se desejado, considerar diagnósticos dedicados futuros para as demais famílias identificadas nesta rodada (fio cirúrgico, seringa, agulha raqui, biópsia, caneta de insulina), hoje fora do escopo de padronização SKU_MASTER dedicado.
+
 ## Estrategia de captura planejada (fases futuras)
 - FASE 2.13: diagnostico oficial da fonte
 - FASE 2.14: captura bruta controlada (amostra 100 registros)
