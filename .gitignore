@@ -35,3 +35,12 @@ build/
 .idea/
 *.swp
 .aider*
+
+# Robô Gmail Cotações — dados reais, credenciais e logs (nunca versionar)
+data/gmail_cotacoes/
+logs/gmail_cotacoes/
+credentials.json
+token.json
+token_gmail.json
+token_sheets.json
+*.pickle
