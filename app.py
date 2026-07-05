@@ -55,6 +55,13 @@ from persistencia import (
     listar_gmail_vendas_oc,
     pendencias_gmail_vendas_oc,
 )
+from dashboard_comercial_dados import (
+    resumo_dashboard_comercial,
+    vendedores_dashboard_comercial,
+    clientes_dashboard_comercial,
+    itens_criticos_dashboard_comercial,
+    cotacoes_dashboard_comercial,
+)
 PASTA_UPLOADS = BASE_DIR / "uploads"
 PASTA_UPLOADS.mkdir(exist_ok=True)
 PASTA_UPLOADS_LANCES = PASTA_UPLOADS / "cotacoes_lances"
@@ -851,6 +858,63 @@ def gmail_cotacoes_api_pendencias():
 @app.route("/gmail-cotacoes/dashboard")
 def gmail_cotacoes_dashboard():
     return render_template("gmail_cotacoes_dashboard.html", data_atual=DATA_ATUAL)
+
+
+# ============================================================
+# DASHBOARD COMERCIAL — vendas (OC) + cotações + metas.
+# Só leitura do banco local; nunca fala com o Gmail a partir do Flask.
+# ============================================================
+
+_FILTROS_DASHBOARD_COMERCIAL = ["vendedora", "cliente", "status_resultado", "item_critico"]
+
+
+def _filtros_dashboard_comercial_do_request():
+    args = request.args
+    filtros = {campo: args[campo] for campo in _FILTROS_DASHBOARD_COMERCIAL if args.get(campo)}
+    if args.get("data_inicio"):
+        filtros["data_inicio"] = args["data_inicio"]
+    if args.get("data_fim"):
+        filtros["data_fim"] = args["data_fim"]
+    if args.get("mes"):
+        filtros["mes"] = args["mes"]
+    if args.get("ano"):
+        filtros["ano"] = args["ano"]
+    return filtros
+
+
+@app.route("/dashboard-comercial/api/resumo")
+def dashboard_comercial_api_resumo():
+    dados = resumo_dashboard_comercial(_filtros_dashboard_comercial_do_request())
+    return Response(json.dumps(dados, ensure_ascii=False, default=str), content_type="application/json")
+
+
+@app.route("/dashboard-comercial/api/vendedores")
+def dashboard_comercial_api_vendedores():
+    dados = vendedores_dashboard_comercial(_filtros_dashboard_comercial_do_request())
+    return Response(json.dumps(dados, ensure_ascii=False, default=str), content_type="application/json")
+
+
+@app.route("/dashboard-comercial/api/clientes")
+def dashboard_comercial_api_clientes():
+    dados = clientes_dashboard_comercial(_filtros_dashboard_comercial_do_request())
+    return Response(json.dumps(dados, ensure_ascii=False, default=str), content_type="application/json")
+
+
+@app.route("/dashboard-comercial/api/itens-criticos")
+def dashboard_comercial_api_itens_criticos():
+    dados = itens_criticos_dashboard_comercial(_filtros_dashboard_comercial_do_request())
+    return Response(json.dumps(dados, ensure_ascii=False, default=str), content_type="application/json")
+
+
+@app.route("/dashboard-comercial/api/cotacoes")
+def dashboard_comercial_api_cotacoes():
+    dados = cotacoes_dashboard_comercial(_filtros_dashboard_comercial_do_request())
+    return Response(json.dumps(dados, ensure_ascii=False, default=str), content_type="application/json")
+
+
+@app.route("/dashboard-comercial")
+def dashboard_comercial():
+    return render_template("dashboard_comercial.html", data_atual=DATA_ATUAL)
 
 
 if __name__ == "__main__":

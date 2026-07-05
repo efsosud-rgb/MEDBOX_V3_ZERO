@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Comercial{% endblock %}
+{% block subtitle %}Cotações, Vendas e Metas — Fev-Mai (planilha) + Gmail (OC real){% endblock %}
+
+{% block content %}
+
+<style>
+    .dc-wrap { display: flex; flex-direction: column; gap: 22px; }
+
+    /* ---------- Filtros ---------- */
+    .dc-filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        align-items: end;
+    }
+    .dc-field { display: flex; flex-direction: column; gap: 6px; }
+    .dc-field label {
+        color: var(--muted); font-size: 0.72rem; font-weight: 700;
+        letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .dc-field input, .dc-field select {
+        width: 100%; height: 38px; border: 1px solid var(--border);
+        border-radius: 8px; padding: 0 10px; color: var(--text);
+        background: var(--white); font-size: 0.9rem;
+    }
+    .dc-field input:focus, .dc-field select:focus {
+        outline: none; border-color: var(--red);
+        box-shadow: 0 0 0 3px rgba(232,35,74,0.08);
+    }
+    .dc-actions { display: flex; gap: 10px; }
+    .dc-btn {
+        height: 38px; border: 1px solid var(--border); border-radius: 8px;
+        padding: 0 16px; cursor: pointer; font-weight: 700; white-space: nowrap;
+        transition: all 0.2s;
+    }
+    .dc-btn.primary { border-color: var(--red); background: var(--red); color: white; box-shadow: 0 4px 12px rgba(232,35,74,0.25); }
+    .dc-btn.primary:hover { background: var(--red-dark); transform: translateY(-1px); }
+    .dc-btn.secondary { background: white; color: var(--text2); }
+    .dc-btn.secondary:hover { border-color: var(--red); color: var(--red); }
+
+    /* ---------- Cards executivos (efeito 3D / profundidade) ---------- */
+    .dc-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 16px;
+    }
+    .dc-card {
+        position: relative; border-radius: 14px; padding: 18px 20px;
+        background: var(--white); border: 1px solid var(--border);
+        box-shadow: 0 1px 2px rgba(15,39,68,0.04), 0 8px 20px -12px rgba(15,39,68,0.18);
+        overflow: hidden; transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .dc-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(15,39,68,0.06), 0 16px 28px -12px rgba(15,39,68,0.24); }
+    .dc-card::before {
+        content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
+        background: linear-gradient(90deg, var(--red), var(--navy));
+    }
+    .dc-card.blue::before { background: linear-gradient(90deg, var(--blue), var(--navy)); }
+    .dc-card.green::before { background: linear-gradient(90deg, var(--green), var(--green-dark)); }
+    .dc-card.red::before { background: linear-gradient(90deg, var(--red-light), var(--red-dark)); }
+    .dc-card span.dc-label { display: block; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; margin-bottom: 8px; }
+    .dc-card strong.dc-value { display: block; font-size: 1.7rem; color: var(--text); font-weight: 800; line-height: 1.1; }
+    .dc-card small.dc-sub { display: block; margin-top: 6px; color: var(--muted); font-size: 0.78rem; }
+
+    /* ---------- Painéis ---------- */
+    .dc-panel {
+        background: var(--white); border: 1px solid var(--border); border-radius: 14px;
+        padding: 20px 22px; box-shadow: 0 1px 2px rgba(15,39,68,0.04), 0 6px 16px -10px rgba(15,39,68,0.12);
+    }
+    .dc-panel h3 { color: var(--navy); margin-bottom: 14px; font-size: 1.05rem; }
+    .dc-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+
+    /* ---------- Funil / barras executivas (CSS puro) ---------- */
+    .dc-funnel { display: flex; flex-direction: column; gap: 10px; }
+    .dc-funnel-row { display: grid; grid-template-columns: 130px 1fr 110px; align-items: center; gap: 12px; }
+    .dc-funnel-row span.dc-funnel-label { font-size: 0.82rem; color: var(--text2); font-weight: 600; }
+    .dc-funnel-track { height: 22px; border-radius: 999px; background: var(--bg); overflow: hidden; box-shadow: inset 0 1px 3px rgba(15,39,68,0.12); }
+    .dc-funnel-bar { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+    .dc-funnel-bar.cotado { background: linear-gradient(90deg, var(--blue-light), var(--blue)); }
+    .dc-funnel-bar.vencido { background: linear-gradient(90deg, var(--green), var(--green-dark)); }
+    .dc-funnel-bar.perdido { background: linear-gradient(90deg, var(--red-light), var(--red-dark)); }
+    .dc-funnel-value { text-align: right; font-weight: 800; color: var(--text); font-size: 0.88rem; }
+
+    /* ---------- Barras de meta (vendedora/cliente) ---------- */
+    .dc-meta-row { display: grid; grid-template-columns: 130px 1fr 90px; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .dc-meta-row:last-child { border-bottom: none; }
+    .dc-meta-nome { font-weight: 700; color: var(--text); font-size: 0.86rem; overflow-wrap: anywhere; }
+    .dc-meta-track { height: 16px; border-radius: 999px; background: var(--bg); overflow: hidden; box-shadow: inset 0 1px 2px rgba(15,39,68,0.10); }
+    .dc-meta-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--red-light), var(--navy)); transition: width 0.4s ease; }
+    .dc-meta-bar.ok { background: linear-gradient(90deg, var(--green), var(--green-dark)); }
+    .dc-meta-pct { text-align: right; font-weight: 800; font-size: 0.85rem; color: var(--text); }
+
+    /* ---------- Tabelas ---------- */
+    .dc-table-wrap { width: 100%; overflow-x: auto; }
+    .dc-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    .dc-table th {
+        color: var(--muted); font-size: 0.7rem; letter-spacing: 0.5px; text-align: left;
+        text-transform: uppercase; padding: 10px 12px; border-bottom: 1px solid var(--border); background: #f8fafc;
+    }
+    .dc-table td { color: var(--text2); padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.87rem; }
+    .dc-table td strong { color: var(--text); }
+    .dc-empty { color: var(--muted); padding: 16px; text-align: center; border: 1px dashed var(--border); border-radius: 10px; background: #f8fafc; }
+
+    .dc-badge { display: inline-flex; align-items: center; min-height: 22px; border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+    .dc-badge.critico { background: #fce4ec; color: #c62828; }
+    .dc-badge.ok { background: #e8f5e9; color: #2e7d32; }
+    .dc-badge.neutral { background: #f0f4f8; color: #475569; }
+
+    /* ---------- Vendedora accordion (top 5 críticos) ---------- */
+    .dc-vendedora-bloco { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; background: linear-gradient(180deg, #fff 0%, #fbfcfe 100%); }
+    .dc-vendedora-bloco h4 { color: var(--navy); font-size: 0.95rem; margin-bottom: 8px; }
+
+    @media (max-width: 720px) {
+        .dc-funnel-row, .dc-meta-row { grid-template-columns: 90px 1fr 70px; }
+    }
+</style>
+
+<div class="dc-wrap">
+
+    <!-- Filtros -->
+    <section class="dc-panel">
+        <h3>Filtros</h3>
+        <div class="dc-filters">
+            <div class="dc-field"><label for="dc-data-inicio">Data início</label><input id="dc-data-inicio" type="date"></div>
+            <div class="dc-field"><label for="dc-data-fim">Data fim</label><input id="dc-data-fim" type="date"></div>
+            <div class="dc-field"><label for="dc-mes">Mês</label>
+                <select id="dc-mes">
+                    <option value="">Todos</option>
+                    <option value="2">Fevereiro</option><option value="3">Março</option>
+                    <option value="4">Abril</option><option value="5">Maio</option>
+                    <option value="6">Junho</option><option value="7">Julho</option>
+                </select>
+            </div>
+            <div class="dc-field"><label for="dc-ano">Ano</label><input id="dc-ano" type="number" placeholder="2026"></div>
+            <div class="dc-field"><label for="dc-vendedora">Vendedora</label>
+                <select id="dc-vendedora">
+                    <option value="">Todas</option>
+                    <option value="JESSICA">JESSICA</option><option value="STHEFANY">STHEFANY</option>
+                    <option value="PAMELA">PAMELA</option><option value="LAYANE">LAYANE</option>
+                </select>
+            </div>
+            <div class="dc-field"><label for="dc-cliente">Cliente</label><input id="dc-cliente" type="search" placeholder="Cliente"></div>
+            <div class="dc-field"><label for="dc-status">Status do item</label>
+                <select id="dc-status">
+                    <option value="">Todos</option>
+                    <option value="VENCIDO">VENCIDO</option><option value="PERDIDO">PERDIDO</option>
+                    <option value="PARCIAL">PARCIAL</option><option value="NAO_CORRELACIONADO">NAO_CORRELACIONADO</option>
+                    <option value="REVISAR">REVISAR</option>
+                </select>
+            </div>
+            <div class="dc-field"><label for="dc-critico">Item crítico</label>
+                <select id="dc-critico"><option value="">Todos</option><option value="SIM">SIM</option><option value="NAO">NÃO</option></select>
+            </div>
+            <div class="dc-actions">
+                <button class="dc-btn primary" type="button" id="dc-aplicar">Aplicar</button>
+                <button class="dc-btn secondary" type="button" id="dc-limpar">Limpar</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 1. Resumo executivo -->
+    <section class="dc-panel">
+        <h3>Resumo Executivo</h3>
+        <div class="dc-cards">
+            <div class="dc-card blue"><span class="dc-label">Total Cotado</span><strong class="dc-value" id="dc-total-cotado">—</strong></div>
+            <div class="dc-card green"><span class="dc-label">Total Vendido</span><strong class="dc-value" id="dc-total-vendido">—</strong></div>
+            <div class="dc-card red"><span class="dc-label">Total Perdido</span><strong class="dc-value" id="dc-total-perdido">—</strong></div>
+            <div class="dc-card"><span class="dc-label">Conversão (Valor)</span><strong class="dc-value" id="dc-conversao-valor">—</strong></div>
+            <div class="dc-card"><span class="dc-label">Conversão (Itens)</span><strong class="dc-value" id="dc-conversao-itens">—</strong></div>
+            <div class="dc-card red"><span class="dc-label">Itens Críticos</span><strong class="dc-value" id="dc-itens-criticos">—</strong><small class="dc-sub" id="dc-valor-itens-criticos"></small></div>
+            <div class="dc-card blue"><span class="dc-label">Vendas do Mês</span><strong class="dc-value" id="dc-vendas-mes">—</strong></div>
+            <div class="dc-card"><span class="dc-label">Meta do Mês</span><strong class="dc-value" id="dc-meta-mes">—</strong></div>
+            <div class="dc-card green"><span class="dc-label">Atingimento da Meta</span><strong class="dc-value" id="dc-atingimento-meta">—</strong></div>
+        </div>
+    </section>
+
+    <div class="dc-grid-2">
+        <!-- 2 + 3. Cotado x Vencido / Funil de conversão -->
+        <section class="dc-panel">
+            <h3>Funil de Conversão (Cotado → Vencido/Perdido)</h3>
+            <div class="dc-funnel" id="dc-funil"><div class="dc-empty">Carregando…</div></div>
+        </section>
+
+        <!-- 6. Metas por vendedora -->
+        <section class="dc-panel">
+            <h3>Acompanhamento de Metas — Vendedora</h3>
+            <div id="dc-metas-vendedora"><div class="dc-empty">Carregando…</div></div>
+        </section>
+    </div>
+
+    <div class="dc-grid-2">
+        <!-- 7. Metas por cliente -->
+        <section class="dc-panel">
+            <h3>Acompanhamento de Metas — Cliente</h3>
+            <div id="dc-metas-cliente"><div class="dc-empty">Carregando…</div></div>
+        </section>
+
+        <!-- 8. Vendas por mês -->
+        <section class="dc-panel">
+            <h3>Vendas por Mês</h3>
+            <div id="dc-vendas-mes-lista"><div class="dc-empty">Carregando…</div></div>
+        </section>
+    </div>
+
+    <!-- 9. Comparativo planilha x Gmail -->
+    <section class="dc-panel">
+        <h3>Comparativo: Planilha (Fev-Mai) x Gmail Real (Jun/Jul)</h3>
+        <div id="dc-comparativo-fonte"><div class="dc-empty">Carregando…</div></div>
+    </section>
+
+    <!-- 4. Top 5 itens críticos por vendedora -->
+    <section class="dc-panel">
+        <h3>Top 5 Itens Críticos por Vendedora</h3>
+        <p style="color:var(--muted); font-size:0.82rem; margin-bottom:10px;">Itens PERDIDOS com valor cotado acima de R$ 5.000,00. Só aparece aqui depois que a correlação cotação × OC rodar (Fase 6/7) — vazio agora é esperado.</p>
+        <div id="dc-top5-criticos"><div class="dc-empty">Carregando…</div></div>
+    </section>
+
+    <!-- 5. Itens críticos repetidos em múltiplos clientes -->
+    <section class="dc-panel">
+        <h3>Itens Críticos Repetidos em Múltiplos Clientes</h3>
+        <div class="dc-table-wrap">
+            <table class="dc-table">
+                <thead><tr><th>Descrição</th><th>SKU Master</th><th>Qtd. Total</th><th>Valor Total Perdido</th><th>Nº Clientes</th><th>Clientes</th></tr></thead>
+                <tbody id="dc-tabela-repetidos"><tr><td colspan="6" class="dc-empty">Carregando…</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 10. Tabela analítica de cotações -->
+    <section class="dc-panel">
+        <h3>Tabela Analítica de Cotações</h3>
+        <div class="dc-table-wrap">
+            <table class="dc-table">
+                <thead>
+                    <tr><th>Cotação</th><th>Cliente</th><th>Vendedora</th><th>Data</th><th>Itens Cotados</th><th>Itens Vendidos</th><th>Itens Perdidos</th><th>Valor Cotado</th><th>Valor Vendido</th><th>Valor Perdido</th><th>Conversão</th></tr>
+                </thead>
+                <tbody id="dc-tabela-cotacoes"><tr><td colspan="11" class="dc-empty">Carregando…</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+
+</div>
+
+<script>
+(function () {
+    const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+    function el(id) { return document.getElementById(id); }
+    function text(id, v) { const n = el(id); if (n) n.textContent = v; }
+    function fmtBRL(v) { const n = Number(v); return currency.format(Number.isFinite(n) ? n : 0); }
+    function fmtPct(v) { const n = Number(v); return (Number.isFinite(n) ? n : 0).toFixed(1) + "%"; }
+    function escapeHtml(v) {
+        return String(v == null ? "" : v)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    const ids = { dataInicio: "dc-data-inicio", dataFim: "dc-data-fim", mes: "dc-mes", ano: "dc-ano", vendedora: "dc-vendedora", cliente: "dc-cliente", status: "dc-status", critico: "dc-critico" };
+    function val(id) { const n = el(id); return n ? n.value.trim() : ""; }
+
+    function params() {
+        const q = new URLSearchParams();
+        const map = {
+            data_inicio: val(ids.dataInicio), data_fim: val(ids.dataFim),
+            mes: val(ids.mes), ano: val(ids.ano),
+            vendedora: val(ids.vendedora), cliente: val(ids.cliente),
+            status_resultado: val(ids.status), item_critico: val(ids.critico),
+        };
+        Object.keys(map).forEach((k) => { if (map[k]) q.set(k, map[k]); });
+        return q.toString();
+    }
+
+    async function getJson(path) {
+        const q = params();
+        const url = q ? `${path}?${q}` : path;
+        const resp = await fetch(url, { headers: { Accept: "application/json" } });
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        return resp.json();
+    }
+
+    function renderResumo(r) {
+        text("dc-total-cotado", fmtBRL(r.total_cotado));
+        text("dc-total-vendido", fmtBRL(r.total_vendido));
+        text("dc-total-perdido", fmtBRL(r.total_perdido));
+        text("dc-conversao-valor", fmtPct(r.taxa_conversao_valor));
+        text("dc-conversao-itens", fmtPct(r.taxa_conversao_itens));
+        text("dc-itens-criticos", r.itens_criticos ?? 0);
+        text("dc-valor-itens-criticos", fmtBRL(r.valor_itens_criticos) + " em risco");
+        text("dc-vendas-mes", fmtBRL(r.vendas_mes_atual));
+        text("dc-meta-mes", fmtBRL(r.meta_mes_atual));
+        text("dc-atingimento-meta", fmtPct(r.atingimento_meta));
+
+        // Funil
+        const cotado = Number(r.total_cotado) || 0;
+        const perdido = Number(r.total_perdido) || 0;
+        const vencido = Math.max(0, cotado - perdido);
+        const maxVal = Math.max(cotado, vencido, perdido, 1);
+        const funil = el("dc-funil");
+        if (funil) {
+            funil.innerHTML = [
+                ["Cotado", cotado, "cotado"],
+                ["Vencido", vencido, "vencido"],
+                ["Perdido", perdido, "perdido"],
+            ].map(([label, v, cls]) => `
+                <div class="dc-funnel-row">
+                    <span class="dc-funnel-label">${label}</span>
+                    <div class="dc-funnel-track"><div class="dc-funnel-bar ${cls}" style="width:${(v / maxVal * 100).toFixed(1)}%"></div></div>
+                    <div class="dc-funnel-value">${fmtBRL(v)}</div>
+                </div>
+            `).join("");
+        }
+
+        // Vendas por mês
+        const listaMes = el("dc-vendas-mes-lista");
+        if (listaMes) {
+            const meses = r.vendas_por_mes || [];
+            listaMes.innerHTML = meses.length
+                ? meses.map((m) => `
+                    <div class="dc-meta-row">
+                        <span class="dc-meta-nome">${escapeHtml(m.mes_nome)}/${m.ano}</span>
+                        <div class="dc-meta-track"><div class="dc-meta-bar ok" style="width:100%"></div></div>
+                        <div class="dc-meta-pct">${fmtBRL(m.total)}</div>
+                    </div>
+                `).join("")
+                : `<div class="dc-empty">Nenhum dado encontrado</div>`;
+        }
+
+        // Comparativo por fonte
+        const comp = el("dc-comparativo-fonte");
+        if (comp) {
+            const fontes = r.por_fonte || [];
+            comp.innerHTML = fontes.length
+                ? `<div class="dc-table-wrap"><table class="dc-table"><thead><tr><th>Fonte</th><th>Qtd. Registros</th><th>Valor Total</th></tr></thead><tbody>` +
+                  fontes.map((f) => `<tr><td><strong>${escapeHtml(f.fonte)}</strong></td><td>${f.qtd}</td><td>${fmtBRL(f.total)}</td></tr>`).join("") +
+                  `</tbody></table></div>`
+                : `<div class="dc-empty">Nenhum dado encontrado</div>`;
+        }
+    }
+
+    function renderMetas(containerId, rows, campoNome, campoMeta, campoAtual, campoPct) {
+        const c = el(containerId);
+        if (!c) return;
+        if (!rows.length) { c.innerHTML = `<div class="dc-empty">Nenhum dado encontrado</div>`; return; }
+        c.innerHTML = rows.map((row) => {
+            const pct = Number(row[campoPct]) || 0;
+            const ok = pct >= 100;
+            return `
+                <div class="dc-meta-row">
+                    <span class="dc-meta-nome">${escapeHtml(row[campoNome])}</span>
+                    <div class="dc-meta-track"><div class="dc-meta-bar ${ok ? "ok" : ""}" style="width:${Math.min(100, Math.max(0, pct)).toFixed(1)}%"></div></div>
+                    <div class="dc-meta-pct">${fmtPct(pct)}</div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderTop5Criticos(dados) {
+        const c = el("dc-top5-criticos");
+        if (!c) return;
+        const porVendedora = dados.top5_por_vendedora || {};
+        const vendedoras = Object.keys(porVendedora);
+        if (!vendedoras.length) { c.innerHTML = `<div class="dc-empty">Nenhum item crítico encontrado</div>`; return; }
+        c.innerHTML = vendedoras.map((vend) => {
+            const itens = porVendedora[vend] || [];
+            const linhas = itens.map((it) => `
+                <tr>
+                    <td><strong>${escapeHtml(it.descricao_item)}</strong>${it.sku_master ? `<br><small style="color:var(--muted)">${escapeHtml(it.sku_master)}</small>` : ""}</td>
+                    <td>${escapeHtml(it.cliente)}</td>
+                    <td>${escapeHtml(it.numero_cotacao)}</td>
+                    <td>${it.quantidade_cotada ?? "-"}</td>
+                    <td>${fmtBRL(it.valor_total_cotado)}</td>
+                </tr>
+            `).join("");
+            return `
+                <div class="dc-vendedora-bloco">
+                    <h4>${escapeHtml(vend)}</h4>
+                    <div class="dc-table-wrap">
+                        <table class="dc-table">
+                            <thead><tr><th>Item</th><th>Cliente</th><th>Cotação</th><th>Qtd.</th><th>Valor Perdido</th></tr></thead>
+                            <tbody>${linhas}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderRepetidos(lista) {
+        const tbody = el("dc-tabela-repetidos");
+        if (!tbody) return;
+        if (!lista.length) { tbody.innerHTML = `<tr><td colspan="6" class="dc-empty">Nenhum item repetido em múltiplos clientes</td></tr>`; return; }
+        tbody.innerHTML = lista.map((it) => `
+            <tr>
+                <td><strong>${escapeHtml(it.descricao_item)}</strong></td>
+                <td>${escapeHtml(it.sku_master) || "-"}</td>
+                <td>${it.quantidade_total}</td>
+                <td>${fmtBRL(it.valor_total_perdido)}</td>
+                <td><span class="dc-badge critico">${it.quantidade_clientes}</span></td>
+                <td>${(it.clientes_onde_aparece || []).map(escapeHtml).join(", ")}</td>
+            </tr>
+        `).join("");
+    }
+
+    function renderCotacoes(lista) {
+        const tbody = el("dc-tabela-cotacoes");
+        if (!tbody) return;
+        if (!lista.length) { tbody.innerHTML = `<tr><td colspan="11" class="dc-empty">Nenhuma cotação encontrada (a sincronização Gmail ainda não populou esta tabela)</td></tr>`; return; }
+        tbody.innerHTML = lista.map((c) => `
+            <tr>
+                <td><strong>${escapeHtml(c.numero_cotacao)}</strong></td>
+                <td>${escapeHtml(c.cliente)}</td>
+                <td>${escapeHtml(c.vendedora)}</td>
+                <td>${escapeHtml(c.data)}</td>
+                <td>${c.qtd_itens_cotados}</td>
+                <td>${c.qtd_itens_vendidos}</td>
+                <td>${c.qtd_itens_perdidos}</td>
+                <td>${fmtBRL(c.valor_cotado)}</td>
+                <td>${fmtBRL(c.valor_vendido)}</td>
+                <td>${fmtBRL(c.valor_perdido)}</td>
+                <td><span class="dc-badge ${c.taxa_conversao >= 50 ? "ok" : "neutral"}">${fmtPct(c.taxa_conversao)}</span></td>
+            </tr>
+        `).join("");
+    }
+
+    async function carregar() {
+        try {
+            const [resumo, vendedores, clientes, itensCriticos, cotacoes] = await Promise.all([
+                getJson("/dashboard-comercial/api/resumo"),
+                getJson("/dashboard-comercial/api/vendedores"),
+                getJson("/dashboard-comercial/api/clientes"),
+                getJson("/dashboard-comercial/api/itens-criticos"),
+                getJson("/dashboard-comercial/api/cotacoes"),
+            ]);
+            renderResumo(resumo || {});
+            renderMetas("dc-metas-vendedora", vendedores || [], "vendedora", "meta_junho", "vendido_junho", "atingimento_meta");
+            renderMetas("dc-metas-cliente", clientes || [], "cliente", "meta_junho", "valor_vendido_mes", "atingimento_meta");
+            renderTop5Criticos(itensCriticos || {});
+            renderRepetidos((itensCriticos || {}).itens_repetidos_multiplos_clientes || []);
+            renderCotacoes(cotacoes || []);
+        } catch (e) {
+            console.error("Erro ao carregar Dashboard Comercial:", e);
+        }
+    }
+
+    function limpar() {
+        Object.values(ids).forEach((id) => { const n = el(id); if (n) n.value = ""; });
+        carregar();
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const btnAplicar = el("dc-aplicar");
+        const btnLimpar = el("dc-limpar");
+        if (btnAplicar) btnAplicar.addEventListener("click", carregar);
+        if (btnLimpar) btnLimpar.addEventListener("click", limpar);
+        carregar();
+    });
+})();
+</script>
+
+{% endblock %}

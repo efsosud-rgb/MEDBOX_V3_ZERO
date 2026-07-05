@@ -44,3 +44,6 @@ token.json
 token_gmail.json
 token_sheets.json
 *.pickle
+
+# Dashboard Comercial — planilhas com dados reais de vendas (nunca versionar)
+data/dashboard_comercial/
