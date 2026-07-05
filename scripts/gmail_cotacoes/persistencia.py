@@ -36,6 +36,15 @@ _FILTROS_IGUALDADE = [
     "numero_oc", "id_email", "status_revisao", "origem_execucao",
 ]
 
+# data_venda é gravada como texto "DD/MM/AAAA" (ver parser_pdf_oc._RE_DATA_OC).
+# Os filtros data_venda_de/data_venda_ate chegam em "AAAA-MM-DD" (input HTML
+# type="date"). Comparar essas duas strings diretamente dá resultado errado
+# (ordem lexicográfica de "03/07/2026" não corresponde à ordem cronológica).
+# Por isso a comparação SEMPRE reconverte data_venda para "AAAA-MM-DD" dentro
+# do SQL antes de comparar — nunca comparação textual direta entre os formatos.
+_DATA_VENDA_ISO_SQL = "(substr(data_venda, 7, 4) || '-' || substr(data_venda, 4, 2) || '-' || substr(data_venda, 1, 2))"
+_DATA_VENDA_VALIDA_SQL = "(data_venda IS NOT NULL AND length(data_venda) = 10)"
+
 
 def calcular_hash_arquivo(caminho: str | Path) -> str:
     """SHA-256 do conteúdo do arquivo (leitura em blocos, sem carregar tudo na memória)."""
@@ -76,10 +85,10 @@ def _montar_where(filtros: dict) -> tuple[list[str], list]:
             condicoes.append(f"{campo} = ?")
             params.append(valor)
     if filtros.get("data_venda_de"):
-        condicoes.append("data_venda >= ?")
+        condicoes.append(f"({_DATA_VENDA_VALIDA_SQL} AND {_DATA_VENDA_ISO_SQL} >= ?)")
         params.append(filtros["data_venda_de"])
     if filtros.get("data_venda_ate"):
-        condicoes.append("data_venda <= ?")
+        condicoes.append(f"({_DATA_VENDA_VALIDA_SQL} AND {_DATA_VENDA_ISO_SQL} <= ?)")
         params.append(filtros["data_venda_ate"])
     return condicoes, params
 
@@ -175,12 +184,28 @@ def indicadores_gmail_vendas_oc(filtros: dict | None = None) -> dict:
         params,
     )
     por_cliente = [dict(r) for r in cursor.fetchall()]
+
+    # Agregação mensal — só considera linhas com data_venda válida (DD/MM/AAAA);
+    # linhas sem data reconhecida não entram em nenhum mês (não inventamos data).
+    condicoes_mes = condicoes + [_DATA_VENDA_VALIDA_SQL]
+    where_mes = " WHERE " + " AND ".join(condicoes_mes)
+    cursor.execute(
+        f"""SELECT substr(data_venda, 4, 2) || '/' || substr(data_venda, 7, 4) AS mes,
+                   COUNT(*) AS quantidade,
+                   COALESCE(SUM(valor_total_oc), 0) AS valor_total
+            FROM gmail_vendas_oc{where_mes}
+            GROUP BY substr(data_venda, 7, 4), substr(data_venda, 4, 2)
+            ORDER BY substr(data_venda, 7, 4), substr(data_venda, 4, 2)""",
+        params,
+    )
+    vendas_por_mes = [dict(r) for r in cursor.fetchall()]
     conn.close()
 
     return {
         "total_vendas": geral["total_vendas"],
         "valor_total": geral["valor_total"],
         "total_itens": geral["total_itens"],
+        "vendas_por_mes": vendas_por_mes,
         "por_vendedora": por_vendedora,
         "por_cliente": por_cliente,
     }

@@ -830,7 +830,6 @@ def gmail_cotacoes_api_indicadores():
         "cancelados": len(listar_gmail_vendas_oc({**filtros, "status_email": "CANCELADO"})),
         "sem_vendedora": len(listar_gmail_vendas_oc({**filtros, "vendedora": "SEM_VENDEDORA"})),
         "ranking_clientes": dados["por_cliente"],
-        "vendas_por_mes": [],
     }
     return Response(json.dumps(payload, ensure_ascii=False, default=str), content_type="application/json")
 
