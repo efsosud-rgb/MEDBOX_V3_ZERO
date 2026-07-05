@@ -69,6 +69,65 @@ def converter_data(data):
 
 
 # ============================================================
+# GMAIL COTAÇÕES — VENDAS/OC
+# ============================================================
+
+def criar_tabela_gmail_vendas_oc(cursor):
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS gmail_vendas_oc (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chave_dedupe TEXT NOT NULL,
+        id_email TEXT NOT NULL,
+        thread_id TEXT,
+        attachment_id TEXT,
+        message_internal_date INTEGER,
+        assunto TEXT,
+        remetente TEXT,
+        data_email TEXT,
+        data_venda TEXT,
+        numero_oc TEXT,
+        vendedora TEXT NOT NULL,
+        cliente TEXT,
+        status_email TEXT NOT NULL,
+        status_revisao TEXT,
+        considerar_venda TEXT NOT NULL,
+        motivo_exclusao TEXT,
+        tem_marcador_pedido TEXT,
+        tem_marcador_cancelado TEXT,
+        tem_anexo_ordem_compra TEXT,
+        nome_arquivo TEXT,
+        caminho_anexo TEXT,
+        hash_arquivo TEXT,
+        tamanho_arquivo INTEGER,
+        tipo_anexo TEXT,
+        metodo_extracao TEXT,
+        avisos_parser TEXT,
+        quantidade_itens INTEGER,
+        valor_total_oc REAL,
+        valor_total_impresso REAL,
+        valor_total_calculado REAL,
+        divergencia_total REAL,
+        erro_processamento TEXT,
+        data_processamento TEXT NOT NULL,
+        origem_execucao TEXT NOT NULL,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""")
+
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_gmail_vendas_oc_chave_dedupe
+    ON gmail_vendas_oc (chave_dedupe)
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_data_venda ON gmail_vendas_oc (data_venda)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_vendedora ON gmail_vendas_oc (vendedora)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_cliente ON gmail_vendas_oc (cliente)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_status_email ON gmail_vendas_oc (status_email)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_considerar_venda ON gmail_vendas_oc (considerar_venda)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_numero_oc ON gmail_vendas_oc (numero_oc)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_id_email ON gmail_vendas_oc (id_email)")
+
+
+# ============================================================
 # CRIAÇÃO DO BANCO
 # ============================================================
 
@@ -166,6 +225,8 @@ def criar_banco():
         origem_correcao TEXT,
         usuario TEXT
     )""")
+
+    criar_tabela_gmail_vendas_oc(cursor)
 
     # Migração: Adiciona colunas se não existirem
     try:

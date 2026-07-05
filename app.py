@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 import traceback
 from flask import Flask, Response, render_template, request, redirect, url_for, flash
 from datetime import datetime
@@ -43,6 +44,17 @@ app.secret_key = "medbox_v3_zero"
 criar_banco()
 
 BASE_DIR = Path(__file__).resolve().parent
+
+# Robô Gmail Cotações — dashboard (só leitura da tabela gmail_vendas_oc,
+# nunca fala com o Gmail a partir do Flask).
+_SCRIPTS_GMAIL_DIR = BASE_DIR / "scripts" / "gmail_cotacoes"
+if str(_SCRIPTS_GMAIL_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_GMAIL_DIR))
+from persistencia import (
+    indicadores_gmail_vendas_oc,
+    listar_gmail_vendas_oc,
+    pendencias_gmail_vendas_oc,
+)
 PASTA_UPLOADS = BASE_DIR / "uploads"
 PASTA_UPLOADS.mkdir(exist_ok=True)
 PASTA_UPLOADS_LANCES = PASTA_UPLOADS / "cotacoes_lances"
@@ -776,6 +788,70 @@ def sku_master_auditoria_salvar_sku():
     except Exception as erro:
         flash(f"Erro ao salvar SKU: {erro}")
     return redirect(url_for("sku_master_auditoria"))
+
+
+# ============================================================
+# GMAIL COTAÇÕES — DASHBOARD (só leitura, não fala com o Gmail)
+# ============================================================
+
+# Aceita tanto os nomes "puros" das colunas (uso direto da API) quanto os
+# nomes de query string já usados pelo template gmail_cotacoes_dashboard.html
+# (status, data_inicio, data_fim) — ver esse template para o de-para.
+_FILTROS_GMAIL_COTACOES_DIRETOS = [
+    "vendedora", "cliente", "status_email", "considerar_venda",
+    "numero_oc", "id_email", "status_revisao", "origem_execucao",
+]
+
+
+def _filtros_gmail_cotacoes_do_request():
+    args = request.args
+    filtros = {campo: args[campo] for campo in _FILTROS_GMAIL_COTACOES_DIRETOS if args.get(campo)}
+    if args.get("status") and "status_email" not in filtros:
+        filtros["status_email"] = args["status"]
+    if args.get("data_inicio"):
+        filtros["data_venda_de"] = args["data_inicio"]
+    if args.get("data_fim"):
+        filtros["data_venda_ate"] = args["data_fim"]
+    return filtros
+
+
+@app.route("/gmail-cotacoes/api/indicadores")
+def gmail_cotacoes_api_indicadores():
+    filtros = _filtros_gmail_cotacoes_do_request()
+    dados = indicadores_gmail_vendas_oc(filtros)
+    payload = {
+        **dados,
+        # aliases esperados pelo template atual (MVP — ajustar quando o
+        # dashboard for revisado, ver templates/gmail_cotacoes_dashboard.html)
+        "total_registros": len(listar_gmail_vendas_oc(filtros)),
+        "vendas_confirmadas": dados["total_vendas"],
+        "valor_total_vendido": dados["valor_total"],
+        "pendencias": len(pendencias_gmail_vendas_oc(filtros)),
+        "cancelados": len(listar_gmail_vendas_oc({**filtros, "status_email": "CANCELADO"})),
+        "sem_vendedora": len(listar_gmail_vendas_oc({**filtros, "vendedora": "SEM_VENDEDORA"})),
+        "ranking_clientes": dados["por_cliente"],
+        "vendas_por_mes": [],
+    }
+    return Response(json.dumps(payload, ensure_ascii=False, default=str), content_type="application/json")
+
+
+@app.route("/gmail-cotacoes/api/listagem")
+def gmail_cotacoes_api_listagem():
+    filtros = _filtros_gmail_cotacoes_do_request()
+    dados = listar_gmail_vendas_oc(filtros)
+    return Response(json.dumps(dados, ensure_ascii=False, default=str), content_type="application/json")
+
+
+@app.route("/gmail-cotacoes/api/pendencias")
+def gmail_cotacoes_api_pendencias():
+    filtros = _filtros_gmail_cotacoes_do_request()
+    dados = pendencias_gmail_vendas_oc(filtros)
+    return Response(json.dumps(dados, ensure_ascii=False, default=str), content_type="application/json")
+
+
+@app.route("/gmail-cotacoes/dashboard")
+def gmail_cotacoes_dashboard():
+    return render_template("gmail_cotacoes_dashboard.html", data_atual=DATA_ATUAL)
 
 
 if __name__ == "__main__":

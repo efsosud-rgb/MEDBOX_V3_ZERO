@@ -12,6 +12,51 @@ labels, verificar marcadores, buscar amostra de e-mails, baixar amostra de
 anexos) — nunca envia, responde, arquiva, apaga ou altera labels. Escopo
 OAuth único: `https://www.googleapis.com/auth/gmail.readonly`.
 
+## Ambiente oficial: `.venv` do projeto
+
+O ambiente validado e oficial para rodar o robô é o `.venv` na raiz do
+projeto — **não o Python global do sistema**. Só o `.venv` tem, ao mesmo
+tempo, `pdfplumber`/`pymupdf` (parser oficial de PDF) e as bibliotecas da
+Gmail API (`google-api-python-client`, `google-auth`,
+`google-auth-oauthlib`, `python-dotenv`).
+
+Sempre use o Python do `.venv` explicitamente:
+```
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py ...
+```
+
+Nunca use `python`/`pip` global para este robô. Para instalar/atualizar
+dependências, sempre pelo `.venv`:
+```
+.venv\Scripts\python.exe -m pip install -r requirements_gmail_cotacoes.txt
+```
+
+Exemplos de uso real (diagnóstico, somente leitura):
+```
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run \
+    --limite-cotacoes 1 --limite-pedidos 1 --acao-gmail buscar-amostra --marcador PEDIDO
+
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run \
+    --limite-cotacoes 1 --limite-pedidos 1 --acao-gmail baixar-anexos-amostra --marcador PEDIDO
+```
+
+Validado com testes reais controlados (1 mensagem por vez, `--dry-run`):
+Ordem de Compra da LAYANE/PEDIDO (numero_oc 008875) e da STHEFANY
+(numero_oc 008859) — em ambos os casos `pdfplumber` extraiu os itens sem
+precisar do fallback `pdftotext`, e a soma dos itens bateu exatamente com
+o total impresso no documento (zero avisos).
+
+Regras que continuam valendo independente do ambiente:
+- `credentials.json` e `token_gmail.json` ficam sempre ignorados pelo Git
+  (raiz do projeto, nunca commitados).
+- `data/gmail_cotacoes/` (amostras, anexos, relatórios) fica sempre
+  ignorado pelo Git.
+- Gmail permanece **somente leitura** — escopo único `gmail.readonly`,
+  nunca envia/altera/apaga/arquiva nada.
+- `--dry-run` é obrigatório em todo teste controlado contra a Gmail real.
+- `DATA_VENDA` vem sempre da data de emissão da Ordem de Compra — nunca
+  da data do e-mail, da cotação ou da entrega.
+
 ## Arquitetura
 
 | Arquivo | Papel |
@@ -53,9 +98,10 @@ metadados (cliente, datas, valor total) e como fallback informativo.
 `parser_pdf_oc.py` e `parser_pdf_proposta.py` tentam, nesta ordem:
 
 1. **pdfplumber** — dependência oficial (está em `requirements.txt` do
-   projeto principal e em `requirements_gmail_cotacoes.txt`). Ainda não
-   estava instalado no ambiente Python usado para escrever e testar este
-   robô.
+   projeto principal e em `requirements_gmail_cotacoes.txt`). Instalado e
+   validado no `.venv` do projeto (ver "Ambiente oficial" acima) — quando
+   rodado com `.venv\Scripts\python.exe`, este é o caminho sempre usado,
+   sem cair no fallback.
 2. **pdftotext** (poppler/xpdf) via `subprocess`, se o binário estiver no
    PATH do sistema — no Windows, geralmente já vem junto com o Git for
    Windows (`mingw64/bin/pdftotext.exe`). Usado só para permitir teste
@@ -125,10 +171,10 @@ para preencher os mesmos campos de forma consistente com o modo real.
 ## Uso (modo local)
 
 ```
-python -m py_compile scripts/gmail_cotacoes/*.py
-python scripts/gmail_cotacoes/testar_matching_itens.py
+.venv\Scripts\python.exe -m py_compile scripts/gmail_cotacoes/*.py
+.venv\Scripts\python.exe scripts/gmail_cotacoes/testar_matching_itens.py
 
-python scripts/gmail_cotacoes/main.py --somente-local \
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --somente-local \
     --manifesto-local data/gmail_cotacoes/amostras/manifesto_hmar_1006_real.json \
     --saida data/gmail_cotacoes/relatorios/relatorio_hmar_1006_real.xlsx --dry-run
 ```
@@ -155,19 +201,19 @@ acidente.
 
 ```
 # 1. Listar todos os labels da conta (para confirmar nomes/hierarquia reais)
-python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \
     --acao-gmail listar-labels
 
-# 2. Verificar se JESSICA/STHEFANY/PAMELA/LAYANE/PEDIDO existem como label
-python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \
+# 2. Verificar se JESSICA/STHEFANY/PAMELA/LAYANE/PEDIDO/CANCELADO existem como label
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \
     --acao-gmail verificar-marcadores
 
 # 3. Buscar amostra de e-mails de um marcador (sem baixar anexo nenhum)
-python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \
-    --acao-gmail buscar-amostra --marcador STHEFANY
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 --limite-pedidos 1 \
+    --acao-gmail buscar-amostra --marcador PEDIDO
 
 # 4. Baixar amostra de anexos de um marcador (grava em data/gmail_cotacoes/anexos/<marcador>/<message_id>/)
-python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 --limite-pedidos 1 \
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 --limite-pedidos 1 \
     --acao-gmail baixar-anexos-amostra --marcador PEDIDO
 ```
 
