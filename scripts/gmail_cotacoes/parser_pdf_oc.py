@@ -39,7 +39,11 @@ _RE_MONETARIO = re.compile(r"(?<!\d)(\d{1,3}(?:\.\d{3})*,\d{2})(?!\d)")
 _RE_ITEM_START = re.compile(r"^\s*(\d{1,3})\s+(\S.*)$")
 _RE_UNIDADE_QTD = re.compile(r"\b(UN|CX|PCT|FR|ROLO|KIT|PC|CJ)\b\s+([\d.]+(?:,\d+)?)")
 _RE_NUMERO_OC = re.compile(r"Ordem de Compra No\.?\s*(\d+)", re.IGNORECASE)
-_RE_DATA_OC = re.compile(r"\b(\d{2}/\d{2}/\d{4})\b")
+# Ancorado em ", DATA" (padrão "Cidade, 01/07/2026" do cabeçalho de emissão da
+# OC) para NUNCA capturar "Data Entrega: 15/07/2026" (esse é precedido por
+# ":", não por ","). DATA_VENDA = esta data — nunca a de entrega, cotação ou
+# recebimento do e-mail. Ver classificar_email_venda em correlacionador.py.
+_RE_DATA_OC = re.compile(r",\s*(\d{2}/\d{2}/\d{4})\b")
 _RE_TOTAL_RODAPE = re.compile(r"TOTAL\s+R\$\s*([\d.]*,\d{2})")
 _RE_CLIENTE_FINAL = re.compile(r"^Nome:\s*(.+)$", re.MULTILINE)
 
@@ -58,7 +62,7 @@ class ItemOC:
 @dataclass
 class OrdemDeCompra:
     numero_oc: str | None
-    data_oc: str | None
+    data_oc: str | None  # data de EMISSÃO da OC — é esta que vira DATA_VENDA nos relatórios
     cliente: str | None
     valor_total_impresso: float | None
     valor_total_calculado: float
@@ -118,6 +122,11 @@ def parse_pdf_oc(caminho: str | Path) -> OrdemDeCompra:
 
     m_data = _RE_DATA_OC.search(texto)
     data_oc = m_data.group(1) if m_data else None
+    if data_oc is None:
+        avisos.append(
+            "Data de emissão da OC não encontrada (padrão ', DD/MM/AAAA' ausente). "
+            "DATA_VENDA ficará vazia — não usar data de entrega/cotação/e-mail como substituto."
+        )
 
     m_cliente = _RE_CLIENTE_FINAL.search(texto)
     cliente = m_cliente.group(1).strip() if m_cliente else None

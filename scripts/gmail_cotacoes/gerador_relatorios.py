@@ -9,9 +9,16 @@ Recebe uma lista de "casos processados" (um por cotação correlacionada) e
 produz:
 - <saida>.xlsx com as abas EMAILS_COTACOES, EMAILS_PEDIDOS, ITENS_COTADOS,
   ITENS_PEDIDOS, CRUZAMENTO_ITENS, RELATORIO_COTACOES,
-  ITENS_CRITICOS_PERDIDOS, ITENS_REVISAR, DASHBOARD_BASE
+  ITENS_CRITICOS_PERDIDOS, ITENS_REVISAR, DASHBOARD_BASE,
+  POSSIVEIS_PEDIDOS_REVISAR
 - <saida>_resumo.txt com um resumo legível
 - CSVs equivalentes (separador ';', utf-8-sig) em data/gmail_cotacoes/relatorios/csv/
+
+RELATORIO_COTACOES carrega os campos da regra de negócio final (Fase 2):
+DATA_VENDA (sempre a data de emissão da OC — nunca entrega/cotação/e-mail),
+TEM_MARCADOR_PEDIDO, TEM_MARCADOR_CANCELADO, TEM_ANEXO_ORDEM_COMPRA,
+STATUS_EMAIL, CONSIDERAR_VENDA, MOTIVO_EXCLUSAO, STATUS_REVISAO — ver
+correlacionador.classificar_email_venda para a tabela completa de casos.
 """
 
 from __future__ import annotations
@@ -24,6 +31,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 import config
+from correlacionador import classificar_email_venda
 
 _CABECALHO_EMAILS_COTACOES = ["VENDEDORA", "CLIENTE", "ASSUNTO", "COTACAO", "CATEGORIA", "MES_REFERENCIA"]
 _CABECALHO_EMAILS_PEDIDOS = ["MARCADOR", "ASSUNTO", "CLIENTE", "NUMERO_OC"]
@@ -51,6 +59,7 @@ _CABECALHOS_POR_ABA = {
     "ITENS_CRITICOS_PERDIDOS": config.COLUNAS_CRUZAMENTO_ITENS,
     "ITENS_REVISAR": config.COLUNAS_CRUZAMENTO_ITENS,
     "DASHBOARD_BASE": _CABECALHO_DASHBOARD_BASE,
+    "POSSIVEIS_PEDIDOS_REVISAR": config.COLUNAS_RELATORIO_COTACOES,
 }
 
 
@@ -141,11 +150,19 @@ def _linha_relatorio_cotacao(cp: dict) -> dict:
     diferenca = valor_total_ganho - valor_total_cotacao
     perc_diferenca = (diferenca / valor_total_cotacao * 100) if valor_total_cotacao else 0.0
 
+    # Modo local: o manifesto representa um par cotação/pedido já confirmado
+    # manualmente — simula os marcadores que viriam do Gmail (vendedora do
+    # caso + PEDIDO, sem CANCELADO) e sempre tem um anexo de OC reconhecido.
+    # Em --gmail-real, main.py chama classificar_email_venda com os
+    # marcadores/anexos reais do e-mail, nunca com esse atalho.
+    labels_simuladas = {caso.vendedora, config.MARCADOR_PEDIDO}
+    classificacao = classificar_email_venda(labels_simuladas, tem_anexo_ordem_compra=True)
+
     return {
         "VENDEDORA": caso.vendedora, "CLIENTE": caso.cliente, "CATEGORIA": caso.categoria,
         "COTACAO": caso.numero_cotacao, "MES_REFERENCIA": caso.mes_referencia,
         "DATA_COTACAO": cp["cotacao_excel"].data_pedido, "NUMERO_OC": caso.numero_oc,
-        "DATA_OC": cp["ordem_compra"].data_oc,
+        "DATA_OC": cp["ordem_compra"].data_oc, "DATA_VENDA": cp["ordem_compra"].data_oc,
         "TOTAL_ITENS_COTADOS": total_cotados, "TOTAL_ITENS_GANHOS": len(ganhos),
         "TOTAL_ITENS_PERDIDOS": len(perdidos), "TOTAL_ITENS_NAO_COTADOS": len(nao_cotados),
         "TOTAL_ITENS_REVISAR": len(revisar),
@@ -158,6 +175,11 @@ def _linha_relatorio_cotacao(cp: dict) -> dict:
         "SCORE_EMAIL_MES": score.score_mes, "SCORE_EMAIL_DATA": score.score_data,
         "SCORE_EMAIL_ITENS": score.score_itens,
         "CONFIANCA_CORRELACAO_EMAIL": score.confianca, "MOTIVO_CORRELACAO_EMAIL": score.motivo,
+        "TEM_MARCADOR_PEDIDO": "SIM" if classificacao.tem_marcador_pedido else "NAO",
+        "TEM_MARCADOR_CANCELADO": "SIM" if classificacao.tem_marcador_cancelado else "NAO",
+        "TEM_ANEXO_ORDEM_COMPRA": "SIM" if classificacao.tem_anexo_ordem_compra else "NAO",
+        "STATUS_EMAIL": classificacao.status_email, "CONSIDERAR_VENDA": classificacao.considerar_venda,
+        "MOTIVO_EXCLUSAO": classificacao.motivo_exclusao, "STATUS_REVISAO": classificacao.status_revisao,
         "LINK_EMAIL_COTACAO": "", "LINK_EMAIL_PEDIDO": "",
     }
 
@@ -175,6 +197,14 @@ def _linhas_revisar(linhas_cruzamento: list[dict]) -> list[dict]:
         if l["STATUS_ITEM"] == "POSSIVEL_GANHO_REVISAR"
         or l["CONFLITO_TECNICO"] == "SIM"
         or l["CONFIANCA_MATCH_ITEM"] == "BAIXA"
+    ]
+
+
+def _linhas_possiveis_pedidos_revisar(linhas_relatorio: list[dict]) -> list[dict]:
+    return [
+        l for l in linhas_relatorio
+        if l["STATUS_EMAIL"] in ("POSSIVEL_PEDIDO_REVISAR", "PEDIDO_SEM_OC_RECONHECIDA")
+        or l["STATUS_REVISAO"] == "REVISAR_VENDEDORA"
     ]
 
 
@@ -259,6 +289,7 @@ def gerar_relatorios(casos_processados: list[dict], caminho_saida_xlsx: str | Pa
     relatorio_cotacoes = [_linha_relatorio_cotacao(cp) for cp in casos_processados]
     criticos_perdidos = _linhas_criticos_perdidos(cruzamento)
     revisar = _linhas_revisar(cruzamento)
+    possiveis_pedidos_revisar = _linhas_possiveis_pedidos_revisar(relatorio_cotacoes)
     dashboard_base = _linhas_dashboard_base(relatorio_cotacoes)
 
     abas = {
@@ -271,6 +302,7 @@ def gerar_relatorios(casos_processados: list[dict], caminho_saida_xlsx: str | Pa
         "ITENS_CRITICOS_PERDIDOS": criticos_perdidos,
         "ITENS_REVISAR": revisar,
         "DASHBOARD_BASE": dashboard_base,
+        "POSSIVEIS_PEDIDOS_REVISAR": possiveis_pedidos_revisar,
     }
 
     wb = Workbook()

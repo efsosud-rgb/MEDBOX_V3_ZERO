@@ -1,16 +1,33 @@
 """Robô Gmail Cotações — orquestrador principal.
 
-Modo suportado hoje: SOMENTE LOCAL (--somente-local + --manifesto-local).
-Não há integração real com a Gmail API neste estágio (ver gmail_client.py)
-— nenhum e-mail é lido, baixado ou enviado. --dry-run documenta a
-intenção de não realizar nenhuma ação destrutiva/externa; os relatórios
-locais (XLSX/TXT/CSV) são gerados normalmente mesmo em --dry-run, pois
-gerar arquivo de relatório em disco não é uma ação destrutiva.
+Dois modos, mutuamente exclusivos:
 
-Exemplo (caso real HMAR 1006):
+1. --somente-local + --manifesto-local (Fase 1, inalterado): processa um
+   manifesto JSON local com anexos já em disco. Nenhuma chamada de rede.
+
+2. --gmail-real + --acao-gmail (Fase 2): diagnóstico SOMENTE LEITURA
+   contra a Gmail API real (escopo gmail.readonly). Nunca envia, altera,
+   arquiva ou apaga e-mail algum — ver gmail_client.py. Sempre exige
+   --dry-run e pelo menos um limite explícito (--limite-cotacoes e/ou
+   --limite-pedidos), para nunca processar a caixa inteira por acidente.
+
+Exemplo modo local (caso real HMAR 1006):
   python scripts/gmail_cotacoes/main.py --somente-local \\
       --manifesto-local data/gmail_cotacoes/amostras/manifesto_hmar_1006_real.json \\
       --saida data/gmail_cotacoes/relatorios/relatorio_hmar_1006_real.xlsx --dry-run
+
+Exemplos modo Gmail real (diagnóstico):
+  python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \\
+      --acao-gmail listar-labels
+
+  python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \\
+      --acao-gmail verificar-marcadores
+
+  python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \\
+      --acao-gmail buscar-amostra --marcador STHEFANY
+
+  python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 --limite-pedidos 1 \\
+      --acao-gmail baixar-anexos-amostra --marcador PEDIDO
 """
 
 from __future__ import annotations
@@ -21,8 +38,8 @@ import sys
 from pathlib import Path
 
 import config
-from correlacionador import calcular_score_email, cruzar_itens
-from extrator_anexos import localizar_anexo
+from correlacionador import calcular_score_email, classificar_email_venda, cruzar_itens, extrair_marcadores_presentes
+from extrator_anexos import localizar_anexo, parece_ordem_compra
 from gerador_relatorios import gerar_relatorios
 from manifesto_local import carregar_manifesto
 from parser_excel_cotacao import parse_excel_cotacao
@@ -46,14 +63,24 @@ def _configurar_logging() -> None:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Robô Gmail Cotações MedBox — modo local")
-    p.add_argument("--dry-run", action="store_true", help="Não realiza nenhuma ação destrutiva/externa (Gmail API não é chamada de qualquer forma nesta versão)")
+    p = argparse.ArgumentParser(description="Robô Gmail Cotações MedBox")
+    p.add_argument("--dry-run", action="store_true", help="Nenhuma ação destrutiva/externa além de leitura")
     p.add_argument("--somente-local", action="store_true", help="Usa manifesto local em vez da Gmail API real")
     p.add_argument("--manifesto-local", type=str, default=None, help="Caminho do manifesto JSON local")
     p.add_argument("--pasta-amostras", type=str, default=str(config.AMOSTRAS_DIR), help="Pasta com os anexos reais/de amostra")
     p.add_argument("--saida", type=str, default=str(config.RELATORIOS_DIR / "relatorio.xlsx"), help="Caminho do XLSX de saída")
-    p.add_argument("--limite-cotacoes", type=int, default=None, help="Limita quantos casos do manifesto são processados")
-    p.add_argument("--limite-pedidos", type=int, default=None, help="Limita quantos itens da Ordem de Compra são considerados por caso")
+    p.add_argument("--limite-cotacoes", type=int, default=None, help="Modo local: limita casos do manifesto. Modo Gmail real: limita mensagens buscadas por marcador")
+    p.add_argument("--limite-pedidos", type=int, default=None, help="Modo local: limita itens da OC considerados. Modo Gmail real: limita anexos baixados por mensagem")
+
+    p.add_argument("--gmail-real", action="store_true", help="Ativa diagnóstico SOMENTE LEITURA contra a Gmail API real (nunca envia/altera/apaga nada)")
+    p.add_argument("--acao-gmail", type=str, default=None,
+                    choices=["listar-labels", "verificar-marcadores", "buscar-amostra", "baixar-anexos-amostra"],
+                    help="Ação de diagnóstico do modo --gmail-real")
+    p.add_argument("--marcador", type=str, default=None,
+                    help="Restringe buscar-amostra/baixar-anexos-amostra a um marcador (JESSICA/STHEFANY/PAMELA/LAYANE/PEDIDO/CANCELADO). Padrão: todos")
+    p.add_argument("--credentials-json", type=str, default=str(config.CREDENTIALS_PATH), help="Caminho do credentials.json OAuth")
+    p.add_argument("--token-gmail", type=str, default=str(config.TOKEN_GMAIL_PATH), help="Caminho do token_gmail.json")
+
     return p.parse_args(argv)
 
 
@@ -105,17 +132,7 @@ def _processar_caso(caso, pasta_amostras: Path, limite_pedidos: int | None) -> d
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = _parse_args(argv)
-    _configurar_logging()
-
-    if not args.somente_local:
-        logger.error(
-            "Modo Gmail real não está configurado nesta versão do robô. "
-            "Rode novamente com --somente-local --manifesto-local <arquivo>."
-        )
-        return 2
-
+def _executar_modo_local(args: argparse.Namespace) -> int:
     manifesto = args.manifesto_local
     if manifesto is None:
         padrao = config.AMOSTRAS_DIR / "manifesto_hmar_1006_real.json"
@@ -160,6 +177,130 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("  %s: %d linha(s)", nome_aba, len(linhas))
 
     return 0
+
+
+def _executar_modo_gmail_real(args: argparse.Namespace) -> int:
+    if not args.dry_run:
+        logger.error("--gmail-real exige --dry-run nesta fase (diagnóstico somente leitura).")
+        return 2
+    if args.limite_cotacoes is None and args.limite_pedidos is None:
+        logger.error("--gmail-real exige limite explícito: --limite-cotacoes e/ou --limite-pedidos.")
+        return 2
+    if not args.acao_gmail:
+        logger.error("--gmail-real exige --acao-gmail {listar-labels|verificar-marcadores|buscar-amostra|baixar-anexos-amostra}.")
+        return 2
+
+    from gmail_client import GmailClient, GmailClientError
+
+    logger.info(
+        "Modo: GMAIL REAL (SOMENTE LEITURA, escopo %s) | acao=%s | dry-run=%s | limite_cotacoes=%s | limite_pedidos=%s",
+        config.GMAIL_READONLY_SCOPE, args.acao_gmail, args.dry_run, args.limite_cotacoes, args.limite_pedidos,
+    )
+
+    try:
+        cliente = GmailClient(credentials_path=args.credentials_json, token_path=args.token_gmail)
+    except GmailClientError as exc:
+        logger.error("Não foi possível conectar à Gmail API: %s", exc)
+        return 1
+
+    if args.acao_gmail == "listar-labels":
+        labels = cliente.listar_labels()
+        logger.info("Total de labels na conta: %d", len(labels))
+        for label in labels:
+            logger.info("  label: %s (id=%s)", label["name"], label["id"])
+        return 0
+
+    if args.acao_gmail == "verificar-marcadores":
+        resolucao = cliente.resolver_labels(config.MARCADORES_OBRIGATORIOS)
+        encontrados = {k: v for k, v in resolucao.items() if v}
+        faltando = [k for k, v in resolucao.items() if not v]
+        for nome, label_id in encontrados.items():
+            logger.info("  OK: marcador '%s' encontrado (label_id=%s)", nome, label_id)
+        for nome in faltando:
+            logger.warning("  FALTANDO: marcador '%s' não encontrado entre os labels da conta", nome)
+        return 0 if not faltando else 1
+
+    marcadores_alvo = [args.marcador] if args.marcador else config.MARCADORES_OBRIGATORIOS
+    limite_mensagens = args.limite_cotacoes or args.limite_pedidos or 1
+    resolucao = cliente.resolver_labels(marcadores_alvo)
+
+    if args.acao_gmail == "buscar-amostra":
+        for nome in marcadores_alvo:
+            label_id = resolucao.get(nome)
+            if not label_id:
+                logger.warning("Marcador '%s' não encontrado — pulando.", nome)
+                continue
+            emails = cliente.listar_emails_por_marcador(label_id, marcador_nome=nome, limite=limite_mensagens)
+            logger.info("Marcador '%s': %d e-mail(s) encontrados (limite=%d)", nome, len(emails), limite_mensagens)
+            for e in emails:
+                logger.info(
+                    "  id=%s thread=%s assunto=%r remetente=%r data=%s anexos=%s link=%s",
+                    e.id_email, e.thread_id, e.assunto, e.remetente, e.data, e.anexos, e.link,
+                )
+                marcadores_presentes = extrair_marcadores_presentes(e.labels)
+                tem_anexo_oc = any(parece_ordem_compra(nome_anexo) for nome_anexo in e.anexos)
+                classificacao = classificar_email_venda(marcadores_presentes, tem_anexo_oc)
+                logger.info(
+                    "    VENDEDORA=%s TEM_MARCADOR_PEDIDO=%s TEM_MARCADOR_CANCELADO=%s "
+                    "TEM_ANEXO_ORDEM_COMPRA=%s STATUS_EMAIL=%s CONSIDERAR_VENDA=%s "
+                    "MOTIVO_EXCLUSAO=%s STATUS_REVISAO=%s DATA_VENDA=%s",
+                    classificacao.vendedora, classificacao.tem_marcador_pedido, classificacao.tem_marcador_cancelado,
+                    classificacao.tem_anexo_ordem_compra, classificacao.status_email, classificacao.considerar_venda,
+                    classificacao.motivo_exclusao or "-", classificacao.status_revisao or "-",
+                    "indisponível (anexo não baixado nesta ação — use baixar-anexos-amostra)",
+                )
+        return 0
+
+    if args.acao_gmail == "baixar-anexos-amostra":
+        pasta_anexos = Path(config.ANEXOS_DIR)
+        limite_anexos = args.limite_pedidos
+        for nome in marcadores_alvo:
+            label_id = resolucao.get(nome)
+            if not label_id:
+                logger.warning("Marcador '%s' não encontrado — pulando.", nome)
+                continue
+            caminhos = cliente.baixar_anexos_amostra(
+                label_id=label_id, label_nome=nome, pasta_anexos=pasta_anexos,
+                limite_mensagens=limite_mensagens, limite_anexos_por_mensagem=limite_anexos,
+            )
+            logger.info("Marcador '%s': %d anexo(s) baixado(s) para %s", nome, len(caminhos), pasta_anexos)
+            for caminho in caminhos:
+                logger.info("  salvo: %s", caminho)
+                if parece_ordem_compra(caminho.name):
+                    try:
+                        oc = parse_pdf_oc(caminho)
+                        logger.info(
+                            "    OC reconhecida: numero_oc=%s DATA_VENDA=%s (metodo=%s)",
+                            oc.numero_oc, oc.data_oc, oc.metodo_extracao,
+                        )
+                        for aviso in oc.avisos:
+                            logger.warning("    aviso parser OC: %s", aviso)
+                    except Exception as exc:
+                        logger.warning("    Falha ao parsear possível OC %s: %s", caminho.name, exc)
+        return 0
+
+    return 2
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    _configurar_logging()
+
+    if args.gmail_real and args.somente_local:
+        logger.error("Escolha apenas um modo: --somente-local OU --gmail-real, não os dois.")
+        return 2
+
+    if args.gmail_real:
+        return _executar_modo_gmail_real(args)
+
+    if args.somente_local:
+        return _executar_modo_local(args)
+
+    logger.error(
+        "Nenhum modo informado. Rode com --somente-local --manifesto-local <arquivo> "
+        "ou --gmail-real --dry-run --acao-gmail <acao> (com limite explícito)."
+    )
+    return 2
 
 
 if __name__ == "__main__":

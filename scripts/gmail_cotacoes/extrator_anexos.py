@@ -1,19 +1,39 @@
 """Localização e cópia de anexos entre pastas locais do robô.
 
 Em modo --somente-local os "anexos" já existem em disco (pasta de
-amostras). Este módulo só resolve caminhos e copia para
-data/gmail_cotacoes/anexos/ quando necessário — não baixa nada da
-internet nem do Gmail.
+amostras) — localizar_anexo/copiar_para_anexos só resolvem caminhos e
+copiam entre pastas locais, sem tocar no Gmail.
+
+Em modo --gmail-real, salvar_anexo_gmail grava em disco os bytes que
+gmail_client.py já baixou da API (esta função não faz nenhuma chamada de
+rede), em uma subpasta por marcador e por mensagem, sem nunca sobrescrever
+um arquivo existente.
 """
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
+
+from perfil_tecnico import normalizar_texto
+
+_RE_TERMO_OC_ISOLADO = re.compile(r"\bOC\b")
 
 
 class AnexoNaoEncontradoError(FileNotFoundError):
     pass
+
+
+def parece_ordem_compra(nome_arquivo: str) -> bool:
+    """Heurística por NOME do arquivo — usada quando o anexo ainda não foi
+    baixado/parseado (ex.: ação buscar-amostra, que só lista metadados).
+    Não confunde com a extração real de dados feita por parser_pdf_oc.py.
+    """
+    nome_norm = normalizar_texto(Path(nome_arquivo).stem)
+    if "ORDEM DE COMPRA" in nome_norm or "ORDEM COMPRA" in nome_norm:
+        return True
+    return bool(_RE_TERMO_OC_ISOLADO.search(nome_norm))
 
 
 def localizar_anexo(nome_arquivo: str, pasta_busca: Path) -> Path:
@@ -41,4 +61,25 @@ def copiar_para_anexos(caminho_origem: Path, pasta_anexos: Path) -> Path:
     if destino.resolve() == caminho_origem.resolve():
         return destino
     shutil.copy2(caminho_origem, destino)
+    return destino
+
+
+def salvar_anexo_gmail(pasta_anexos: Path, label: str, message_id: str, nome_arquivo: str, conteudo: bytes) -> Path:
+    """Grava um anexo já baixado da Gmail API em data/gmail_cotacoes/anexos/<label>/<message_id>/.
+
+    Nunca sobrescreve: se o nome já existir na subpasta, acrescenta um
+    sufixo numérico (_2, _3, ...) até achar um nome livre.
+    """
+    destino_dir = pasta_anexos / label / message_id
+    destino_dir.mkdir(parents=True, exist_ok=True)
+
+    caminho = Path(nome_arquivo)
+    base, ext = caminho.stem, caminho.suffix
+    destino = destino_dir / nome_arquivo
+    contador = 2
+    while destino.exists():
+        destino = destino_dir / f"{base}_{contador}{ext}"
+        contador += 1
+
+    destino.write_bytes(conteudo)
     return destino

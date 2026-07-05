@@ -1,6 +1,6 @@
 """Correlação e-mail cotação <-> e-mail pedido, e cruzamento de itens.
 
-Duas responsabilidades bem separadas:
+Três responsabilidades bem separadas:
 
 1. calcular_score_email(...): decide o quão confiável é dizer que um
    e-mail no marcador PEDIDO corresponde a um e-mail de cotação de uma
@@ -13,6 +13,12 @@ Duas responsabilidades bem separadas:
    de Compra, usando similaridade textual (rapidfuzz) E o perfil técnico
    (perfil_tecnico.py) para nunca marcar GANHO automático quando há
    conflito técnico (calibre, volume, tamanho etc. diferentes).
+
+3. classificar_email_venda(...): regra de negócio final sobre quando um
+   e-mail conta como venda confirmada. A vendedora vem SEMPRE do marcador
+   do Gmail (nunca adivinhada por PDF/cliente/assunto/texto). CANCELADO
+   sempre exclui a venda, mesmo com PEDIDO + OC presentes. Ver docstring
+   da função para a tabela completa de casos.
 """
 
 from __future__ import annotations
@@ -313,3 +319,97 @@ def cruzar_itens(itens_cotados: list, itens_oc: list) -> list[ItemCruzado]:
         ))
 
     return resultado
+
+
+# ---------------------------------------------------------------------------
+# Classificação de venda (regra final de negócio, Fase 2)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ClassificacaoEmailVenda:
+    vendedora: str
+    tem_marcador_pedido: bool
+    tem_marcador_cancelado: bool
+    tem_anexo_ordem_compra: bool
+    status_email: str
+    considerar_venda: str  # "SIM" | "NAO"
+    motivo_exclusao: str
+    status_revisao: str
+
+
+def extrair_marcadores_presentes(labels_email: list[str]) -> set[str]:
+    """Resolve nomes de label do Gmail (podem vir hierárquicos, ex.
+    "Vendedoras/STHEFANY", com acento/caixa variados) para o conjunto de
+    marcadores canônicos reconhecidos: JESSICA, STHEFANY, PAMELA, LAYANE,
+    PEDIDO, CANCELADO (config.MARCADORES_OBRIGATORIOS).
+    """
+    candidatos_normalizados = set()
+    for nome_label in labels_email:
+        candidatos_normalizados.add(normalizar_texto(nome_label))
+        for segmento in nome_label.split("/"):
+            candidatos_normalizados.add(normalizar_texto(segmento))
+
+    return {
+        marcador for marcador in config.MARCADORES_OBRIGATORIOS
+        if normalizar_texto(marcador) in candidatos_normalizados
+    }
+
+
+def classificar_email_venda(labels_presentes: set[str] | list[str], tem_anexo_ordem_compra: bool) -> ClassificacaoEmailVenda:
+    """Regra final de negócio — quando um e-mail conta como venda confirmada.
+
+    A vendedora vem SEMPRE do marcador do Gmail presente em
+    `labels_presentes` (JESSICA/STHEFANY/PAMELA/LAYANE) — nunca adivinhada
+    por PDF, cliente, assunto ou texto. `tem_anexo_ordem_compra` deve vir
+    de reconhecimento de anexo (extrator_anexos.parece_ordem_compra ou,
+    melhor ainda, de um parse_pdf_oc bem-sucedido), nunca do assunto.
+
+    Tabela de casos (critérios de aceite):
+    - PEDIDO + OC, sem CANCELADO           -> VENDA_CONFIRMADA, CONSIDERAR_VENDA=SIM
+    - PEDIDO + OC + CANCELADO              -> CANCELADO, CONSIDERAR_VENDA=NAO (CANCELADO sempre vence)
+    - OC sem PEDIDO                        -> POSSIVEL_PEDIDO_REVISAR, CONSIDERAR_VENDA=NAO
+    - PEDIDO sem OC reconhecida            -> PEDIDO_SEM_OC_RECONHECIDA, CONSIDERAR_VENDA=NAO
+    - PEDIDO + OC sem marcador de vendedora -> VENDA_CONFIRMADA, VENDEDORA=SEM_VENDEDORA,
+                                               STATUS_REVISAO=REVISAR_VENDEDORA
+    """
+    labels_presentes = set(labels_presentes)
+    vendedoras_presentes = [v for v in config.VENDEDORAS if v in labels_presentes]
+    vendedora = vendedoras_presentes[0] if vendedoras_presentes else config.SEM_VENDEDORA
+
+    tem_pedido = config.MARCADOR_PEDIDO in labels_presentes
+    tem_cancelado = config.MARCADOR_CANCELADO in labels_presentes
+
+    if tem_cancelado:
+        return ClassificacaoEmailVenda(
+            vendedora=vendedora, tem_marcador_pedido=tem_pedido, tem_marcador_cancelado=True,
+            tem_anexo_ordem_compra=tem_anexo_ordem_compra, status_email="CANCELADO",
+            considerar_venda="NAO", motivo_exclusao="MARCADOR_CANCELADO", status_revisao="",
+        )
+
+    if tem_pedido and tem_anexo_ordem_compra:
+        status_revisao = "REVISAR_VENDEDORA" if vendedora == config.SEM_VENDEDORA else ""
+        return ClassificacaoEmailVenda(
+            vendedora=vendedora, tem_marcador_pedido=True, tem_marcador_cancelado=False,
+            tem_anexo_ordem_compra=True, status_email="VENDA_CONFIRMADA",
+            considerar_venda="SIM", motivo_exclusao="", status_revisao=status_revisao,
+        )
+
+    if tem_anexo_ordem_compra and not tem_pedido:
+        return ClassificacaoEmailVenda(
+            vendedora=vendedora, tem_marcador_pedido=False, tem_marcador_cancelado=False,
+            tem_anexo_ordem_compra=True, status_email="POSSIVEL_PEDIDO_REVISAR",
+            considerar_venda="NAO", motivo_exclusao="OC_SEM_MARCADOR_PEDIDO", status_revisao="REVISAR_PEDIDO",
+        )
+
+    if tem_pedido and not tem_anexo_ordem_compra:
+        return ClassificacaoEmailVenda(
+            vendedora=vendedora, tem_marcador_pedido=True, tem_marcador_cancelado=False,
+            tem_anexo_ordem_compra=False, status_email="PEDIDO_SEM_OC_RECONHECIDA",
+            considerar_venda="NAO", motivo_exclusao="SEM_ANEXO_ORDEM_COMPRA", status_revisao="",
+        )
+
+    return ClassificacaoEmailVenda(
+        vendedora=vendedora, tem_marcador_pedido=False, tem_marcador_cancelado=False,
+        tem_anexo_ordem_compra=False, status_email="SEM_CLASSIFICACAO",
+        considerar_venda="NAO", motivo_exclusao="SEM_MARCADOR_PEDIDO_E_SEM_ANEXO_OC", status_revisao="",
+    )

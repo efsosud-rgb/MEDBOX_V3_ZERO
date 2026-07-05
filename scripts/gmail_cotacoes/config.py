@@ -21,6 +21,20 @@ LOGS_DIR = BASE_DIR / "logs" / "gmail_cotacoes"
 
 VENDEDORAS = ["JESSICA", "STHEFANY", "PAMELA", "LAYANE"]
 MARCADOR_PEDIDO = "PEDIDO"
+MARCADOR_CANCELADO = "CANCELADO"
+MARCADORES_OBRIGATORIOS = VENDEDORAS + [MARCADOR_PEDIDO, MARCADOR_CANCELADO]
+
+# Vendedora usada quando um e-mail tem PEDIDO + OC mas nenhum marcador de
+# vendedora (JESSICA/STHEFANY/PAMELA/LAYANE) — nunca adivinhada por PDF,
+# cliente ou assunto. Ver correlacionador.classificar_email_venda.
+SEM_VENDEDORA = "SEM_VENDEDORA"
+
+# Gmail API — modo SOMENTE LEITURA. Nunca ampliar este escopo sem revisar
+# gmail_client.py inteiro (o cliente valida ativamente que o token só tem
+# este escopo e recusa prosseguir se detectar qualquer escopo a mais).
+GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+CREDENTIALS_PATH = BASE_DIR / "credentials.json"
+TOKEN_GMAIL_PATH = BASE_DIR / "token_gmail.json"
 
 # Pesos do score composto de correlação e-mail cotação <-> e-mail pedido.
 # A soma não precisa ser 1.0 — o total é normalizado em correlacionador.py.
@@ -53,7 +67,7 @@ LIMIAR_SIMILARIDADE_REVISAR = 60
 
 COLUNAS_RELATORIO_COTACOES = [
     "VENDEDORA", "CLIENTE", "CATEGORIA", "COTACAO", "MES_REFERENCIA",
-    "DATA_COTACAO", "NUMERO_OC", "DATA_OC",
+    "DATA_COTACAO", "NUMERO_OC", "DATA_OC", "DATA_VENDA",
     "TOTAL_ITENS_COTADOS", "TOTAL_ITENS_GANHOS", "TOTAL_ITENS_PERDIDOS",
     "TOTAL_ITENS_NAO_COTADOS", "TOTAL_ITENS_REVISAR",
     "PERC_ITENS_GANHOS", "PERC_ITENS_NAO_COTADOS",
@@ -61,6 +75,8 @@ COLUNAS_RELATORIO_COTACOES = [
     "SCORE_EMAIL_TOTAL", "SCORE_EMAIL_ASSUNTO", "SCORE_EMAIL_CLIENTE",
     "SCORE_EMAIL_CATEGORIA", "SCORE_EMAIL_MES", "SCORE_EMAIL_DATA", "SCORE_EMAIL_ITENS",
     "CONFIANCA_CORRELACAO_EMAIL", "MOTIVO_CORRELACAO_EMAIL",
+    "TEM_MARCADOR_PEDIDO", "TEM_MARCADOR_CANCELADO", "TEM_ANEXO_ORDEM_COMPRA",
+    "STATUS_EMAIL", "CONSIDERAR_VENDA", "MOTIVO_EXCLUSAO", "STATUS_REVISAO",
     "LINK_EMAIL_COTACAO", "LINK_EMAIL_PEDIDO",
 ]
 

@@ -9,8 +9,8 @@ rapidfuzz
 pdfplumber
 pymupdf
 
-# Necessárias somente quando a integração real com a Gmail API for
-# autorizada e implementada (não usadas em modo --somente-local):
+# Necessárias apenas para --gmail-real (não usadas em --somente-local).
+# Escopo OAuth único e obrigatório: https://www.googleapis.com/auth/gmail.readonly
 google-api-python-client
 google-auth
 google-auth-oauthlib

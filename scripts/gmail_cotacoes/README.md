@@ -1,21 +1,24 @@
 # Robô Gmail Cotações — MedBox
 
 Analisa cotações recebidas por e-mail, cruzando os marcadores das vendedoras
-(JESSICA, STHEFANY, PAMELA, LAYANE) com o marcador PEDIDO, e gera relatórios
-de vendas/cotações por vendedor, cliente e cotação.
+(JESSICA, STHEFANY, PAMELA, LAYANE) com os marcadores PEDIDO e CANCELADO, e
+gera relatórios de vendas/cotações por vendedor, cliente e cotação.
 
-**Estado atual: modo local apenas.** A integração real com a Gmail API
-(`gmail_client.py`) não foi configurada — não há credenciais, OAuth, leitura
-ou envio de e-mail. O robô roda hoje a partir de um manifesto JSON local que
-descreve os e-mails/anexos (ver `manifesto_local.py`).
+**Estado atual: Fase 1 (modo local) + Fase 2 (Gmail real, SOMENTE LEITURA
+de diagnóstico).** O modo local (manifesto JSON + anexos em disco) continua
+sendo o caminho padrão e totalmente funcional. O modo `--gmail-real` fala
+com a Gmail API de verdade, mas só para diagnóstico controlado (listar
+labels, verificar marcadores, buscar amostra de e-mails, baixar amostra de
+anexos) — nunca envia, responde, arquiva, apaga ou altera labels. Escopo
+OAuth único: `https://www.googleapis.com/auth/gmail.readonly`.
 
 ## Arquitetura
 
 | Arquivo | Papel |
 |---|---|
-| `config.py` | Caminhos, pesos de score, limiares de classificação |
-| `gmail_client.py` | Interface da Gmail API — **placeholder**, levanta erro se usado |
-| `extrator_anexos.py` | Localiza/copia anexos entre pastas locais |
+| `config.py` | Caminhos, pesos de score, limiares de classificação, escopo/paths OAuth |
+| `gmail_client.py` | Cliente Gmail real, somente leitura (OAuth, labels, busca, download de anexo) |
+| `extrator_anexos.py` | Localiza/copia anexos locais e salva anexos baixados da Gmail API |
 | `parser_excel_cotacao.py` | Fonte **primária** dos itens cotados (Excel ERP, estruturado) |
 | `parser_pdf_proposta.py` | Fonte **secundária**/informativa dos itens (PDF, best-effort) |
 | `parser_pdf_oc.py` | Itens da Ordem de Compra (PDF) |
@@ -83,6 +86,42 @@ esterilidade, presença de pó e tipo de conector Luer. Só bloqueia o match
 quando os DOIS lados têm o atributo E os valores divergem — ausência de
 informação em um dos lados não bloqueia.
 
+## Regra de negócio final: quando um e-mail conta como venda (`classificar_email_venda`)
+
+Marcadores monitorados: `JESSICA`, `STHEFANY`, `PAMELA`, `LAYANE`, `PEDIDO`,
+`CANCELADO` (`config.MARCADORES_OBRIGATORIOS`).
+
+| Marcadores/anexo do e-mail | STATUS_EMAIL | CONSIDERAR_VENDA | Observação |
+|---|---|---|---|
+| PEDIDO + OC reconhecida, sem CANCELADO | `VENDA_CONFIRMADA` | SIM | — |
+| PEDIDO + OC reconhecida + CANCELADO | `CANCELADO` | NAO | CANCELADO sempre vence, mesmo com PEDIDO+OC |
+| OC reconhecida, sem PEDIDO | `POSSIVEL_PEDIDO_REVISAR` | NAO | pode ser erro de marcação manual |
+| PEDIDO, sem OC reconhecida | `PEDIDO_SEM_OC_RECONHECIDA` | NAO | — |
+| PEDIDO + OC, sem marcador de vendedora | `VENDA_CONFIRMADA` | SIM | `VENDEDORA=SEM_VENDEDORA`, `STATUS_REVISAO=REVISAR_VENDEDORA` |
+
+Duas regras não-negociáveis:
+- **VENDEDORA vem sempre do marcador do Gmail** (JESSICA/STHEFANY/PAMELA/
+  LAYANE) — nunca adivinhada por PDF, cliente, assunto ou texto do e-mail.
+  Sem marcador de vendedora → `VENDEDORA=SEM_VENDEDORA`.
+- **DATA_VENDA vem sempre da data de EMISSÃO da Ordem de Compra** (o
+  cabeçalho "Cidade, DD/MM/AAAA" do PDF, ver `parser_pdf_oc._RE_DATA_OC`) —
+  nunca da data de entrega, da cotação, ou de recebimento do e-mail.
+
+"OC reconhecida" nas ações de diagnóstico (`buscar-amostra`) é uma
+heurística por NOME do anexo (`extrator_anexos.parece_ordem_compra` —
+procura "ORDEM DE COMPRA" ou o token isolado "OC"), já que essa ação não
+baixa anexo algum. Em `baixar-anexos-amostra`, depois de baixar, o anexo
+reconhecido é de fato parseado (`parser_pdf_oc.parse_pdf_oc`) para obter
+`DATA_VENDA` real. No modo local (manifesto), o par cotação/pedido já é
+por construção uma venda confirmada — `RELATORIO_COTACOES` usa
+`classificar_email_venda({vendedora_do_caso, "PEDIDO"}, tem_anexo_ordem_compra=True)`
+para preencher os mesmos campos de forma consistente com o modo real.
+
+`POSSIVEIS_PEDIDOS_REVISAR` (aba nova) reúne as linhas de
+`RELATORIO_COTACOES` com `STATUS_EMAIL` em
+`POSSIVEL_PEDIDO_REVISAR`/`PEDIDO_SEM_OC_RECONHECIDA`, ou
+`STATUS_REVISAO=REVISAR_VENDEDORA`.
+
 ## Uso (modo local)
 
 ```
@@ -97,17 +136,68 @@ python scripts/gmail_cotacoes/main.py --somente-local \
 Saídas geradas:
 - `<saida>.xlsx` com abas EMAILS_COTACOES, EMAILS_PEDIDOS, ITENS_COTADOS,
   ITENS_PEDIDOS, CRUZAMENTO_ITENS, RELATORIO_COTACOES,
-  ITENS_CRITICOS_PERDIDOS, ITENS_REVISAR, DASHBOARD_BASE
+  ITENS_CRITICOS_PERDIDOS, ITENS_REVISAR, DASHBOARD_BASE,
+  POSSIVEIS_PEDIDOS_REVISAR
 - `<saida>_resumo.txt`
 - CSVs equivalentes em `data/gmail_cotacoes/relatorios/csv/`
 
-## O que falta para a Gmail API real
+## Uso (Gmail real — diagnóstico somente leitura)
 
-- Criar projeto no Google Cloud, habilitar Gmail API, gerar `credentials.json`
-  (OAuth client — Desktop app).
-- Implementar o fluxo OAuth2 em `gmail_client.py` (google-auth-oauthlib),
-  persistindo o token em `token_gmail.json` (git-ignorado).
-- Implementar `listar_emails_por_marcador` (Gmail API `users.messages.list`
-  com filtro de label) e `baixar_anexo` (`users.messages.attachments.get`).
-- Nenhuma dessas credenciais/arquivos deve ser commitada — já protegidos no
-  `.gitignore` da raiz do projeto.
+Pré-requisito: `credentials.json` (OAuth client tipo **Desktop app**, criado
+no Google Cloud Console com a Gmail API habilitada e o escopo
+`gmail.readonly`) salvo na raiz do projeto. Nunca commitar esse arquivo —
+já está no `.gitignore`.
+
+`--gmail-real` sempre exige `--dry-run` **e** pelo menos um limite
+(`--limite-cotacoes` e/ou `--limite-pedidos`) — o robô se recusa a rodar
+contra a Gmail API real sem os dois, para nunca varrer a caixa inteira por
+acidente.
+
+```
+# 1. Listar todos os labels da conta (para confirmar nomes/hierarquia reais)
+python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \
+    --acao-gmail listar-labels
+
+# 2. Verificar se JESSICA/STHEFANY/PAMELA/LAYANE/PEDIDO existem como label
+python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \
+    --acao-gmail verificar-marcadores
+
+# 3. Buscar amostra de e-mails de um marcador (sem baixar anexo nenhum)
+python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 \
+    --acao-gmail buscar-amostra --marcador STHEFANY
+
+# 4. Baixar amostra de anexos de um marcador (grava em data/gmail_cotacoes/anexos/<marcador>/<message_id>/)
+python scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 --limite-pedidos 1 \
+    --acao-gmail baixar-anexos-amostra --marcador PEDIDO
+```
+
+No primeiro uso, `flow.run_local_server()` abre o navegador para a tela de
+consentimento OAuth do Google e, ao autorizar, grava `token_gmail.json` na
+raiz do projeto (também git-ignorado). Nas próximas execuções o token é
+reaproveitado/renovado automaticamente. `gmail_client.py` valida em tempo
+de execução que o token só tem o escopo `gmail.readonly` — se detectar
+qualquer escopo além desse, recusa a operação e orienta a apagar o token e
+gerar um novo.
+
+### O que este modo NUNCA faz
+
+Enviar/responder e-mail, criar rascunho, alterar labels, arquivar, apagar
+ou marcar mensagens como lidas/não lidas. `gmail_client.py` não implementa
+nenhum desses métodos — só leitura (`labels.list`, `messages.list`,
+`messages.get`, `messages.attachments.get`).
+
+### Sobre o corpo do e-mail
+
+Para listar nomes de anexo, a Gmail API exige `format="full"` (o formato
+`metadata` não expõe a árvore MIME). Mesmo assim, o código nunca lê o
+campo `body.data` de nenhuma parte do e-mail (é onde ficaria o texto do
+corpo) — só cabeçalhos (Subject/From/Date), o `snippet` curto que a própria
+API já devolve, e metadados de anexo (nome, mimeType, attachmentId,
+tamanho). Ver `_extrair_metadados_anexos` em `gmail_client.py`.
+
+## O que ainda falta para produção real (fora do escopo desta fase)
+
+- Processamento em massa (hoje é só diagnóstico com amostra pequena).
+- Persistir o resultado da correlação/cruzamento a partir de e-mails reais
+  no pipeline de relatórios (hoje isso só existe para o manifesto local).
+- Rotação/expiração de token em ambiente não-interativo (ex.: agendador).

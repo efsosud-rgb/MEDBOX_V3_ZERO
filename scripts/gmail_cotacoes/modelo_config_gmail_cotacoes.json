@@ -2,6 +2,9 @@
   "_comentario": "Modelo de configuração do robô Gmail Cotações. Copie para um arquivo próprio (git-ignorado se contiver dados sensíveis) e ajuste os valores. Nenhum campo aqui é uma credencial.",
   "vendedoras": ["JESSICA", "STHEFANY", "PAMELA", "LAYANE"],
   "marcador_pedido": "PEDIDO",
+  "gmail_oauth_scope": "https://www.googleapis.com/auth/gmail.readonly",
+  "gmail_credentials_json": "credentials.json",
+  "gmail_token_json": "token_gmail.json",
   "pesos_score_email": {
     "cliente": 0.28,
     "categoria": 0.14,
