@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import date
 from pathlib import Path
 
 import config
@@ -74,14 +75,28 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     p.add_argument("--gmail-real", action="store_true", help="Ativa diagnóstico SOMENTE LEITURA contra a Gmail API real (nunca envia/altera/apaga nada)")
     p.add_argument("--acao-gmail", type=str, default=None,
-                    choices=["listar-labels", "verificar-marcadores", "buscar-amostra", "baixar-anexos-amostra"],
+                    choices=["listar-labels", "verificar-marcadores", "buscar-amostra", "baixar-anexos-amostra", "contar-por-periodo"],
                     help="Ação de diagnóstico do modo --gmail-real")
     p.add_argument("--marcador", type=str, default=None,
                     help="Restringe buscar-amostra/baixar-anexos-amostra a um marcador (JESSICA/STHEFANY/PAMELA/LAYANE/PEDIDO/CANCELADO). Padrão: todos")
+    p.add_argument("--data-inicio", type=str, default=None,
+                    help="Filtro pela data do e-mail no Gmail, formato YYYY-MM-DD (nao altera DATA_VENDA da OC)")
+    p.add_argument("--data-fim", type=str, default=None,
+                    help="Filtro pela data do e-mail no Gmail, formato YYYY-MM-DD, inclusivo (nao altera DATA_VENDA da OC)")
     p.add_argument("--credentials-json", type=str, default=str(config.CREDENTIALS_PATH), help="Caminho do credentials.json OAuth")
     p.add_argument("--token-gmail", type=str, default=str(config.TOKEN_GMAIL_PATH), help="Caminho do token_gmail.json")
 
     return p.parse_args(argv)
+
+
+def _validar_periodo_datas(data_inicio: str | None, data_fim: str | None) -> None:
+    try:
+        inicio = date.fromisoformat(data_inicio) if data_inicio else None
+        fim = date.fromisoformat(data_fim) if data_fim else None
+    except ValueError as exc:
+        raise ValueError("Datas devem usar o formato YYYY-MM-DD.") from exc
+    if inicio and fim and inicio > fim:
+        raise ValueError("--data-inicio nao pode ser maior que --data-fim.")
 
 
 def _processar_caso(caso, pasta_amostras: Path, limite_pedidos: int | None) -> dict:
@@ -187,14 +202,20 @@ def _executar_modo_gmail_real(args: argparse.Namespace) -> int:
         logger.error("--gmail-real exige limite explícito: --limite-cotacoes e/ou --limite-pedidos.")
         return 2
     if not args.acao_gmail:
-        logger.error("--gmail-real exige --acao-gmail {listar-labels|verificar-marcadores|buscar-amostra|baixar-anexos-amostra}.")
+        logger.error("--gmail-real exige --acao-gmail {listar-labels|verificar-marcadores|buscar-amostra|baixar-anexos-amostra|contar-por-periodo}.")
+        return 2
+    try:
+        _validar_periodo_datas(args.data_inicio, args.data_fim)
+    except ValueError as exc:
+        logger.error("%s", exc)
         return 2
 
-    from gmail_client import GmailClient, GmailClientError
+    from gmail_client import GmailClient, GmailClientError, montar_query_gmail_periodo
 
     logger.info(
-        "Modo: GMAIL REAL (SOMENTE LEITURA, escopo %s) | acao=%s | dry-run=%s | limite_cotacoes=%s | limite_pedidos=%s",
+        "Modo: GMAIL REAL (SOMENTE LEITURA, escopo %s) | acao=%s | dry-run=%s | limite_cotacoes=%s | limite_pedidos=%s | data_inicio=%s | data_fim=%s",
         config.GMAIL_READONLY_SCOPE, args.acao_gmail, args.dry_run, args.limite_cotacoes, args.limite_pedidos,
+        args.data_inicio or "-", args.data_fim or "-",
     )
 
     try:
@@ -224,13 +245,37 @@ def _executar_modo_gmail_real(args: argparse.Namespace) -> int:
     limite_mensagens = args.limite_cotacoes or args.limite_pedidos or 1
     resolucao = cliente.resolver_labels(marcadores_alvo)
 
+    if args.acao_gmail == "contar-por-periodo":
+        for nome in marcadores_alvo:
+            label_id = resolucao.get(nome)
+            if not label_id:
+                logger.warning("Marcador '%s' não encontrado — pulando.", nome)
+                continue
+            query = montar_query_gmail_periodo(nome, args.data_inicio, args.data_fim)
+            emails = cliente.listar_emails_por_marcador(
+                label_id, marcador_nome=nome, limite=limite_mensagens,
+                data_inicio=args.data_inicio, data_fim=args.data_fim,
+            )
+            logger.info("Query Gmail: %s", query)
+            logger.info("Marcador: %s | periodo: %s a %s | limite=%d | retornados=%d",
+                        nome, args.data_inicio or "-", args.data_fim or "-", limite_mensagens, len(emails))
+            for e in emails:
+                logger.info("  id=%s thread=%s data=%s assunto=%r", e.id_email, e.thread_id, e.data, e.assunto)
+        logger.info("Diagnóstico concluído: Gmail não alterado, nenhum anexo baixado, nada persistido.")
+        return 0
+
     if args.acao_gmail == "buscar-amostra":
         for nome in marcadores_alvo:
             label_id = resolucao.get(nome)
             if not label_id:
                 logger.warning("Marcador '%s' não encontrado — pulando.", nome)
                 continue
-            emails = cliente.listar_emails_por_marcador(label_id, marcador_nome=nome, limite=limite_mensagens)
+            query = montar_query_gmail_periodo(nome, args.data_inicio, args.data_fim)
+            logger.info("Query Gmail: %s", query)
+            emails = cliente.listar_emails_por_marcador(
+                label_id, marcador_nome=nome, limite=limite_mensagens,
+                data_inicio=args.data_inicio, data_fim=args.data_fim,
+            )
             logger.info("Marcador '%s': %d e-mail(s) encontrados (limite=%d)", nome, len(emails), limite_mensagens)
             for e in emails:
                 logger.info(

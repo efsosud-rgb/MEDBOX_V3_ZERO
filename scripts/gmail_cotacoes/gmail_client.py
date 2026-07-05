@@ -30,6 +30,7 @@ from __future__ import annotations
 import base64
 import email.utils
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 
 import config
@@ -66,6 +67,36 @@ class CredenciaisNaoEncontradasError(GmailClientError):
 
 class EscopoGmailInvalidoError(GmailClientError):
     pass
+
+
+def _parse_data_iso(valor: str | None) -> date | None:
+    if not valor:
+        return None
+    try:
+        return date.fromisoformat(valor)
+    except ValueError as exc:
+        raise ValueError(f"Data invalida '{valor}'. Use o formato YYYY-MM-DD.") from exc
+
+
+def montar_query_gmail_periodo(marcador_nome: str, data_inicio: str | None = None, data_fim: str | None = None) -> str:
+    """Monta a query Gmail por marcador e data do e-mail.
+
+    `before:` e exclusivo no Gmail; data_fim e somada em 1 dia para incluir
+    todo o ultimo dia informado. Este filtro nao altera DATA_VENDA, que
+    continua vindo da Ordem de Compra.
+    """
+    inicio = _parse_data_iso(data_inicio)
+    fim = _parse_data_iso(data_fim)
+    if inicio and fim and inicio > fim:
+        raise ValueError("--data-inicio nao pode ser maior que --data-fim.")
+
+    partes = [f"label:{marcador_nome}"]
+    if inicio:
+        partes.append(f"after:{inicio.strftime('%Y/%m/%d')}")
+    if fim:
+        fim_exclusivo = fim + timedelta(days=1)
+        partes.append(f"before:{fim_exclusivo.strftime('%Y/%m/%d')}")
+    return " ".join(partes)
 
 
 def _extrair_cabecalhos(payload: dict) -> dict:
@@ -197,12 +228,20 @@ class GmailClient:
     def _obter_mensagem(self, message_id: str) -> dict:
         return self._service.users().messages().get(userId="me", id=message_id, format="full").execute()
 
-    def listar_emails_por_marcador(self, label_id: str, marcador_nome: str, limite: int) -> list[EmailGmail]:
+    def listar_emails_por_marcador(
+        self,
+        label_id: str,
+        marcador_nome: str,
+        limite: int,
+        data_inicio: str | None = None,
+        data_fim: str | None = None,
+    ) -> list[EmailGmail]:
         if not limite or limite <= 0:
             raise ValueError("listar_emails_por_marcador exige um limite positivo explícito.")
 
+        query = montar_query_gmail_periodo(marcador_nome, data_inicio, data_fim)
         resposta = self._service.users().messages().list(
-            userId="me", labelIds=[label_id], maxResults=limite,
+            userId="me", labelIds=[label_id], q=query, maxResults=limite,
         ).execute()
 
         mapa_labels = self._mapa_labels()
