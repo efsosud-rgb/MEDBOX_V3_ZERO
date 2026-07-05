@@ -442,6 +442,14 @@
         return currency.format(Number.isFinite(n) ? n : 0);
     }
 
+    function formatCount(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) {
+            return "";
+        }
+        return n === 1 ? "1 registro" : `${n} registros`;
+    }
+
     function formatDate(value) {
         if (!value) {
             return "-";
@@ -512,18 +520,20 @@
         return query ? `${path}?${query}` : path;
     }
 
-    function renderList(containerId, rows, labelKeys, valueKeys, subKeys) {
+    function renderList(containerId, rows, labelKeys, valueKeys, subKeys, emptyMessage) {
         const container = el(containerId);
         if (!container) {
             return;
         }
         if (!rows.length) {
-            container.innerHTML = `<div class="gmail-empty">Nenhum dado encontrado</div>`;
+            container.innerHTML = `<div class="gmail-empty">${escapeHtml(emptyMessage || "Nenhum dado encontrado")}</div>`;
             return;
         }
         container.innerHTML = rows.map((row) => {
             const label = stringFrom(row, labelKeys) || "-";
-            const sub = stringFrom(row, subKeys || []);
+            const subText = stringFrom(row, subKeys || []);
+            const quantity = numberFrom(row, ["quantidade", "total_registros", "registros", "qtd"]);
+            const sub = subText || (quantity ? formatCount(quantity) : "");
             const amount = numberFrom(row, valueKeys);
             return `
                 <div class="gmail-list-row">
@@ -546,9 +556,30 @@
         text("card-cancelados", numberFrom(indicadores, ["cancelados", "total_cancelados"]));
         text("card-sem-vendedora", numberFrom(indicadores, ["sem_vendedora", "total_sem_vendedora"]));
 
-        renderList("vendas-vendedora", toArray(payload, ["vendas_por_vendedora", "por_vendedora"]), ["vendedora", "VENDEDORA"], ["valor_total", "valor_total_vendido", "total"]);
-        renderList("vendas-mes", toArray(payload, ["vendas_por_mes", "por_mes"]), ["mes", "MES", "data_venda"], ["valor_total", "valor_total_vendido", "total"]);
-        renderList("ranking-clientes", toArray(payload, ["ranking_clientes", "clientes"]), ["cliente", "CLIENTE"], ["valor_total", "valor_total_vendido", "total"], ["quantidade", "registros"]);
+        renderList(
+            "vendas-vendedora",
+            toArray(payload, ["vendas_por_vendedora", "por_vendedora"]),
+            ["vendedora", "VENDEDORA"],
+            ["valor_total", "valor_total_vendido", "total"],
+            ["quantidade", "total_registros", "registros"],
+            "Sem dados para o periodo selecionado"
+        );
+        renderList(
+            "vendas-mes",
+            toArray(payload, ["vendas_por_mes", "por_mes"]),
+            ["mes", "MES", "data_venda"],
+            ["valor_total", "valor_total_vendido", "total"],
+            ["quantidade", "total_registros", "registros"],
+            "Sem dados para o periodo selecionado"
+        );
+        renderList(
+            "ranking-clientes",
+            toArray(payload, ["ranking_clientes", "clientes", "por_cliente"]),
+            ["cliente", "CLIENTE"],
+            ["valor_total", "valor_total_vendido", "total"],
+            ["quantidade", "total_registros", "registros"],
+            "Sem dados para o periodo selecionado"
+        );
     }
 
     function rowFromRegistro(row) {
@@ -573,7 +604,7 @@
             return;
         }
         if (!rows.length) {
-            tbody.innerHTML = `<tr><td colspan="${emptyColumns}" class="gmail-empty">Nenhum dado encontrado</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${emptyColumns}" class="gmail-empty">Sem dados para o periodo selecionado</td></tr>`;
             return;
         }
         tbody.innerHTML = rows.map(rowFromRegistro).join("");
@@ -585,7 +616,7 @@
             return;
         }
         if (!rows.length) {
-            tbody.innerHTML = `<tr><td colspan="7" class="gmail-empty">Nenhum dado encontrado</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="gmail-empty">Nenhuma pendencia encontrada</td></tr>`;
             return;
         }
         tbody.innerHTML = rows.map((row) => {
@@ -612,22 +643,31 @@
     }
 
     async function carregar() {
-        try {
-            const [indicadores, listagem, pendencias] = await Promise.all([
-                getJson(endpoint("/gmail-cotacoes/api/indicadores")),
-                getJson(endpoint("/gmail-cotacoes/api/listagem")),
-                getJson(endpoint("/gmail-cotacoes/api/pendencias"))
-            ]);
-            renderIndicadores(indicadores || {});
-            renderTable("tabela-analitica", toArray(listagem, ["dados", "itens", "registros"]), 8);
-            renderPendencias(toArray(pendencias, ["dados", "itens", "pendencias"]));
-        } catch (error) {
+        const [indicadores, listagem, pendencias] = await Promise.allSettled([
+            getJson(endpoint("/gmail-cotacoes/api/indicadores")),
+            getJson(endpoint("/gmail-cotacoes/api/listagem")),
+            getJson(endpoint("/gmail-cotacoes/api/pendencias"))
+        ]);
+
+        if (indicadores.status === "fulfilled") {
+            renderIndicadores(indicadores.value || {});
+        } else {
             renderIndicadores({});
-            renderTable("tabela-analitica", [], 8);
-            renderPendencias([]);
             renderError("vendas-vendedora", "Nao foi possivel carregar os indicadores.");
             renderError("vendas-mes", "Nao foi possivel carregar os indicadores.");
             renderError("ranking-clientes", "Nao foi possivel carregar os indicadores.");
+        }
+
+        if (listagem.status === "fulfilled") {
+            renderTable("tabela-analitica", toArray(listagem.value, ["dados", "itens", "registros"]), 8);
+        } else {
+            renderTable("tabela-analitica", [], 8);
+        }
+
+        if (pendencias.status === "fulfilled") {
+            renderPendencias(toArray(pendencias.value, ["dados", "itens", "pendencias"]));
+        } else {
+            renderPendencias([]);
         }
     }
 
