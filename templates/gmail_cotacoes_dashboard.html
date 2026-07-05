@@ -1,0 +1,698 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Gmail Cotacoes{% endblock %}
+{% block subtitle %}Analise de Vendas por Ordem de Compra{% endblock %}
+
+{% block content %}
+
+<style>
+    .gmail-dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .gmail-filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        align-items: end;
+    }
+
+    .gmail-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .gmail-field label {
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    .gmail-field input,
+    .gmail-field select {
+        width: 100%;
+        height: 38px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0 10px;
+        color: var(--text);
+        background: var(--white);
+        font-size: 0.9rem;
+    }
+
+    .gmail-field input:focus,
+    .gmail-field select:focus {
+        outline: none;
+        border-color: var(--red);
+        box-shadow: 0 0 0 3px rgba(232, 35, 74, 0.08);
+    }
+
+    .gmail-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .gmail-btn {
+        height: 38px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0 14px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .gmail-btn.primary {
+        border-color: var(--red);
+        background: var(--red);
+        color: white;
+    }
+
+    .gmail-btn.primary:hover {
+        background: var(--red-dark);
+    }
+
+    .gmail-btn.secondary {
+        background: white;
+        color: var(--text2);
+    }
+
+    .gmail-btn.secondary:hover {
+        border-color: var(--red);
+        color: var(--red);
+    }
+
+    .gmail-sections-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+    }
+
+    .gmail-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .gmail-list-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .gmail-list-row:last-child {
+        border-bottom: none;
+    }
+
+    .gmail-list-row span {
+        color: var(--text);
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+
+    .gmail-list-row small {
+        color: var(--muted);
+        display: block;
+        margin-top: 2px;
+    }
+
+    .gmail-value {
+        color: var(--text);
+        font-weight: 800;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .gmail-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .gmail-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+    }
+
+    .gmail-table th {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.5px;
+        text-align: left;
+        text-transform: uppercase;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        background: #f8fafc;
+    }
+
+    .gmail-table td {
+        color: var(--text2);
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+    }
+
+    .gmail-table td strong {
+        color: var(--text);
+    }
+
+    .gmail-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .gmail-badge.ok {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .gmail-badge.warn {
+        background: #fff8e1;
+        color: #8a5a00;
+    }
+
+    .gmail-badge.stop {
+        background: #fce4ec;
+        color: #c62828;
+    }
+
+    .gmail-badge.neutral {
+        background: #f0f4f8;
+        color: #475569;
+    }
+
+    .gmail-empty,
+    .gmail-error {
+        color: var(--muted);
+        padding: 14px;
+        text-align: center;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        background: #f8fafc;
+    }
+
+    .gmail-error {
+        color: #c62828;
+        background: #fff5f7;
+    }
+
+    @media (max-width: 720px) {
+        .gmail-actions {
+            grid-column: 1 / -1;
+        }
+
+        .gmail-btn {
+            flex: 1;
+        }
+    }
+</style>
+
+<div class="gmail-dashboard">
+    <section class="panel">
+        <h3>Filtros</h3>
+        <div class="gmail-filters">
+            <div class="gmail-field">
+                <label for="filtro-data-inicio">Data inicio</label>
+                <input id="filtro-data-inicio" name="data_inicio" type="date">
+            </div>
+            <div class="gmail-field">
+                <label for="filtro-data-fim">Data fim</label>
+                <input id="filtro-data-fim" name="data_fim" type="date">
+            </div>
+            <div class="gmail-field">
+                <label for="filtro-mes">Mes</label>
+                <input id="filtro-mes" name="mes" type="month">
+            </div>
+            <div class="gmail-field">
+                <label for="filtro-vendedora">Vendedora</label>
+                <select id="filtro-vendedora" name="vendedora">
+                    <option value="">Todas</option>
+                    <option value="JESSICA">JESSICA</option>
+                    <option value="STHEFANY">STHEFANY</option>
+                    <option value="PAMELA">PAMELA</option>
+                    <option value="LAYANE">LAYANE</option>
+                    <option value="SEM_VENDEDORA">SEM_VENDEDORA</option>
+                </select>
+            </div>
+            <div class="gmail-field">
+                <label for="filtro-cliente">Cliente</label>
+                <input id="filtro-cliente" name="cliente" type="search" placeholder="Cliente">
+            </div>
+            <div class="gmail-field">
+                <label for="filtro-status">Status</label>
+                <select id="filtro-status" name="status">
+                    <option value="">Todos</option>
+                    <option value="VENDA_CONFIRMADA">VENDA_CONFIRMADA</option>
+                    <option value="POSSIVEL_PEDIDO_REVISAR">POSSIVEL_PEDIDO_REVISAR</option>
+                    <option value="PEDIDO_SEM_OC_RECONHECIDA">PEDIDO_SEM_OC_RECONHECIDA</option>
+                    <option value="CANCELADO">CANCELADO</option>
+                    <option value="SEM_CLASSIFICACAO">SEM_CLASSIFICACAO</option>
+                </select>
+            </div>
+            <div class="gmail-actions">
+                <button class="gmail-btn primary" type="button" id="btn-aplicar">Aplicar</button>
+                <button class="gmail-btn secondary" type="button" id="btn-limpar">Limpar</button>
+            </div>
+        </div>
+    </section>
+
+    <div class="cards-grid">
+        <div class="card">
+            <div class="card-icon">#</div>
+            <div class="card-info">
+                <span>Total de registros</span>
+                <strong id="card-total-registros">0</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-icon">$</div>
+            <div class="card-info">
+                <span>Vendas confirmadas</span>
+                <strong id="card-vendas-confirmadas">0</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-icon">R$</div>
+            <div class="card-info">
+                <span>Valor total vendido</span>
+                <strong class="green" id="card-valor-total">R$ 0,00</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-icon">!</div>
+            <div class="card-info">
+                <span>Pendencias</span>
+                <strong id="card-pendencias">0</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-icon">X</div>
+            <div class="card-info">
+                <span>Cancelados</span>
+                <strong id="card-cancelados">0</strong>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-icon">?</div>
+            <div class="card-info">
+                <span>Sem vendedora</span>
+                <strong id="card-sem-vendedora">0</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="gmail-sections-grid">
+        <section class="panel">
+            <h3>Vendas por vendedora</h3>
+            <div id="vendas-vendedora" class="gmail-list"></div>
+        </section>
+
+        <section class="panel">
+            <h3>Vendas por mes</h3>
+            <div id="vendas-mes" class="gmail-list"></div>
+        </section>
+
+        <section class="panel">
+            <h3>Ranking de clientes</h3>
+            <div id="ranking-clientes" class="gmail-list"></div>
+        </section>
+    </div>
+
+    <section class="panel">
+        <h3>Tabela analitica</h3>
+        <div class="gmail-table-wrap">
+            <table class="gmail-table">
+                <thead>
+                    <tr>
+                        <th>Data Venda</th>
+                        <th>No OC</th>
+                        <th>Cliente</th>
+                        <th>Vendedora</th>
+                        <th>Valor OC</th>
+                        <th>Status</th>
+                        <th>Revisao</th>
+                        <th>Arquivo</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-analitica"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h3>Pendencias de revisao</h3>
+        <div class="gmail-table-wrap">
+            <table class="gmail-table">
+                <thead>
+                    <tr>
+                        <th>Data Venda</th>
+                        <th>No OC</th>
+                        <th>Cliente</th>
+                        <th>Vendedora</th>
+                        <th>Status</th>
+                        <th>Motivo</th>
+                        <th>Arquivo</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-pendencias"></tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<script>
+(function () {
+    const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+    const dateFormatter = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" });
+
+    const ids = {
+        dataInicio: "filtro-data-inicio",
+        dataFim: "filtro-data-fim",
+        mes: "filtro-mes",
+        vendedora: "filtro-vendedora",
+        cliente: "filtro-cliente",
+        status: "filtro-status"
+    };
+
+    function el(id) {
+        return document.getElementById(id);
+    }
+
+    function value(id) {
+        const node = el(id);
+        return node ? node.value.trim() : "";
+    }
+
+    function text(id, content) {
+        const node = el(id);
+        if (node) {
+            node.textContent = content;
+        }
+    }
+
+    function toArray(payload, keys) {
+        if (Array.isArray(payload)) {
+            return payload;
+        }
+        for (const key of keys) {
+            if (payload && Array.isArray(payload[key])) {
+                return payload[key];
+            }
+        }
+        return [];
+    }
+
+    function numberFrom(row, keys) {
+        for (const key of keys) {
+            const raw = row && row[key];
+            if (raw !== undefined && raw !== null && raw !== "") {
+                const parsed = Number(raw);
+                return Number.isFinite(parsed) ? parsed : 0;
+            }
+        }
+        return 0;
+    }
+
+    function stringFrom(row, keys) {
+        for (const key of keys) {
+            const raw = row && row[key];
+            if (raw !== undefined && raw !== null && raw !== "") {
+                return String(raw);
+            }
+        }
+        return "";
+    }
+
+    function formatBRL(value) {
+        const n = Number(value);
+        return currency.format(Number.isFinite(n) ? n : 0);
+    }
+
+    function formatCount(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) {
+            return "";
+        }
+        return n === 1 ? "1 registro" : `${n} registros`;
+    }
+
+    function formatDate(value) {
+        if (!value) {
+            return "-";
+        }
+        const textValue = String(value);
+        const normalized = /^\d{2}\/\d{2}\/\d{4}$/.test(textValue)
+            ? textValue.split("/").reverse().join("-")
+            : textValue.slice(0, 10);
+        const date = new Date(normalized + "T00:00:00Z");
+        return Number.isNaN(date.getTime()) ? textValue : dateFormatter.format(date);
+    }
+
+    function badgeClass(status) {
+        if (status === "VENDA_CONFIRMADA") {
+            return "ok";
+        }
+        if (status === "CANCELADO") {
+            return "stop";
+        }
+        if (status) {
+            return "warn";
+        }
+        return "neutral";
+    }
+
+    function statusBadge(status) {
+        const safe = status || "-";
+        return `<span class="gmail-badge ${badgeClass(safe)}">${escapeHtml(safe)}</span>`;
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function params() {
+        const query = new URLSearchParams();
+        const map = {
+            data_inicio: value(ids.dataInicio),
+            data_fim: value(ids.dataFim),
+            mes: value(ids.mes),
+            vendedora: value(ids.vendedora),
+            cliente: value(ids.cliente),
+            status: value(ids.status)
+        };
+        Object.keys(map).forEach((key) => {
+            if (map[key]) {
+                query.set(key, map[key]);
+            }
+        });
+        return query.toString();
+    }
+
+    async function getJson(url) {
+        const response = await fetch(url, { headers: { "Accept": "application/json" } });
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+        return response.json();
+    }
+
+    function endpoint(path) {
+        const query = params();
+        return query ? `${path}?${query}` : path;
+    }
+
+    function renderList(containerId, rows, labelKeys, valueKeys, subKeys, emptyMessage) {
+        const container = el(containerId);
+        if (!container) {
+            return;
+        }
+        if (!rows.length) {
+            container.innerHTML = `<div class="gmail-empty">${escapeHtml(emptyMessage || "Nenhum dado encontrado")}</div>`;
+            return;
+        }
+        container.innerHTML = rows.map((row) => {
+            const label = stringFrom(row, labelKeys) || "-";
+            const subText = stringFrom(row, subKeys || []);
+            const quantity = numberFrom(row, ["quantidade", "total_registros", "registros", "qtd"]);
+            const sub = subText || (quantity ? formatCount(quantity) : "");
+            const amount = numberFrom(row, valueKeys);
+            return `
+                <div class="gmail-list-row">
+                    <div>
+                        <span>${escapeHtml(label)}</span>
+                        ${sub ? `<small>${escapeHtml(sub)}</small>` : ""}
+                    </div>
+                    <div class="gmail-value">${formatBRL(amount)}</div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderIndicadores(payload) {
+        const indicadores = payload && (payload.indicadores || payload.resumo || payload) || {};
+        text("card-total-registros", numberFrom(indicadores, ["total_registros", "total", "registros"]));
+        text("card-vendas-confirmadas", numberFrom(indicadores, ["vendas_confirmadas", "total_vendas_confirmadas"]));
+        text("card-valor-total", formatBRL(numberFrom(indicadores, ["valor_total_vendido", "valor_total", "total_vendido"])));
+        text("card-pendencias", numberFrom(indicadores, ["pendencias", "total_pendencias"]));
+        text("card-cancelados", numberFrom(indicadores, ["cancelados", "total_cancelados"]));
+        text("card-sem-vendedora", numberFrom(indicadores, ["sem_vendedora", "total_sem_vendedora"]));
+
+        renderList(
+            "vendas-vendedora",
+            toArray(payload, ["vendas_por_vendedora", "por_vendedora"]),
+            ["vendedora", "VENDEDORA"],
+            ["valor_total", "valor_total_vendido", "total"],
+            ["quantidade", "total_registros", "registros"],
+            "Sem dados para o periodo selecionado"
+        );
+        renderList(
+            "vendas-mes",
+            toArray(payload, ["vendas_por_mes", "por_mes"]),
+            ["mes", "MES", "data_venda"],
+            ["valor_total", "valor_total_vendido", "total"],
+            ["quantidade", "total_registros", "registros"],
+            "Sem dados para o periodo selecionado"
+        );
+        renderList(
+            "ranking-clientes",
+            toArray(payload, ["ranking_clientes", "clientes", "por_cliente"]),
+            ["cliente", "CLIENTE"],
+            ["valor_total", "valor_total_vendido", "total"],
+            ["quantidade", "total_registros", "registros"],
+            "Sem dados para o periodo selecionado"
+        );
+    }
+
+    function rowFromRegistro(row) {
+        const status = stringFrom(row, ["status_email", "STATUS_EMAIL"]);
+        return `
+            <tr>
+                <td>${escapeHtml(formatDate(stringFrom(row, ["data_venda", "DATA_VENDA"])))}</td>
+                <td><strong>${escapeHtml(stringFrom(row, ["numero_oc", "NUMERO_OC"]) || "-")}</strong></td>
+                <td>${escapeHtml(stringFrom(row, ["cliente", "CLIENTE"]) || "-")}</td>
+                <td>${escapeHtml(stringFrom(row, ["vendedora", "VENDEDORA"]) || "-")}</td>
+                <td>${escapeHtml(formatBRL(numberFrom(row, ["valor_total_oc", "VALOR_TOTAL_OC", "valor_total", "VALOR_TOTAL_GANHO"])))}</td>
+                <td>${statusBadge(status)}</td>
+                <td>${escapeHtml(stringFrom(row, ["status_revisao", "STATUS_REVISAO"]) || "-")}</td>
+                <td>${escapeHtml(stringFrom(row, ["nome_arquivo", "NOME_ARQUIVO", "arquivo"]) || "-")}</td>
+            </tr>
+        `;
+    }
+
+    function renderTable(tbodyId, rows, emptyColumns) {
+        const tbody = el(tbodyId);
+        if (!tbody) {
+            return;
+        }
+        if (!rows.length) {
+            tbody.innerHTML = `<tr><td colspan="${emptyColumns}" class="gmail-empty">Sem dados para o periodo selecionado</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = rows.map(rowFromRegistro).join("");
+    }
+
+    function renderPendencias(rows) {
+        const tbody = el("tabela-pendencias");
+        if (!tbody) {
+            return;
+        }
+        if (!rows.length) {
+            tbody.innerHTML = `<tr><td colspan="7" class="gmail-empty">Nenhuma pendencia encontrada</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = rows.map((row) => {
+            const status = stringFrom(row, ["status_email", "STATUS_EMAIL"]);
+            return `
+                <tr>
+                    <td>${escapeHtml(formatDate(stringFrom(row, ["data_venda", "DATA_VENDA"])))}</td>
+                    <td><strong>${escapeHtml(stringFrom(row, ["numero_oc", "NUMERO_OC"]) || "-")}</strong></td>
+                    <td>${escapeHtml(stringFrom(row, ["cliente", "CLIENTE"]) || "-")}</td>
+                    <td>${escapeHtml(stringFrom(row, ["vendedora", "VENDEDORA"]) || "-")}</td>
+                    <td>${statusBadge(status)}</td>
+                    <td>${escapeHtml(stringFrom(row, ["motivo_exclusao", "MOTIVO_EXCLUSAO", "status_revisao", "STATUS_REVISAO"]) || "-")}</td>
+                    <td>${escapeHtml(stringFrom(row, ["nome_arquivo", "NOME_ARQUIVO", "arquivo"]) || "-")}</td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    function renderError(containerId, message) {
+        const node = el(containerId);
+        if (node) {
+            node.innerHTML = `<div class="gmail-error">${escapeHtml(message)}</div>`;
+        }
+    }
+
+    async function carregar() {
+        const [indicadores, listagem, pendencias] = await Promise.allSettled([
+            getJson(endpoint("/gmail-cotacoes/api/indicadores")),
+            getJson(endpoint("/gmail-cotacoes/api/listagem")),
+            getJson(endpoint("/gmail-cotacoes/api/pendencias"))
+        ]);
+
+        if (indicadores.status === "fulfilled") {
+            renderIndicadores(indicadores.value || {});
+        } else {
+            renderIndicadores({});
+            renderError("vendas-vendedora", "Nao foi possivel carregar os indicadores.");
+            renderError("vendas-mes", "Nao foi possivel carregar os indicadores.");
+            renderError("ranking-clientes", "Nao foi possivel carregar os indicadores.");
+        }
+
+        if (listagem.status === "fulfilled") {
+            renderTable("tabela-analitica", toArray(listagem.value, ["dados", "itens", "registros"]), 8);
+        } else {
+            renderTable("tabela-analitica", [], 8);
+        }
+
+        if (pendencias.status === "fulfilled") {
+            renderPendencias(toArray(pendencias.value, ["dados", "itens", "pendencias"]));
+        } else {
+            renderPendencias([]);
+        }
+    }
+
+    function limpar() {
+        Object.keys(ids).forEach((key) => {
+            const node = el(ids[key]);
+            if (node) {
+                node.value = "";
+            }
+        });
+        carregar();
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const btnAplicar = el("btn-aplicar");
+        const btnLimpar = el("btn-limpar");
+        if (btnAplicar) {
+            btnAplicar.addEventListener("click", carregar);
+        }
+        if (btnLimpar) {
+            btnLimpar.addEventListener("click", limpar);
+        }
+        carregar();
+    });
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,17 @@
+# Dependências do Robô Gmail Cotações (scripts/gmail_cotacoes/)
+#
+# Sem pandas/numpy de propósito: no ambiente Windows deste projeto, uma
+# política de Controle de Aplicativo bloqueou a DLL nativa que o numpy
+# (dependência transitiva do pandas) carrega ao importar. Relatórios usam
+# openpyxl + o módulo csv da biblioteca padrão.
+openpyxl
+rapidfuzz
+pdfplumber
+pymupdf
+
+# Necessárias apenas para --gmail-real (não usadas em --somente-local).
+# Escopo OAuth único e obrigatório: https://www.googleapis.com/auth/gmail.readonly
+google-api-python-client
+google-auth
+google-auth-oauthlib
+python-dotenv

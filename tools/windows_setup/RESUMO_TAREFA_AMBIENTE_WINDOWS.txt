@@ -1,0 +1,77 @@
+﻿RESUMO — PREPARAÇÃO DO AMBIENTE WINDOWS MEDBOX
+
+1. Objetivo
+Esta tarefa prepara o PC para automações futuras da MedBox, sem mexer no robô Gmail Cotações que está sendo recriado pelo Claude Code.
+
+2. Divisão de trabalho
+- Claude Code: responsável por recriar o robô Gmail Cotações e o Apps Script do dashboard.
+- Codex: responsável apenas por preparar documentação, inventário e scripts de instalação/teste do ambiente.
+- Não usar Claude e Codex para editar os mesmos arquivos ao mesmo tempo.
+
+3. Pasta de trabalho do Codex
+O trabalho paralelo do Codex deve ficar em:
+tools/windows_setup/
+
+4. Arquivos planejados
+- README.md
+- 01_inventario_pc.ps1
+- 02_instalar_ferramentas_base.ps1
+- 03_criar_venv_medbox.ps1
+- 04_testar_ferramentas.py
+- requirements_automacao_medbox.txt
+- CHECKLIST_AMBIENTE.md
+- RESUMO_TAREFA_AMBIENTE_WINDOWS.txt
+
+5. Ferramentas previstas
+- Git
+- Python
+- pip
+- Node.js
+- npm
+- VS Code
+- GitHub CLI
+- Chrome
+- Claude Code
+- Codex CLI
+- Tesseract OCR
+- FFmpeg
+- 7-Zip
+- Java, se necessário
+- PowerToys, opcional
+
+6. Bibliotecas Python previstas
+- pandas
+- openpyxl
+- pdfplumber
+- pymupdf
+- rapidfuzz
+- python-dotenv
+- requests
+- beautifulsoup4
+- lxml
+- playwright
+- pillow
+- pytesseract
+- pdf2image
+- opencv-python
+- mss
+- pyautogui
+- google-api-python-client
+- google-auth
+- google-auth-oauthlib
+
+7. Cuidados obrigatórios
+- Não instalar nada automaticamente sem autorização.
+- Não baixar nada automaticamente sem autorização.
+- Não mexer no Gmail.
+- Não mexer em credenciais, tokens ou chaves.
+- Não alterar banco de dados.
+- Não alterar arquivos protegidos.
+- Não commitar arquivos sensíveis.
+- Não trabalhar em paralelo nos mesmos arquivos do Claude.
+
+8. Próximos passos
+Depois de criar este resumo, o próximo passo será criar os scripts reais de inventário, instalação e teste do ambiente Windows, mas somente após autorização.
+
+9. Status
+Este arquivo é apenas um resumo da tarefa. Não instala ferramentas, não baixa arquivos, não altera Gmail, não altera banco e não executa automações.
