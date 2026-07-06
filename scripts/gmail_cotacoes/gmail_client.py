@@ -305,3 +305,50 @@ class GmailClient:
                 )
                 caminhos_salvos.append(caminho)
         return caminhos_salvos
+
+    def baixar_anexos_mensagem(
+        self,
+        message_id: str,
+        label_nome: str,
+        pasta_anexos: Path,
+        somente_ordem_compra: bool = False,
+        limite_anexos: int | None = None,
+    ) -> list[dict]:
+        """Baixa anexos de uma mensagem especifica. Somente leitura no Gmail.
+
+        Retorna metadados locais suficientes para persistencia idempotente:
+        caminho, filename, attachment_id, mime_type e tamanho.
+        """
+        from extrator_anexos import parece_ordem_compra, salvar_anexo_gmail
+
+        msg = self._obter_mensagem(message_id)
+        payload = msg.get("payload", {}) or {}
+        anexos_meta = _extrair_metadados_anexos(payload)
+        if somente_ordem_compra:
+            anexos_meta = [a for a in anexos_meta if parece_ordem_compra(a["filename"])]
+        if limite_anexos is not None:
+            anexos_meta = anexos_meta[:limite_anexos]
+
+        baixados: list[dict] = []
+        for anexo in anexos_meta:
+            if not anexo["attachment_id"]:
+                continue
+            dados = self._service.users().messages().attachments().get(
+                userId="me", messageId=message_id, id=anexo["attachment_id"],
+            ).execute()
+            conteudo = base64.urlsafe_b64decode(dados["data"])
+            caminho = salvar_anexo_gmail(
+                pasta_anexos=pasta_anexos,
+                label=label_nome,
+                message_id=message_id,
+                nome_arquivo=anexo["filename"],
+                conteudo=conteudo,
+            )
+            baixados.append({
+                "caminho": caminho,
+                "filename": anexo["filename"],
+                "attachment_id": anexo["attachment_id"],
+                "mime_type": anexo["mime_type"],
+                "size": anexo["size"],
+            })
+        return baixados

@@ -35,7 +35,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import config
@@ -75,7 +75,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     p.add_argument("--gmail-real", action="store_true", help="Ativa diagnóstico SOMENTE LEITURA contra a Gmail API real (nunca envia/altera/apaga nada)")
     p.add_argument("--acao-gmail", type=str, default=None,
-                    choices=["listar-labels", "verificar-marcadores", "buscar-amostra", "baixar-anexos-amostra", "contar-por-periodo"],
+                    choices=["listar-labels", "verificar-marcadores", "buscar-amostra", "baixar-anexos-amostra", "contar-por-periodo", "sincronizar-pedidos-dashboard"],
                     help="Ação de diagnóstico do modo --gmail-real")
     p.add_argument("--marcador", type=str, default=None,
                     help="Restringe buscar-amostra/baixar-anexos-amostra a um marcador (JESSICA/STHEFANY/PAMELA/LAYANE/PEDIDO/CANCELADO). Padrão: todos")
@@ -83,6 +83,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                     help="Filtro pela data do e-mail no Gmail, formato YYYY-MM-DD (nao altera DATA_VENDA da OC)")
     p.add_argument("--data-fim", type=str, default=None,
                     help="Filtro pela data do e-mail no Gmail, formato YYYY-MM-DD, inclusivo (nao altera DATA_VENDA da OC)")
+    p.add_argument("--salvar-dashboard", action="store_true",
+                    help="Grava vendas/itens no dashboard local. Nunca altera Gmail.")
     p.add_argument("--credentials-json", type=str, default=str(config.CREDENTIALS_PATH), help="Caminho do credentials.json OAuth")
     p.add_argument("--token-gmail", type=str, default=str(config.TOKEN_GMAIL_PATH), help="Caminho do token_gmail.json")
 
@@ -97,6 +99,107 @@ def _validar_periodo_datas(data_inicio: str | None, data_fim: str | None) -> Non
         raise ValueError("Datas devem usar o formato YYYY-MM-DD.") from exc
     if inicio and fim and inicio > fim:
         raise ValueError("--data-inicio nao pode ser maior que --data-fim.")
+
+
+def _vendedora_de_classificacao(marcadores_presentes: set[str]) -> str:
+    for vendedora in config.VENDEDORAS:
+        if vendedora in marcadores_presentes:
+            return vendedora
+    return config.SEM_VENDEDORA
+
+
+def _montar_registro_oc_gmail(email, anexo: dict, oc, classificacao) -> dict:
+    from persistencia import calcular_hash_arquivo, caminho_relativo_projeto, montar_chave_dedupe
+
+    caminho = anexo["caminho"]
+    hash_arquivo = calcular_hash_arquivo(caminho)
+    valor_total_oc = oc.valor_total_impresso if oc.valor_total_impresso is not None else oc.valor_total_calculado
+    divergencia_total = None
+    if oc.valor_total_impresso is not None:
+        divergencia_total = round(oc.valor_total_calculado - oc.valor_total_impresso, 2)
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    return {
+        "chave_dedupe": montar_chave_dedupe(email.id_email, anexo.get("attachment_id"), anexo.get("filename"), hash_arquivo),
+        "id_email": email.id_email,
+        "thread_id": email.thread_id,
+        "attachment_id": anexo.get("attachment_id"),
+        "message_internal_date": None,
+        "assunto": email.assunto,
+        "remetente": email.remetente,
+        "data_email": email.data,
+        "data_venda": oc.data_oc,
+        "numero_oc": oc.numero_oc,
+        "vendedora": classificacao.vendedora,
+        "cliente": oc.cliente,
+        "status_email": classificacao.status_email,
+        "status_revisao": classificacao.status_revisao,
+        "considerar_venda": classificacao.considerar_venda,
+        "motivo_exclusao": classificacao.motivo_exclusao,
+        "tem_marcador_pedido": "SIM" if classificacao.tem_marcador_pedido else "NAO",
+        "tem_marcador_cancelado": "SIM" if classificacao.tem_marcador_cancelado else "NAO",
+        "tem_anexo_ordem_compra": "SIM",
+        "nome_arquivo": anexo.get("filename") or caminho.name,
+        "caminho_anexo": caminho_relativo_projeto(caminho),
+        "hash_arquivo": hash_arquivo,
+        "tamanho_arquivo": anexo.get("size") or caminho.stat().st_size,
+        "tipo_anexo": anexo.get("mime_type") or "application/pdf",
+        "metodo_extracao": oc.metodo_extracao,
+        "avisos_parser": "; ".join(oc.avisos) if oc.avisos else "",
+        "quantidade_itens": len(oc.itens),
+        "valor_total_oc": valor_total_oc,
+        "valor_total_impresso": oc.valor_total_impresso,
+        "valor_total_calculado": oc.valor_total_calculado,
+        "divergencia_total": divergencia_total,
+        "erro_processamento": "",
+        "data_processamento": agora,
+        "origem_execucao": "GMAIL_REAL_PEDIDOS_SYNC",
+    }
+
+
+def _montar_registro_erro_oc(email, anexo: dict, marcadores_presentes: set[str], erro: Exception) -> dict:
+    from persistencia import calcular_hash_arquivo, caminho_relativo_projeto, montar_chave_dedupe
+
+    caminho = anexo["caminho"]
+    hash_arquivo = calcular_hash_arquivo(caminho)
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    tem_cancelado = config.MARCADOR_CANCELADO in marcadores_presentes
+    return {
+        "chave_dedupe": montar_chave_dedupe(email.id_email, anexo.get("attachment_id"), anexo.get("filename"), hash_arquivo),
+        "id_email": email.id_email,
+        "thread_id": email.thread_id,
+        "attachment_id": anexo.get("attachment_id"),
+        "message_internal_date": None,
+        "assunto": email.assunto,
+        "remetente": email.remetente,
+        "data_email": email.data,
+        "data_venda": None,
+        "numero_oc": None,
+        "vendedora": _vendedora_de_classificacao(marcadores_presentes),
+        "cliente": None,
+        "status_email": "CANCELADO" if tem_cancelado else "ERRO_PROCESSAMENTO_OC",
+        "status_revisao": "" if tem_cancelado else "REVISAR_PARSER_OC",
+        "considerar_venda": "NAO",
+        "motivo_exclusao": "MARCADOR_CANCELADO" if tem_cancelado else "ERRO_PROCESSAMENTO_OC",
+        "tem_marcador_pedido": "SIM" if config.MARCADOR_PEDIDO in marcadores_presentes else "NAO",
+        "tem_marcador_cancelado": "SIM" if tem_cancelado else "NAO",
+        "tem_anexo_ordem_compra": "SIM",
+        "nome_arquivo": anexo.get("filename") or caminho.name,
+        "caminho_anexo": caminho_relativo_projeto(caminho),
+        "hash_arquivo": hash_arquivo,
+        "tamanho_arquivo": anexo.get("size") or caminho.stat().st_size,
+        "tipo_anexo": anexo.get("mime_type") or "application/pdf",
+        "metodo_extracao": "",
+        "avisos_parser": "",
+        "quantidade_itens": 0,
+        "valor_total_oc": None,
+        "valor_total_impresso": None,
+        "valor_total_calculado": None,
+        "divergencia_total": None,
+        "erro_processamento": str(erro),
+        "data_processamento": agora,
+        "origem_execucao": "GMAIL_REAL_PEDIDOS_SYNC",
+    }
 
 
 def _processar_caso(caso, pasta_amostras: Path, limite_pedidos: int | None) -> dict:
@@ -194,15 +297,117 @@ def _executar_modo_local(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sincronizar_pedidos_dashboard(cliente, args: argparse.Namespace, label_id: str) -> int:
+    from gmail_client import montar_query_gmail_periodo
+    from persistencia import (
+        existe_gmail_venda_oc,
+        salvar_dashboard_venda_historica_gmail,
+        salvar_gmail_oc_itens,
+        salvar_gmail_venda_oc,
+    )
+
+    if args.marcador != config.MARCADOR_PEDIDO:
+        logger.error("sincronizar-pedidos-dashboard exige --marcador PEDIDO.")
+        return 2
+    if not args.limite_pedidos or args.limite_pedidos <= 0:
+        logger.error("sincronizar-pedidos-dashboard exige --limite-pedidos positivo.")
+        return 2
+    if not args.data_inicio or not args.data_fim:
+        logger.error("sincronizar-pedidos-dashboard exige --data-inicio e --data-fim.")
+        return 2
+    if args.salvar_dashboard and args.dry_run:
+        logger.error("Use --salvar-dashboard OU --dry-run, nao os dois juntos.")
+        return 2
+
+    query = montar_query_gmail_periodo(args.marcador, args.data_inicio, args.data_fim)
+    emails = cliente.listar_emails_por_marcador(
+        label_id,
+        marcador_nome=args.marcador,
+        limite=args.limite_pedidos,
+        data_inicio=args.data_inicio,
+        data_fim=args.data_fim,
+    )
+    stats = {
+        "emails": len(emails), "anexos_baixados": 0, "ocs_reconhecidas": 0,
+        "vendas_gravadas": 0, "itens_gravados": 0, "erros": 0,
+        "atualizadas": 0, "novas": 0,
+    }
+    logger.info("Query Gmail: %s", query)
+    logger.info(
+        "Sincronizacao PEDIDO: periodo=%s a %s | limite=%d | emails=%d | salvar_dashboard=%s",
+        args.data_inicio, args.data_fim, args.limite_pedidos, len(emails), args.salvar_dashboard,
+    )
+
+    for email in emails:
+        logger.info("Email: id=%s data=%s assunto=%r", email.id_email, email.data, email.assunto)
+        marcadores_presentes = extrair_marcadores_presentes(email.labels)
+        anexos = cliente.baixar_anexos_mensagem(
+            message_id=email.id_email,
+            label_nome=args.marcador,
+            pasta_anexos=Path(config.ANEXOS_DIR),
+            somente_ordem_compra=True,
+        )
+        stats["anexos_baixados"] += len(anexos)
+        if not anexos:
+            logger.warning("  Nenhum anexo de Ordem de Compra reconhecido por nome.")
+            continue
+
+        for anexo in anexos:
+            caminho = anexo["caminho"]
+            logger.info("  Anexo OC baixado: %s", caminho)
+            try:
+                oc = parse_pdf_oc(caminho)
+                stats["ocs_reconhecidas"] += 1
+                classificacao = classificar_email_venda(marcadores_presentes, tem_anexo_ordem_compra=True)
+                registro = _montar_registro_oc_gmail(email, anexo, oc, classificacao)
+                logger.info(
+                    "  OC=%s DATA_VENDA=%s cliente=%r vendedora=%s status=%s considerar=%s valor=%s itens=%d metodo=%s",
+                    oc.numero_oc, oc.data_oc, oc.cliente, classificacao.vendedora, classificacao.status_email,
+                    classificacao.considerar_venda, registro["valor_total_oc"], len(oc.itens), oc.metodo_extracao,
+                )
+                for aviso in oc.avisos:
+                    logger.warning("  Aviso parser OC: %s", aviso)
+            except Exception as exc:
+                stats["erros"] += 1
+                logger.warning("  Falha ao parsear OC %s: %s", caminho.name, exc)
+                registro = _montar_registro_erro_oc(email, anexo, marcadores_presentes, exc)
+                oc = None
+
+            if not args.salvar_dashboard:
+                continue
+
+            ja_existia = existe_gmail_venda_oc(registro["chave_dedupe"])
+            venda_oc_id = salvar_gmail_venda_oc(registro)
+            stats["vendas_gravadas"] += 1
+            if ja_existia:
+                stats["atualizadas"] += 1
+            else:
+                stats["novas"] += 1
+
+            if oc is not None and registro["status_email"] == "VENDA_CONFIRMADA" and registro["considerar_venda"] == "SIM":
+                salvar_dashboard_venda_historica_gmail(registro)
+                stats["itens_gravados"] += salvar_gmail_oc_itens(venda_oc_id, registro, oc.itens)
+
+    logger.info(
+        "Resumo sincronizacao: emails=%d anexos_baixados=%d ocs_reconhecidas=%d vendas_gravadas=%d novas=%d atualizadas=%d itens_gravados=%d erros=%d",
+        stats["emails"], stats["anexos_baixados"], stats["ocs_reconhecidas"], stats["vendas_gravadas"],
+        stats["novas"], stats["atualizadas"], stats["itens_gravados"], stats["erros"],
+    )
+    logger.info("Gmail nao foi alterado. Nenhum label/e-mail foi enviado, apagado, movido ou respondido.")
+    if not args.salvar_dashboard:
+        logger.info("--salvar-dashboard nao informado: nada foi gravado no banco.")
+    return 0
+
+
 def _executar_modo_gmail_real(args: argparse.Namespace) -> int:
-    if not args.dry_run:
+    if not args.dry_run and args.acao_gmail != "sincronizar-pedidos-dashboard":
         logger.error("--gmail-real exige --dry-run nesta fase (diagnóstico somente leitura).")
         return 2
     if args.limite_cotacoes is None and args.limite_pedidos is None:
         logger.error("--gmail-real exige limite explícito: --limite-cotacoes e/ou --limite-pedidos.")
         return 2
     if not args.acao_gmail:
-        logger.error("--gmail-real exige --acao-gmail {listar-labels|verificar-marcadores|buscar-amostra|baixar-anexos-amostra|contar-por-periodo}.")
+        logger.error("--gmail-real exige --acao-gmail {listar-labels|verificar-marcadores|buscar-amostra|baixar-anexos-amostra|contar-por-periodo|sincronizar-pedidos-dashboard}.")
         return 2
     try:
         _validar_periodo_datas(args.data_inicio, args.data_fim)
@@ -244,6 +449,13 @@ def _executar_modo_gmail_real(args: argparse.Namespace) -> int:
     marcadores_alvo = [args.marcador] if args.marcador else config.MARCADORES_OBRIGATORIOS
     limite_mensagens = args.limite_cotacoes or args.limite_pedidos or 1
     resolucao = cliente.resolver_labels(marcadores_alvo)
+
+    if args.acao_gmail == "sincronizar-pedidos-dashboard":
+        label_id = resolucao.get(config.MARCADOR_PEDIDO)
+        if not label_id:
+            logger.error("Marcador PEDIDO nao encontrado.")
+            return 1
+        return _sincronizar_pedidos_dashboard(cliente, args, label_id)
 
     if args.acao_gmail == "contar-por-periodo":
         for nome in marcadores_alvo:

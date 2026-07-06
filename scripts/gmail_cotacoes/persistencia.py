@@ -44,6 +44,12 @@ _FILTROS_IGUALDADE = [
 # do SQL antes de comparar — nunca comparação textual direta entre os formatos.
 _DATA_VENDA_ISO_SQL = "(substr(data_venda, 7, 4) || '-' || substr(data_venda, 4, 2) || '-' || substr(data_venda, 1, 2))"
 _DATA_VENDA_VALIDA_SQL = "(data_venda IS NOT NULL AND length(data_venda) = 10)"
+FONTE_GMAIL_OC = "GMAIL_OC"
+_MESES_PT = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
+}
 
 
 def calcular_hash_arquivo(caminho: str | Path) -> str:
@@ -67,12 +73,14 @@ def caminho_relativo_projeto(caminho: str | Path) -> str:
 
 
 def montar_chave_dedupe(id_email: str, attachment_id: str | None, nome_arquivo: str, hash_arquivo: str | None) -> str:
-    """Chave estável: mesmo e-mail + mesmo anexo + mesmo conteúdo = mesma chave.
+    """Chave estável: mesmo e-mail + nome original + conteúdo = mesma chave.
 
-    Rodar o processamento de novo sobre o mesmo arquivo atualiza a linha
-    existente (upsert) em vez de duplicar.
+    O attachment_id do Gmail é salvo como metadado, mas não entra na chave
+    porque pode variar entre leituras do mesmo anexo. Rodar novamente atualiza
+    a linha existente em vez de duplicar.
     """
-    partes = "|".join(str(x or "") for x in (id_email, attachment_id, nome_arquivo, hash_arquivo))
+    del attachment_id
+    partes = "|".join(str(x or "") for x in (id_email, nome_arquivo, hash_arquivo))
     return hashlib.sha256(partes.encode("utf-8")).hexdigest()
 
 
@@ -132,6 +140,100 @@ def salvar_gmail_venda_oc(registro: dict) -> int:
     conn.commit()
     conn.close()
     return id_
+
+
+def existe_gmail_venda_oc(chave_dedupe: str) -> bool:
+    conn = banco.conectar()
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM gmail_vendas_oc WHERE chave_dedupe = ? LIMIT 1", (chave_dedupe,))
+    existe = cursor.fetchone() is not None
+    conn.close()
+    return existe
+
+
+def _partes_data_br(data_br: str | None) -> tuple[int, int, str]:
+    if not data_br:
+        raise ValueError("data_venda ausente; nao e possivel alimentar dashboard_vendas_historicas.")
+    try:
+        dt = datetime.strptime(data_br, "%d/%m/%Y")
+    except ValueError as exc:
+        raise ValueError(f"data_venda invalida '{data_br}', esperado DD/MM/AAAA.") from exc
+    return dt.year, dt.month, _MESES_PT[dt.month]
+
+
+def salvar_dashboard_venda_historica_gmail(registro: dict) -> int | None:
+    """Upsert em dashboard_vendas_historicas para vendas confirmadas por OC.
+
+    Usa fonte='GMAIL_OC' e numero_oc como chave operacional para evitar
+    duplicidade ao rodar a mesma sincronizacao novamente.
+    """
+    if registro.get("status_email") != "VENDA_CONFIRMADA" or registro.get("considerar_venda") != "SIM":
+        return None
+    ano, mes_num, mes_nome = _partes_data_br(registro.get("data_venda"))
+    numero_oc = registro.get("numero_oc")
+    if not numero_oc:
+        raise ValueError("numero_oc ausente; nao e possivel alimentar dashboard_vendas_historicas.")
+
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = banco.conectar()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id FROM dashboard_vendas_historicas WHERE fonte = ? AND numero_oc = ?",
+        (FONTE_GMAIL_OC, numero_oc),
+    )
+    existente = cursor.fetchone()
+    valores = (
+        ano, mes_num, mes_nome, registro.get("vendedora"), registro.get("cliente"),
+        numero_oc, registro.get("valor_total_oc") or 0.0, FONTE_GMAIL_OC, agora,
+    )
+    if existente:
+        id_ = existente["id"]
+        cursor.execute(
+            """UPDATE dashboard_vendas_historicas
+               SET ano = ?, mes_num = ?, mes_nome = ?, vendedora = ?, cliente = ?,
+                   numero_oc = ?, valor_vendido = ?, fonte = ?, atualizado_em = ?
+               WHERE id = ?""",
+            valores + (id_,),
+        )
+    else:
+        cursor.execute(
+            """INSERT INTO dashboard_vendas_historicas
+               (ano, mes_num, mes_nome, vendedora, cliente, numero_oc, valor_vendido, fonte, criado_em, atualizado_em)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            valores + (agora,),
+        )
+        id_ = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return id_
+
+
+def salvar_gmail_oc_itens(venda_oc_id: int, registro: dict, itens: list) -> int:
+    """Reinsere os itens da OC para uma venda. Idempotente por venda_oc_id."""
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = banco.conectar()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM gmail_oc_itens WHERE venda_oc_id = ?", (venda_oc_id,))
+    total = 0
+    for item in itens:
+        cursor.execute(
+            """INSERT INTO gmail_oc_itens
+               (venda_oc_id, id_email, numero_oc, cliente, vendedora, data_venda,
+                descricao_item_oc, sku_master, marca, quantidade_vendida,
+                valor_unitario_vendido, valor_total_vendido, criado_em, atualizado_em)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                venda_oc_id, registro.get("id_email"), registro.get("numero_oc"),
+                registro.get("cliente"), registro.get("vendedora"), registro.get("data_venda"),
+                getattr(item, "descricao", None), None, None,
+                getattr(item, "quantidade", None), getattr(item, "valor_unitario", None),
+                getattr(item, "valor_total", None), agora, agora,
+            ),
+        )
+        total += 1
+    conn.commit()
+    conn.close()
+    return total
 
 
 def listar_gmail_vendas_oc(filtros: dict | None = None) -> list[dict]:
