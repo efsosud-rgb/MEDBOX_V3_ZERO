@@ -39,12 +39,14 @@ from pathlib import Path
 
 import config
 from correlacionador import calcular_score_email, classificar_email_venda, cruzar_itens, extrair_marcadores_presentes
-from extrator_anexos import localizar_anexo, parece_ordem_compra
+from extrator_anexos import localizar_anexo, parece_ordem_compra, salvar_anexo_gmail
 from gerador_relatorios import gerar_relatorios
 from manifesto_local import carregar_manifesto
 from parser_excel_cotacao import parse_excel_cotacao
 from parser_pdf_oc import parse_pdf_oc
 from parser_pdf_proposta import parse_pdf_proposta
+from parser_xlsx_oc import parse_xlsx_oc
+from persistencia import calcular_hash_arquivo, caminho_relativo_projeto, montar_chave_dedupe, salvar_gmail_venda_oc, salvar_gmail_oc_itens, sincronizar_dashboard_vendas_historicas
 
 logger = logging.getLogger("robo_gmail_cotacoes")
 
@@ -74,8 +76,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     p.add_argument("--gmail-real", action="store_true", help="Ativa diagnóstico SOMENTE LEITURA contra a Gmail API real (nunca envia/altera/apaga nada)")
     p.add_argument("--acao-gmail", type=str, default=None,
-                    choices=["listar-labels", "verificar-marcadores", "buscar-amostra", "baixar-anexos-amostra"],
+                    choices=["listar-labels", "verificar-marcadores", "buscar-amostra", "baixar-anexos-amostra", "sincronizar-pedidos-dashboard"],
                     help="Ação de diagnóstico do modo --gmail-real")
+    p.add_argument("--buscar-oc-por-texto", action="store_true", help="Usa busca textual por 'ordem de compra' na sincronização")
+    p.add_argument("--salvar-dashboard", action="store_true", help="Grava de fato no banco na sincronização (alternativa ao dry-run)")
+    p.add_argument("--data-inicio", type=str, default=None, help="Data início para busca (AAAA-MM-DD)")
+    p.add_argument("--data-fim", type=str, default=None, help="Data fim para busca (AAAA-MM-DD)")
     p.add_argument("--marcador", type=str, default=None,
                     help="Restringe buscar-amostra/baixar-anexos-amostra a um marcador (JESSICA/STHEFANY/PAMELA/LAYANE/PEDIDO/CANCELADO). Padrão: todos")
     p.add_argument("--credentials-json", type=str, default=str(config.CREDENTIALS_PATH), help="Caminho do credentials.json OAuth")
@@ -180,7 +186,11 @@ def _executar_modo_local(args: argparse.Namespace) -> int:
 
 
 def _executar_modo_gmail_real(args: argparse.Namespace) -> int:
-    if not args.dry_run:
+    # Exceção: sincronizar-pedidos-dashboard + salvar-dashboard permite rodar sem dry-run
+    # (Gmail continua somente leitura pelo escopo do token, mas o banco local é gravado).
+    permite_sem_dry_run = (args.acao_gmail == "sincronizar-pedidos-dashboard" and args.salvar_dashboard)
+
+    if not args.dry_run and not permite_sem_dry_run:
         logger.error("--gmail-real exige --dry-run nesta fase (diagnóstico somente leitura).")
         return 2
     if args.limite_cotacoes is None and args.limite_pedidos is None:
@@ -279,7 +289,190 @@ def _executar_modo_gmail_real(args: argparse.Namespace) -> int:
                         logger.warning("    Falha ao parsear possível OC %s: %s", caminho.name, exc)
         return 0
 
+    if args.acao_gmail == "sincronizar-pedidos-dashboard":
+        return _sincronizar_pedidos_dashboard(args, cliente)
+
     return 2
+
+
+def _sincronizar_pedidos_dashboard(args, cliente) -> int:
+    import base64
+    from datetime import datetime
+
+    limite = args.limite_cotacoes or 100
+    query = ""
+    if args.buscar_oc_por_texto:
+        query = '"ordem de compra" has:attachment'
+        if args.data_inicio:
+            query += f" after:{args.data_inicio.replace('-', '/')}"
+        if args.data_fim:
+            query += f" before:{args.data_fim.replace('-', '/')}"
+        logger.info("Buscando e-mails por query: %s", query)
+        emails = cliente.buscar_emails_por_query(query, limite)
+    else:
+        marcador = args.marcador or "PEDIDO"
+        label_id = cliente.resolver_labels([marcador]).get(marcador)
+        if not label_id:
+            logger.error("Marcador '%s' não encontrado.", marcador)
+            return 1
+        emails = cliente.listar_emails_por_marcador(label_id, marcador, limite)
+
+    logger.info("Encontrados %d e-mail(s) para processar.", len(emails))
+
+    # Agrupamento para Rule 9 (Deduplicação e Exclusão Determinística)
+    # chave: (numero_oc, cliente, data_venda, valor_total)
+    # valor: {'emails': [EmailGmail], 'excluido': bool, 'motivo': str}
+    grupo_oc: dict[tuple, dict] = {}
+
+    pasta_anexos = Path(config.ANEXOS_DIR)
+
+    for e in emails:
+        marcadores_presentes = extrair_marcadores_presentes(e.labels)
+        tem_anexo_oc = any(parece_ordem_compra(n) for n in e.anexos)
+
+        # Só prossegue se tiver algo que pareça OC (ou se estiver no marcador PEDIDO e quisermos investigar)
+        if not tem_anexo_oc and config.MARCADOR_PEDIDO not in marcadores_presentes:
+            continue
+
+        # Baixar e processar anexos
+        for nome_anexo in e.anexos:
+            if not parece_ordem_compra(nome_anexo):
+                continue
+
+            is_xlsx = nome_anexo.lower().endswith(".xlsx")
+
+            # Precisamos baixar o anexo para parsear
+            # (Aqui simplificamos a lógica de download que já existe no cliente)
+            # Nota: Em um cenário real, o cliente deveria ter um método 'baixar_anexo(msg_id, attachment_id)'
+            # Vamos usar o que temos ou adaptar.
+
+            # BUSCAR attachment_id
+            msg_full = cliente._obter_mensagem(e.id_email)
+            from gmail_client import _extrair_metadados_anexos
+            anexos_meta = _extrair_metadados_anexos(msg_full.get("payload", {}))
+
+            meta = next((m for m in anexos_meta if m["filename"] == nome_anexo), None)
+            if not meta or not meta["attachment_id"]:
+                continue
+
+            dados = cliente._service.users().messages().attachments().get(
+                userId="me", messageId=e.id_email, id=meta["attachment_id"],
+            ).execute()
+            conteudo = base64.urlsafe_b64decode(dados["data"])
+            caminho = salvar_anexo_gmail(
+                pasta_anexos=pasta_anexos, label="SINCRONIZACAO", message_id=e.id_email,
+                nome_arquivo=nome_anexo, conteudo=conteudo,
+            )
+
+            hash_arq = calcular_hash_arquivo(caminho)
+
+            ocs_extraidas = []
+            if is_xlsx:
+                try:
+                    ocs_extraidas = parse_xlsx_oc(caminho)
+                except Exception as exc:
+                    logger.warning("Falha ao parsear XLSX %s: %s", nome_anexo, exc)
+            else:
+                try:
+                    oc_pdf = parse_pdf_oc(caminho)
+                    ocs_extraidas = [oc_pdf]
+                except Exception as exc:
+                    logger.warning("Falha ao parsear PDF %s: %s", nome_anexo, exc)
+
+            for oc in ocs_extraidas:
+                xlsx_parseado = is_xlsx and oc.numero_oc is not None and len(oc.itens) > 0
+                classificacao = classificar_email_venda(
+                    marcadores_presentes, True, anexo_xlsx=is_xlsx, xlsx_parseado=xlsx_parseado
+                )
+                if is_xlsx and not xlsx_parseado:
+                    classificacao.motivo_exclusao = "FALHA_PARSER_XLSX: " + (oc.avisos[0] if oc.avisos else "dados incompletos")
+
+                # Rule 9: Identificador único da OC
+                # (numero_oc, cliente, data, valor)
+                # Normalizamos para garantir determinismo
+                valor_oc = oc.valor_total_impresso if oc.valor_total_impresso is not None else oc.valor_total_calculado
+                chave = (oc.numero_oc, oc.cliente, oc.data_oc, round(valor_oc, 2))
+
+                if chave not in grupo_oc:
+                    grupo_oc[chave] = {"emails": [], "excluido": False, "motivo": None, "oc": oc, "caminho": caminho, "hash": hash_arq, "meta": meta}
+
+                grupo_oc[chave]["emails"].append(e)
+                if classificacao.considerar_venda == "NAO" and classificacao.status_email == "CANCELADO":
+                    grupo_oc[chave]["excluido"] = True
+                    grupo_oc[chave]["motivo"] = classificacao.motivo_exclusao
+
+    # Persistência
+    total_vendas = 0
+    for chave, dados_oc in grupo_oc.items():
+        oc = dados_oc["oc"]
+
+        # Ordenação determinística dos e-mails (Rule 9)
+        dados_oc["emails"].sort(key=lambda x: x.id_email)
+        e = dados_oc["emails"][0] # Pega o e-mail com menor ID como referência principal estável
+
+        # Re-classifica considerando se algum e-mail do grupo está cancelado
+        marcadores_grupo = set()
+        for em in dados_oc["emails"]:
+            marcadores_grupo.update(extrair_marcadores_presentes(em.labels))
+
+        is_xlsx = dados_oc["caminho"].name.lower().endswith(".xlsx")
+        xlsx_parseado = is_xlsx and oc.numero_oc is not None and len(oc.itens) > 0
+
+        classificacao = classificar_email_venda(
+            marcadores_grupo, True, anexo_xlsx=is_xlsx, xlsx_parseado=xlsx_parseado
+        )
+        if is_xlsx and not xlsx_parseado:
+             classificacao.motivo_exclusao = "FALHA_PARSER_XLSX: " + (oc.avisos[0] if oc.avisos else "dados incompletos")
+
+        if not args.dry_run or args.salvar_dashboard:
+            valor_total_oc = oc.valor_total_impresso if oc.valor_total_impresso is not None else oc.valor_total_calculado
+
+            registro = {
+                "chave_dedupe": montar_chave_dedupe(e.id_email, dados_oc["meta"]["attachment_id"], dados_oc["caminho"].name, dados_oc["hash"]),
+                "id_email": e.id_email,
+                "thread_id": e.thread_id,
+                "attachment_id": dados_oc["meta"]["attachment_id"],
+                "assunto": e.assunto,
+                "remetente": e.remetente,
+                "data_email": e.data,
+                "data_venda": oc.data_oc,
+                "numero_oc": oc.numero_oc,
+                "vendedora": classificacao.vendedora,
+                "cliente": oc.cliente,
+                "status_email": classificacao.status_email,
+                "status_revisao": classificacao.status_revisao,
+                "considerar_venda": classificacao.considerar_venda,
+                "motivo_exclusao": classificacao.motivo_exclusao,
+                "tem_marcador_pedido": "SIM" if config.MARCADOR_PEDIDO in marcadores_grupo else "NAO",
+                "tem_marcador_cancelado": "SIM" if config.MARCADOR_CANCELADO in marcadores_grupo else "NAO",
+                "tem_anexo_ordem_compra": "SIM",
+                "nome_arquivo": dados_oc["caminho"].name,
+                "caminho_anexo": caminho_relativo_projeto(dados_oc["caminho"]),
+                "hash_arquivo": dados_oc["hash"],
+                "tamanho_arquivo": dados_oc["caminho"].stat().st_size,
+                "tipo_anexo": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if is_xlsx else "application/pdf",
+                "metodo_extracao": oc.metodo_extracao,
+                "avisos_parser": "; ".join(oc.avisos),
+                "quantidade_itens": len(oc.itens),
+                "valor_total_oc": valor_total_oc,
+                "valor_total_impresso": oc.valor_total_impresso,
+                "valor_total_calculado": oc.valor_total_calculado,
+                "origem_execucao": "SINCRONIZACAO_GMAIL",
+            }
+            id_venda = salvar_gmail_venda_oc(registro)
+            registro["id"] = id_venda
+            salvar_gmail_oc_itens(id_venda, oc.itens)
+            sincronizar_dashboard_vendas_historicas(registro)
+            if classificacao.considerar_venda == "SIM":
+                total_vendas += 1
+        else:
+            if classificacao.considerar_venda == "SIM":
+                total_vendas += 1
+            logger.info("[DRY-RUN] Venda: OC %s | Cliente: %s | Valor: %s | Status: %s",
+                        oc.numero_oc, oc.cliente, chave[3], classificacao.status_email)
+
+    logger.info("Sincronização concluída. %d vendas confirmadas.", total_vendas)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

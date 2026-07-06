@@ -126,6 +126,41 @@ def criar_tabela_gmail_vendas_oc(cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_numero_oc ON gmail_vendas_oc (numero_oc)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_vendas_oc_id_email ON gmail_vendas_oc (id_email)")
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS gmail_oc_itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        venda_oc_id INTEGER NOT NULL,
+        chave_dedupe TEXT NOT NULL,
+        numero_item INTEGER,
+        descricao TEXT,
+        unidade TEXT,
+        quantidade REAL,
+        valor_unitario REAL,
+        valor_total REAL,
+        confianca_extracao TEXT,
+        FOREIGN KEY (venda_oc_id) REFERENCES gmail_vendas_oc(id) ON DELETE CASCADE
+    )""")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_gmail_oc_itens_chave_dedupe ON gmail_oc_itens (chave_dedupe)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_oc_itens_venda_id ON gmail_oc_itens (venda_oc_id)")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS dashboard_vendas_historicas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chave_venda TEXT NOT NULL,
+        origem TEXT NOT NULL,
+        data_venda TEXT NOT NULL,
+        vendedora TEXT NOT NULL,
+        cliente TEXT,
+        numero_oc TEXT,
+        valor_total REAL,
+        quantidade_itens INTEGER,
+        status TEXT,
+        data_registro TEXT NOT NULL
+    )""")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboard_vendas_chave ON dashboard_vendas_historicas (chave_venda)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dashboard_vendas_data ON dashboard_vendas_historicas (data_venda)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dashboard_vendas_vendedora ON dashboard_vendas_historicas (vendedora)")
+
 
 # ============================================================
 # CRIAÇÃO DO BANCO

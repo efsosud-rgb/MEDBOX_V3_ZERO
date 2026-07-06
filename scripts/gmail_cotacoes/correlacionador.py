@@ -355,22 +355,19 @@ def extrair_marcadores_presentes(labels_email: list[str]) -> set[str]:
     }
 
 
-def classificar_email_venda(labels_presentes: set[str] | list[str], tem_anexo_ordem_compra: bool) -> ClassificacaoEmailVenda:
+def classificar_email_venda(
+    labels_presentes: set[str] | list[str],
+    tem_anexo_ordem_compra: bool,
+    anexo_xlsx: bool = False,
+    xlsx_parseado: bool = False
+) -> ClassificacaoEmailVenda:
     """Regra final de negócio — quando um e-mail conta como venda confirmada.
 
-    A vendedora vem SEMPRE do marcador do Gmail presente em
-    `labels_presentes` (JESSICA/STHEFANY/PAMELA/LAYANE) — nunca adivinhada
-    por PDF, cliente, assunto ou texto. `tem_anexo_ordem_compra` deve vir
-    de reconhecimento de anexo (extrator_anexos.parece_ordem_compra ou,
-    melhor ainda, de um parse_pdf_oc bem-sucedido), nunca do assunto.
-
-    Tabela de casos (critérios de aceite):
-    - PEDIDO + OC, sem CANCELADO           -> VENDA_CONFIRMADA, CONSIDERAR_VENDA=SIM
-    - PEDIDO + OC + CANCELADO              -> CANCELADO, CONSIDERAR_VENDA=NAO (CANCELADO sempre vence)
-    - OC sem PEDIDO                        -> POSSIVEL_PEDIDO_REVISAR, CONSIDERAR_VENDA=NAO
-    - PEDIDO sem OC reconhecida            -> PEDIDO_SEM_OC_RECONHECIDA, CONSIDERAR_VENDA=NAO
-    - PEDIDO + OC sem marcador de vendedora -> VENDA_CONFIRMADA, VENDEDORA=SEM_VENDEDORA,
-                                               STATUS_REVISAO=REVISAR_VENDEDORA
+    Regra oficial MEDBOX_V3_ZERO:
+    1. Se o e-mail/thread tiver anexo de Ordem de Compra, conta como venda.
+    2. Não precisa ter marcador PEDIDO.
+    3. Só NÃO conta como venda se tiver marcador: CANCELADO, RESOLVER, REVISAO.
+    4. CANCELADO/RESOLVER/REVISAO vencem qualquer Ordem de Compra.
     """
     labels_presentes = set(labels_presentes)
     vendedoras_presentes = [v for v in config.VENDEDORAS if v in labels_presentes]
@@ -378,30 +375,36 @@ def classificar_email_venda(labels_presentes: set[str] | list[str], tem_anexo_or
 
     tem_pedido = config.MARCADOR_PEDIDO in labels_presentes
     tem_cancelado = config.MARCADOR_CANCELADO in labels_presentes
+    tem_resolver = config.MARCADOR_RESOLVER in labels_presentes
+    tem_revisao = config.MARCADOR_REVISAO in labels_presentes
 
-    if tem_cancelado:
+    exclusao = tem_cancelado or tem_resolver or tem_revisao
+
+    if exclusao:
+        motivo = "MARCADOR_" + ("CANCELADO" if tem_cancelado else "RESOLVER" if tem_resolver else "REVISAO")
         return ClassificacaoEmailVenda(
-            vendedora=vendedora, tem_marcador_pedido=tem_pedido, tem_marcador_cancelado=True,
+            vendedora=vendedora, tem_marcador_pedido=tem_pedido,
+            tem_marcador_cancelado=tem_cancelado, # Mantemos flags individuais se necessário
             tem_anexo_ordem_compra=tem_anexo_ordem_compra, status_email="CANCELADO",
-            considerar_venda="NAO", motivo_exclusao="MARCADOR_CANCELADO", status_revisao="",
+            considerar_venda="NAO", motivo_exclusao=motivo, status_revisao="",
         )
 
-    if tem_pedido and tem_anexo_ordem_compra:
+    if tem_anexo_ordem_compra:
+        if anexo_xlsx and not xlsx_parseado:
+             return ClassificacaoEmailVenda(
+                vendedora=vendedora, tem_marcador_pedido=tem_pedido, tem_marcador_cancelado=False,
+                tem_anexo_ordem_compra=True, status_email="OC_XLSX_PENDENTE",
+                considerar_venda="NAO", motivo_exclusao="XLSX_NAO_PARSEADO", status_revisao="REVISAR_XLSX",
+            )
+
         status_revisao = "REVISAR_VENDEDORA" if vendedora == config.SEM_VENDEDORA else ""
         return ClassificacaoEmailVenda(
-            vendedora=vendedora, tem_marcador_pedido=True, tem_marcador_cancelado=False,
+            vendedora=vendedora, tem_marcador_pedido=tem_pedido, tem_marcador_cancelado=False,
             tem_anexo_ordem_compra=True, status_email="VENDA_CONFIRMADA",
             considerar_venda="SIM", motivo_exclusao="", status_revisao=status_revisao,
         )
 
-    if tem_anexo_ordem_compra and not tem_pedido:
-        return ClassificacaoEmailVenda(
-            vendedora=vendedora, tem_marcador_pedido=False, tem_marcador_cancelado=False,
-            tem_anexo_ordem_compra=True, status_email="POSSIVEL_PEDIDO_REVISAR",
-            considerar_venda="NAO", motivo_exclusao="OC_SEM_MARCADOR_PEDIDO", status_revisao="REVISAR_PEDIDO",
-        )
-
-    if tem_pedido and not tem_anexo_ordem_compra:
+    if tem_pedido:
         return ClassificacaoEmailVenda(
             vendedora=vendedora, tem_marcador_pedido=True, tem_marcador_cancelado=False,
             tem_anexo_ordem_compra=False, status_email="PEDIDO_SEM_OC_RECONHECIDA",
