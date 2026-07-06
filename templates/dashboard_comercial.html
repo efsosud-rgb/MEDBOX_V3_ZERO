@@ -91,6 +91,133 @@
     .dc-meta-bar.ok { background: linear-gradient(90deg, var(--green), var(--green-dark)); }
     .dc-meta-pct { text-align: right; font-weight: 800; font-size: 0.85rem; color: var(--text); }
 
+
+    /* ---------- Infográficos Realizado x Meta ---------- */
+    .dc-goal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .dc-goal-card {
+        background: #fff; border: 1px solid var(--border); border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(15,39,68,0.08); overflow: hidden;
+    }
+    .dc-goal-head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 10px; padding: 12px 14px; background: linear-gradient(90deg, var(--navy), #1f5f9f);
+        color: #fff;
+    }
+    .dc-goal-head strong { font-size: 1rem; letter-spacing: .3px; }
+    .dc-goal-head span { font-weight: 900; font-size: 1.15rem; }
+    .dc-goal-body { padding: 12px 14px 14px; }
+    .dc-goal-values { display: flex; justify-content: space-between; gap: 10px; color: var(--text2); font-weight: 800; margin-bottom: 10px; }
+    .dc-goal-values small { display:block; color: var(--muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.4px; }
+    .dc-goal-track { position: relative; height: 34px; border-radius: 8px; background: #e8edf5; overflow: hidden; }
+    .dc-goal-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--red-light), var(--navy)); transition: width .35s ease; }
+    .dc-goal-fill.ok { background: linear-gradient(90deg, var(--green), var(--green-dark)); }
+    .dc-goal-marker {
+        position: absolute; right: 8px; top: 7px; font-size: .68rem; font-weight: 900;
+        color: rgba(15,39,68,.45); letter-spacing: .5px;
+    }
+    .dc-month-row .dc-meta-bar { background: linear-gradient(90deg, var(--green), var(--green-dark)); }
+
+
+    
+    /* ---------- Gráfico tendência mensal ---------- */
+    .dc-trend-summary{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(180px,1fr));
+        gap:10px;
+        margin:0 0 12px;
+    }
+    .dc-trend-kpi{
+        border:1px solid var(--border);
+        border-radius:12px;
+        background:#fff;
+        padding:10px 12px;
+    }
+    .dc-trend-kpi .kpi-label{
+        font-size:.72rem;
+        color:var(--muted);
+        font-weight:800;
+        text-transform:uppercase;
+        margin-bottom:4px;
+    }
+    .dc-trend-kpi .kpi-value{
+        font-size:1rem;
+        color:var(--text);
+        font-weight:900;
+    }
+    .dc-trend-kpi .kpi-sub{
+        font-size:.78rem;
+        color:var(--muted);
+        font-weight:700;
+        margin-top:2px;
+    }
+    .dc-trend-wrap{
+        border:1px solid var(--border);
+        border-radius:14px;
+        background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);
+        padding:10px 10px 6px;
+    }
+    .dc-trend-svg{
+        width:100%;
+        height:auto;
+        display:block;
+    }
+    .dc-trend-grid{
+        stroke:#e5e7eb;
+        stroke-width:1;
+    }
+    .dc-trend-axis-text{
+        fill:#64748b;
+        font-size:11px;
+        font-weight:700;
+    }
+    .dc-trend-x-text{
+        fill:#475569;
+        font-size:11px;
+        font-weight:800;
+    }
+    .dc-trend-bar-real{
+        fill:#10b981;
+    }
+    .dc-trend-bar-proj{
+        fill:url(#dcProjPattern);
+    }
+    .dc-trend-line{
+        fill:none;
+        stroke:#dc2626;
+        stroke-width:2.5;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+    }
+    .dc-trend-point{
+        fill:#dc2626;
+        stroke:#fff;
+        stroke-width:2;
+    }
+    .dc-trend-legend {
+        display:flex;
+        flex-wrap:wrap;
+        gap:16px;
+        align-items:center;
+        margin:8px 2px 0;
+        color:var(--muted);
+        font-size:.78rem;
+        font-weight:800;
+    }
+    .dc-trend-dot { width:12px; height:12px; border-radius:999px; display:inline-block; margin-right:5px; background:#10b981; }
+    .dc-trend-dot.proj { background:#477db3; }
+    .dc-trend-dot.line { background:#dc2626; }
+    .dc-trend-note{
+        margin-top:6px;
+        color:var(--muted);
+        font-size:.72rem;
+        font-weight:700;
+    }
+    @media (max-width: 900px){
+        .dc-trend-summary{
+            grid-template-columns:1fr;
+        }
+    }
+
     /* ---------- Tabelas ---------- */
     .dc-table-wrap { width: 100%; overflow-x: auto; }
     .dc-table { width: 100%; border-collapse: collapse; min-width: 760px; }
@@ -122,8 +249,6 @@
     <section class="dc-panel">
         <h3>Filtros</h3>
         <div class="dc-filters">
-            <div class="dc-field"><label for="dc-data-inicio">Data início</label><input id="dc-data-inicio" type="date"></div>
-            <div class="dc-field"><label for="dc-data-fim">Data fim</label><input id="dc-data-fim" type="date"></div>
             <div class="dc-field"><label for="dc-mes">Mês</label>
                 <select id="dc-mes">
                     <option value="">Todos</option>
@@ -184,7 +309,7 @@
 
         <!-- 6. Metas por vendedora -->
         <section class="dc-panel">
-            <h3>Acompanhamento de Metas — Vendedora</h3>
+            <h3>Realizado x Meta — Vendedora</h3>
             <div id="dc-metas-vendedora"><div class="dc-empty">Carregando…</div></div>
         </section>
     </div>
@@ -192,13 +317,13 @@
     <div class="dc-grid-2">
         <!-- 7. Metas por cliente -->
         <section class="dc-panel">
-            <h3>Acompanhamento de Metas — Cliente</h3>
+            <h3>Realizado x Meta — Cliente/Projeto</h3>
             <div id="dc-metas-cliente"><div class="dc-empty">Carregando…</div></div>
         </section>
 
         <!-- 8. Vendas por mês -->
         <section class="dc-panel">
-            <h3>Vendas por Mês</h3>
+            <h3>Vendas mês a mês + tendência até Jul/2027 <small style="color:var(--muted);font-size:.72rem;">(tendência só com meses fechados)</small></h3>
             <div id="dc-vendas-mes-lista"><div class="dc-empty">Carregando…</div></div>
         </section>
     </div>
@@ -256,13 +381,12 @@
             .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    const ids = { dataInicio: "dc-data-inicio", dataFim: "dc-data-fim", mes: "dc-mes", ano: "dc-ano", vendedora: "dc-vendedora", cliente: "dc-cliente", status: "dc-status", critico: "dc-critico" };
+    const ids = { mes: "dc-mes", ano: "dc-ano", vendedora: "dc-vendedora", cliente: "dc-cliente", status: "dc-status", critico: "dc-critico" };
     function val(id) { const n = el(id); return n ? n.value.trim() : ""; }
 
     function params() {
         const q = new URLSearchParams();
         const map = {
-            data_inicio: val(ids.dataInicio), data_fim: val(ids.dataFim),
             mes: val(ids.mes), ano: val(ids.ano),
             vendedora: val(ids.vendedora), cliente: val(ids.cliente),
             status_resultado: val(ids.status), item_critico: val(ids.critico),
@@ -311,19 +435,120 @@
             `).join("");
         }
 
-        // Vendas por mês
+                // Vendas mês a mês + tendência até Jul/2027
         const listaMes = el("dc-vendas-mes-lista");
         if (listaMes) {
-            const meses = r.vendas_por_mes || [];
-            listaMes.innerHTML = meses.length
-                ? meses.map((m) => `
-                    <div class="dc-meta-row">
-                        <span class="dc-meta-nome">${escapeHtml(m.mes_nome)}/${m.ano}</span>
-                        <div class="dc-meta-track"><div class="dc-meta-bar ok" style="width:100%"></div></div>
-                        <div class="dc-meta-pct">${fmtBRL(m.total)}</div>
+            const serie = r.tendencia_vendas || [];
+            const maxVal = Math.max(...serie.map((m) => Math.max(Number(m.real) || 0, Number(m.tendencia) || 0)), 1);
+
+            const reais = serie.filter(m => m.real !== null && m.real !== undefined);
+            const ultimoReal = reais.length ? reais[reais.length - 1] : null;
+            const maiorReal = reais.length ? [...reais].sort((a,b) => (Number(b.real)||0) - (Number(a.real)||0))[0] : null;
+            const ultimaProj = serie.length ? serie[serie.length - 1] : null;
+
+            if (!serie.length) {
+                listaMes.innerHTML = `<div class="dc-empty">Nenhum dado encontrado</div>`;
+            } else {
+                const width = 980;
+                const height = 320;
+                const pad = { l: 58, r: 16, t: 16, b: 54 };
+                const plotW = width - pad.l - pad.r;
+                const plotH = height - pad.t - pad.b;
+                const slot = plotW / Math.max(serie.length, 1);
+                const barW = Math.max(14, Math.min(26, slot * 0.42));
+                const toY = (v) => height - pad.b - ((Number(v) || 0) / maxVal) * plotH;
+                const toX = (i) => pad.l + slot * (i + 0.5);
+
+                const gridSteps = 4;
+                const grid = Array.from({ length: gridSteps + 1 }, (_, i) => {
+                    const ratio = i / gridSteps;
+                    const valor = maxVal * ratio;
+                    const y = toY(valor);
+                    return `
+                        <line class="dc-trend-grid" x1="${pad.l}" y1="${y.toFixed(2)}" x2="${width - pad.r}" y2="${y.toFixed(2)}"></line>
+                        <text class="dc-trend-axis-text" x="${pad.l - 8}" y="${(y + 4).toFixed(2)}" text-anchor="end">${fmtBRL(valor).replace("R$ ", "")}</text>
+                    `;
+                }).join("");
+
+                const bars = serie.map((m, i) => {
+                    const real = Number(m.real) || 0;
+                    const proj = Number(m.tendencia) || 0;
+                    const valorBarra = real || proj;
+                    const x = toX(i) - barW / 2;
+                    const y = toY(valorBarra);
+                    const h = Math.max(2, (height - pad.b) - y);
+                    const cls = m.tipo === "PROJETADO" ? "dc-trend-bar-proj" : "dc-trend-bar-real";
+                    return `
+                        <rect class="${cls}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barW.toFixed(2)}" height="${h.toFixed(2)}" rx="6">
+                            <title>${m.label} | Real: ${m.real !== null ? fmtBRL(real) : "—"} | Tendência: ${fmtBRL(proj)}</title>
+                        </rect>
+                    `;
+                }).join("");
+
+                const path = serie.map((m, i) => {
+                    const x = toX(i);
+                    const y = toY(Number(m.tendencia) || 0);
+                    return `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+                }).join(" ");
+
+                const points = serie.map((m, i) => {
+                    const x = toX(i);
+                    const y = toY(Number(m.tendencia) || 0);
+                    return `
+                        <circle class="dc-trend-point" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="4">
+                            <title>${m.label} | Tendência: ${fmtBRL(Number(m.tendencia) || 0)}</title>
+                        </circle>
+                    `;
+                }).join("");
+
+                const labels = serie.map((m, i) => {
+                    const mostrar = i === 0 || i === serie.length - 1 || i % 2 === 0;
+                    if (!mostrar) return "";
+                    const x = toX(i);
+                    return `<text class="dc-trend-x-text" x="${x.toFixed(2)}" y="${height - 16}" text-anchor="middle">${escapeHtml(m.label)}</text>`;
+                }).join("");
+
+                listaMes.innerHTML = `
+                    <div class="dc-trend-summary">
+                        <div class="dc-trend-kpi">
+                            <div class="kpi-label">Maior realizado</div>
+                            <div class="kpi-value">${maiorReal ? fmtBRL(Number(maiorReal.real)||0) : "—"}</div>
+                            <div class="kpi-sub">${maiorReal ? escapeHtml(maiorReal.label) : ""}</div>
+                        </div>
+                        <div class="dc-trend-kpi">
+                            <div class="kpi-label">Último realizado</div>
+                            <div class="kpi-value">${ultimoReal ? fmtBRL(Number(ultimoReal.real)||0) : "—"}</div>
+                            <div class="kpi-sub">${ultimoReal ? escapeHtml(ultimoReal.label) : ""}</div>
+                        </div>
+                        <div class="dc-trend-kpi">
+                            <div class="kpi-label">Projeção Jul/27</div>
+                            <div class="kpi-value">${ultimaProj ? fmtBRL(Number(ultimaProj.tendencia)||0) : "—"}</div>
+                            <div class="kpi-sub">${ultimaProj ? escapeHtml(ultimaProj.label) : ""}</div>
+                        </div>
                     </div>
-                `).join("")
-                : `<div class="dc-empty">Nenhum dado encontrado</div>`;
+                    <div class="dc-trend-wrap">
+                        <svg class="dc-trend-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" aria-label="Gráfico de vendas e tendência">
+                            <defs>
+                                <pattern id="dcProjPattern" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+                                    <rect width="10" height="10" fill="#dce8f5"></rect>
+                                    <rect width="5" height="10" fill="#4f81b8"></rect>
+                                </pattern>
+                            </defs>
+                            ${grid}
+                            ${bars}
+                            <path class="dc-trend-line" d="${path}"></path>
+                            ${points}
+                            ${labels}
+                        </svg>
+                    </div>
+                    <div class="dc-trend-legend">
+                        <span><i class="dc-trend-dot"></i>Realizado</span>
+                        <span><i class="dc-trend-dot proj"></i>Projetado</span>
+                        <span><i class="dc-trend-dot line"></i>Linha de tendência — meses fechados</span>
+                    </div>
+                    <div class="dc-trend-note">Os valores detalhados aparecem ao passar o mouse sobre as barras e os pontos.</div>
+                `;
+            }
         }
 
         // Comparativo por fonte
@@ -342,17 +567,30 @@
         const c = el(containerId);
         if (!c) return;
         if (!rows.length) { c.innerHTML = `<div class="dc-empty">Nenhum dado encontrado</div>`; return; }
-        c.innerHTML = rows.map((row) => {
+        c.innerHTML = `<div class="dc-goal-grid">` + rows.map((row) => {
             const pct = Number(row[campoPct]) || 0;
+            const realizado = Number(row[campoAtual]) || 0;
+            const meta = Number(row[campoMeta]) || 0;
             const ok = pct >= 100;
             return `
-                <div class="dc-meta-row">
-                    <span class="dc-meta-nome">${escapeHtml(row[campoNome])}</span>
-                    <div class="dc-meta-track"><div class="dc-meta-bar ${ok ? "ok" : ""}" style="width:${Math.min(100, Math.max(0, pct)).toFixed(1)}%"></div></div>
-                    <div class="dc-meta-pct">${fmtPct(pct)}</div>
+                <div class="dc-goal-card">
+                    <div class="dc-goal-head">
+                        <strong>${escapeHtml(row[campoNome])}</strong>
+                        <span>${fmtPct(pct)}</span>
+                    </div>
+                    <div class="dc-goal-body">
+                        <div class="dc-goal-values">
+                            <div><small>Realizado</small>${fmtBRL(realizado)}</div>
+                            <div><small>Meta</small>${fmtBRL(meta)}</div>
+                        </div>
+                        <div class="dc-goal-track">
+                            <div class="dc-goal-fill ${ok ? "ok" : ""}" style="width:${Math.min(100, Math.max(0, pct)).toFixed(1)}%"></div>
+                            <span class="dc-goal-marker">META</span>
+                        </div>
+                    </div>
                 </div>
             `;
-        }).join("");
+        }).join("") + `</div>`;
     }
 
     function renderTop5Criticos(dados) {
