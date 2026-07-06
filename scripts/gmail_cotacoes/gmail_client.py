@@ -197,6 +197,51 @@ class GmailClient:
     def _obter_mensagem(self, message_id: str) -> dict:
         return self._service.users().messages().get(userId="me", id=message_id, format="full").execute()
 
+    def _obter_thread(self, thread_id: str) -> dict:
+        return self._service.users().threads().get(userId="me", id=thread_id).execute()
+
+    def buscar_emails_por_query(self, query: str, limite: int) -> list[EmailGmail]:
+        if not limite or limite <= 0:
+            raise ValueError("buscar_emails_por_query exige um limite positivo explícito.")
+
+        resposta = self._service.users().messages().list(
+            userId="me", q=query, maxResults=limite,
+        ).execute()
+
+        mapa_labels = self._mapa_labels()
+        resultado: list[EmailGmail] = []
+        for ref in resposta.get("messages", []):
+            msg = self._obter_mensagem(ref["id"])
+            payload = msg.get("payload", {}) or {}
+            cabecalhos = _extrair_cabecalhos(payload)
+            anexos_meta = _extrair_metadados_anexos(payload)
+
+            # Labels da mensagem + labels da thread
+            labels_ids = set(msg.get("labelIds", []))
+            try:
+                thread = self._obter_thread(msg["threadId"])
+                for m in thread.get("messages", []):
+                    labels_ids.update(m.get("labelIds", []))
+            except Exception:
+                pass # thread labels best-effort
+
+            nomes_labels = sorted([mapa_labels.get(lid, lid) for lid in labels_ids])
+
+            resultado.append(EmailGmail(
+                id_email=msg["id"],
+                marcador="QUERY", # Marcador especial para busca por query
+                assunto=cabecalhos["assunto"],
+                remetente=cabecalhos["remetente"],
+                data=cabecalhos["data"],
+                anexos=[a["filename"] for a in anexos_meta],
+                link=f"https://mail.google.com/mail/u/0/#all/{msg['id']}",
+                corpo_texto="",
+                thread_id=msg.get("threadId", ""),
+                labels=nomes_labels,
+                snippet=(msg.get("snippet") or "")[:140],
+            ))
+        return resultado
+
     def listar_emails_por_marcador(self, label_id: str, marcador_nome: str, limite: int) -> list[EmailGmail]:
         if not limite or limite <= 0:
             raise ValueError("listar_emails_por_marcador exige um limite positivo explícito.")

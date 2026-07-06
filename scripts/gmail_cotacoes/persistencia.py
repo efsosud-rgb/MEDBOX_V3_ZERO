@@ -134,6 +134,75 @@ def salvar_gmail_venda_oc(registro: dict) -> int:
     return id_
 
 
+def salvar_gmail_oc_itens(venda_oc_id: int, itens: list) -> None:
+    """Salva itens da OC na tabela gmail_oc_itens."""
+    conn = banco.conectar()
+    cursor = conn.cursor()
+
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Remove itens antigos para evitar duplicatas (idempotência por venda_oc_id)
+    cursor.execute("DELETE FROM gmail_oc_itens WHERE venda_oc_id = ?", (venda_oc_id,))
+
+    for it in itens:
+        # chave_dedupe para o item: venda_oc_id + numero_item + hash da descrição
+        desc_hash = hashlib.md5(it.descricao.encode("utf-8")).hexdigest()
+        chave_item = f"{venda_oc_id}|{it.numero_item}|{desc_hash}"
+
+        cursor.execute("""
+            INSERT INTO gmail_oc_itens (
+                venda_oc_id, chave_dedupe, numero_item, descricao, unidade,
+                quantidade, valor_unitario, valor_total, confianca_extracao
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            venda_oc_id, chave_item, it.numero_item, it.descricao, it.unidade,
+            it.quantidade, it.valor_unitario, it.valor_total, it.confianca_extracao
+        ))
+
+    conn.commit()
+    conn.close()
+
+
+def sincronizar_dashboard_vendas_historicas(registro_oc: dict) -> None:
+    """Atualiza a tabela dashboard_vendas_historicas com base em um registro de gmail_vendas_oc."""
+    if registro_oc.get("considerar_venda") != "SIM":
+        return
+
+    conn = banco.conectar()
+    cursor = conn.cursor()
+
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    chave_venda = f"GMAIL_OC|{registro_oc['id_email']}|{registro_oc['numero_oc']}"
+
+    cursor.execute("SELECT id FROM dashboard_vendas_historicas WHERE chave_venda = ?", (chave_venda,))
+    existente = cursor.fetchone()
+
+    dados = (
+        chave_venda, "GMAIL_OC", registro_oc["data_venda"], registro_oc["vendedora"],
+        registro_oc["cliente"], registro_oc["numero_oc"], registro_oc["valor_total_oc"],
+        registro_oc["quantidade_itens"], registro_oc["status_email"], agora
+    )
+
+    if existente:
+        cursor.execute("""
+            UPDATE dashboard_vendas_historicas SET
+                origem = ?, data_venda = ?, vendedora = ?, cliente = ?,
+                numero_oc = ?, valor_total = ?, quantidade_itens = ?,
+                status = ?, data_registro = ?
+            WHERE id = ?
+        """, dados[1:] + (existente["id"],))
+    else:
+        cursor.execute("""
+            INSERT INTO dashboard_vendas_historicas (
+                chave_venda, origem, data_venda, vendedora, cliente,
+                numero_oc, valor_total, quantidade_itens, status, data_registro
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, dados)
+
+    conn.commit()
+    conn.close()
+
+
 def listar_gmail_vendas_oc(filtros: dict | None = None) -> list[dict]:
     filtros = filtros or {}
     conn = banco.conectar()
