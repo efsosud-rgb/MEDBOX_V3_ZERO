@@ -79,6 +79,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                     choices=["listar-labels", "verificar-marcadores", "buscar-amostra", "baixar-anexos-amostra", "sincronizar-pedidos-dashboard"],
                     help="Ação de diagnóstico do modo --gmail-real")
     p.add_argument("--buscar-oc-por-texto", action="store_true", help="Usa busca textual por 'ordem de compra' na sincronização")
+    p.add_argument("--salvar-dashboard", action="store_true", help="Grava de fato no banco na sincronização (alternativa ao dry-run)")
+    p.add_argument("--data-inicio", type=str, default=None, help="Data início para busca (AAAA-MM-DD)")
+    p.add_argument("--data-fim", type=str, default=None, help="Data fim para busca (AAAA-MM-DD)")
     p.add_argument("--marcador", type=str, default=None,
                     help="Restringe buscar-amostra/baixar-anexos-amostra a um marcador (JESSICA/STHEFANY/PAMELA/LAYANE/PEDIDO/CANCELADO). Padrão: todos")
     p.add_argument("--credentials-json", type=str, default=str(config.CREDENTIALS_PATH), help="Caminho do credentials.json OAuth")
@@ -295,8 +298,11 @@ def _sincronizar_pedidos_dashboard(args, cliente) -> int:
     limite = args.limite_cotacoes or 100
     query = ""
     if args.buscar_oc_por_texto:
-        # Exemplo: "ordem de compra" after:2026/06/01 before:2026/07/01 has:attachment
         query = '"ordem de compra" has:attachment'
+        if args.data_inicio:
+            query += f" after:{args.data_inicio.replace('-', '/')}"
+        if args.data_fim:
+            query += f" before:{args.data_fim.replace('-', '/')}"
         logger.info("Buscando e-mails por query: %s", query)
         emails = cliente.buscar_emails_por_query(query, limite)
     else:
@@ -410,9 +416,7 @@ def _sincronizar_pedidos_dashboard(args, cliente) -> int:
             marcadores_grupo, True, anexo_xlsx=is_xlsx, xlsx_parseado=xlsx_parseado
         )
 
-        if not args.dry_run:
-            # TODO: Implementar salvar_gmail_venda_oc e tabelas extras
-            # Por enquanto vamos usar o que temos
+        if not args.dry_run or args.salvar_dashboard:
             valor_total_oc = oc.valor_total_impresso if oc.valor_total_impresso is not None else oc.valor_total_calculado
 
             registro = {

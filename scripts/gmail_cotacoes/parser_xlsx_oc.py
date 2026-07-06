@@ -171,7 +171,11 @@ def _processar_aba(ws: openpyxl.worksheet.worksheet.Worksheet) -> OrdemDeCompra 
 
     valor_total_calculado = sum(it.valor_total for it in itens if it.valor_total)
 
-    # Se não achou numero_oc no texto, tenta pegar do nome da aba ou do arquivo (será feito no chamador)
+    # Se não achou numero_oc no texto, tenta pegar do nome da aba
+    if not numero_oc:
+        m_aba = re.search(r"(?:OC|ORDEM DE COMPRA)[ N.]+(\d+)", ws.title.upper())
+        if m_aba:
+            numero_oc = m_aba.group(1)
 
     return OrdemDeCompra(
         numero_oc=numero_oc,
@@ -181,7 +185,8 @@ def _processar_aba(ws: openpyxl.worksheet.worksheet.Worksheet) -> OrdemDeCompra 
         valor_total_calculado=valor_total_calculado,
         itens=itens,
         metodo_extracao="openpyxl",
-        avisos=[]
+        avisos=[],
+        aba_origem=ws.title
     )
 
 def _to_float(v) -> float:
