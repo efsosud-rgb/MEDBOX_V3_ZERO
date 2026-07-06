@@ -208,6 +208,22 @@ def salvar_dashboard_venda_historica_gmail(registro: dict) -> int | None:
     return id_
 
 
+def remover_dashboard_venda_historica_gmail(numero_oc: str | None) -> int:
+    """Remove da apuracao historica uma OC que deixou de ser venda valida."""
+    if not numero_oc:
+        return 0
+    conn = banco.conectar()
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM dashboard_vendas_historicas WHERE fonte = ? AND numero_oc = ?",
+        (FONTE_GMAIL_OC, numero_oc),
+    )
+    removidas = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return removidas
+
+
 def salvar_gmail_oc_itens(venda_oc_id: int, registro: dict, itens: list) -> int:
     """Reinsere os itens da OC para uma venda. Idempotente por venda_oc_id."""
     agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -234,6 +250,19 @@ def salvar_gmail_oc_itens(venda_oc_id: int, registro: dict, itens: list) -> int:
     conn.commit()
     conn.close()
     return total
+
+
+def remover_gmail_oc_itens(venda_oc_id: int | None) -> int:
+    """Remove itens de uma OC que nao deve entrar como venda confirmada."""
+    if not venda_oc_id:
+        return 0
+    conn = banco.conectar()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM gmail_oc_itens WHERE venda_oc_id = ?", (venda_oc_id,))
+    removidas = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return removidas
 
 
 def listar_gmail_vendas_oc(filtros: dict | None = None) -> list[dict]:

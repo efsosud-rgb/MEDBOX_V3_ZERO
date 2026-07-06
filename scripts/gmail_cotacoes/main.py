@@ -301,6 +301,8 @@ def _sincronizar_pedidos_dashboard(cliente, args: argparse.Namespace, label_id: 
     from gmail_client import montar_query_gmail_periodo
     from persistencia import (
         existe_gmail_venda_oc,
+        remover_dashboard_venda_historica_gmail,
+        remover_gmail_oc_itens,
         salvar_dashboard_venda_historica_gmail,
         salvar_gmail_oc_itens,
         salvar_gmail_venda_oc,
@@ -330,7 +332,8 @@ def _sincronizar_pedidos_dashboard(cliente, args: argparse.Namespace, label_id: 
     stats = {
         "emails": len(emails), "anexos_baixados": 0, "ocs_reconhecidas": 0,
         "vendas_gravadas": 0, "itens_gravados": 0, "erros": 0,
-        "atualizadas": 0, "novas": 0,
+        "atualizadas": 0, "novas": 0, "cancelados": 0,
+        "excluidas_apuracao": 0, "itens_removidos": 0,
     }
     logger.info("Query Gmail: %s", query)
     logger.info(
@@ -340,7 +343,13 @@ def _sincronizar_pedidos_dashboard(cliente, args: argparse.Namespace, label_id: 
 
     for email in emails:
         logger.info("Email: id=%s data=%s assunto=%r", email.id_email, email.data, email.assunto)
-        marcadores_presentes = extrair_marcadores_presentes(email.labels)
+        labels_thread = cliente.listar_labels_thread(email.thread_id)
+        marcadores_presentes = extrair_marcadores_presentes(email.labels + labels_thread)
+        tem_cancelado = config.MARCADOR_CANCELADO in marcadores_presentes
+        if tem_cancelado:
+            stats["cancelados"] += 1
+            origem_cancelado = "mensagem" if config.MARCADOR_CANCELADO in extrair_marcadores_presentes(email.labels) else "thread"
+            logger.info("  Marcador CANCELADO detectado no %s: este e-mail/thread nunca entra como venda.", origem_cancelado)
         anexos = cliente.baixar_anexos_mensagem(
             message_id=email.id_email,
             label_nome=args.marcador,
@@ -387,11 +396,15 @@ def _sincronizar_pedidos_dashboard(cliente, args: argparse.Namespace, label_id: 
             if oc is not None and registro["status_email"] == "VENDA_CONFIRMADA" and registro["considerar_venda"] == "SIM":
                 salvar_dashboard_venda_historica_gmail(registro)
                 stats["itens_gravados"] += salvar_gmail_oc_itens(venda_oc_id, registro, oc.itens)
+            else:
+                stats["excluidas_apuracao"] += remover_dashboard_venda_historica_gmail(registro.get("numero_oc"))
+                stats["itens_removidos"] += remover_gmail_oc_itens(venda_oc_id)
 
     logger.info(
-        "Resumo sincronizacao: emails=%d anexos_baixados=%d ocs_reconhecidas=%d vendas_gravadas=%d novas=%d atualizadas=%d itens_gravados=%d erros=%d",
+        "Resumo sincronizacao: emails=%d anexos_baixados=%d ocs_reconhecidas=%d vendas_gravadas=%d novas=%d atualizadas=%d cancelados=%d excluidas_apuracao=%d itens_gravados=%d itens_removidos=%d erros=%d",
         stats["emails"], stats["anexos_baixados"], stats["ocs_reconhecidas"], stats["vendas_gravadas"],
-        stats["novas"], stats["atualizadas"], stats["itens_gravados"], stats["erros"],
+        stats["novas"], stats["atualizadas"], stats["cancelados"], stats["excluidas_apuracao"],
+        stats["itens_gravados"], stats["itens_removidos"], stats["erros"],
     )
     logger.info("Gmail nao foi alterado. Nenhum label/e-mail foi enviado, apagado, movido ou respondido.")
     if not args.salvar_dashboard:

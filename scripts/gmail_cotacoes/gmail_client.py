@@ -228,6 +228,19 @@ class GmailClient:
     def _obter_mensagem(self, message_id: str) -> dict:
         return self._service.users().messages().get(userId="me", id=message_id, format="full").execute()
 
+    def listar_labels_thread(self, thread_id: str) -> list[str]:
+        """Lista nomes de labels presentes em qualquer mensagem do thread."""
+        if not thread_id:
+            return []
+        thread = self._service.users().threads().get(
+            userId="me", id=thread_id, format="minimal",
+        ).execute()
+        mapa_labels = self._mapa_labels()
+        labels_ids: set[str] = set()
+        for msg in thread.get("messages", []):
+            labels_ids.update(msg.get("labelIds", []))
+        return sorted(mapa_labels.get(label_id, label_id) for label_id in labels_ids)
+
     def listar_emails_por_marcador(
         self,
         label_id: str,
