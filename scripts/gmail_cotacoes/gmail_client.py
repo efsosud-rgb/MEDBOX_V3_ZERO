@@ -99,6 +99,25 @@ def montar_query_gmail_periodo(marcador_nome: str, data_inicio: str | None = Non
     return " ".join(partes)
 
 
+def montar_query_gmail_oc_texto(data_inicio: str | None = None, data_fim: str | None = None, marcador_nome: str | None = None) -> str:
+    """Query ampla para apurar vendas por Ordem de Compra, sem depender de PEDIDO."""
+    inicio = _parse_data_iso(data_inicio)
+    fim = _parse_data_iso(data_fim)
+    if inicio and fim and inicio > fim:
+        raise ValueError("--data-inicio nao pode ser maior que --data-fim.")
+
+    partes = ['"ordem de compra"']
+    if marcador_nome:
+        partes.append(f"label:{marcador_nome}")
+    if inicio:
+        partes.append(f"after:{inicio.strftime('%Y/%m/%d')}")
+    if fim:
+        fim_exclusivo = fim + timedelta(days=1)
+        partes.append(f"before:{fim_exclusivo.strftime('%Y/%m/%d')}")
+    partes.append("has:attachment")
+    return " ".join(partes)
+
+
 def _extrair_cabecalhos(payload: dict) -> dict:
     headers = {h["name"]: h["value"] for h in payload.get("headers", [])}
     data_bruta = headers.get("Date", "")
@@ -255,6 +274,39 @@ class GmailClient:
         query = montar_query_gmail_periodo(marcador_nome, data_inicio, data_fim)
         resposta = self._service.users().messages().list(
             userId="me", labelIds=[label_id], q=query, maxResults=limite,
+        ).execute()
+
+        mapa_labels = self._mapa_labels()
+        resultado: list[EmailGmail] = []
+        for ref in resposta.get("messages", []):
+            msg = self._obter_mensagem(ref["id"])
+            payload = msg.get("payload", {}) or {}
+            cabecalhos = _extrair_cabecalhos(payload)
+            anexos_meta = _extrair_metadados_anexos(payload)
+            nomes_labels = [mapa_labels.get(lid, lid) for lid in msg.get("labelIds", [])]
+
+            resultado.append(EmailGmail(
+                id_email=msg["id"],
+                marcador=marcador_nome,
+                assunto=cabecalhos["assunto"],
+                remetente=cabecalhos["remetente"],
+                data=cabecalhos["data"],
+                anexos=[a["filename"] for a in anexos_meta],
+                link=f"https://mail.google.com/mail/u/0/#all/{msg['id']}",
+                corpo_texto="",
+                thread_id=msg.get("threadId", ""),
+                labels=nomes_labels,
+                snippet=(msg.get("snippet") or "")[:140],
+            ))
+        return resultado
+
+    def listar_emails_por_query(self, query: str, marcador_nome: str, limite: int) -> list[EmailGmail]:
+        """Lista mensagens por query Gmail livre, somente metadados/anexos."""
+        if not limite or limite <= 0:
+            raise ValueError("listar_emails_por_query exige um limite positivo explicito.")
+
+        resposta = self._service.users().messages().list(
+            userId="me", q=query, maxResults=limite,
         ).execute()
 
         mapa_labels = self._mapa_labels()

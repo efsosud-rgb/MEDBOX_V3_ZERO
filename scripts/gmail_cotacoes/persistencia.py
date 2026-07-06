@@ -151,6 +151,23 @@ def existe_gmail_venda_oc(chave_dedupe: str) -> bool:
     return existe
 
 
+def existe_gmail_venda_oc_confirmada(numero_oc: str | None) -> bool:
+    if not numero_oc:
+        return False
+    conn = banco.conectar()
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT 1 FROM gmail_vendas_oc
+           WHERE origem_execucao = ? AND numero_oc = ?
+             AND status_email = 'VENDA_CONFIRMADA' AND considerar_venda = 'SIM'
+           LIMIT 1""",
+        ("GMAIL_REAL_PEDIDOS_SYNC", numero_oc),
+    )
+    existe = cursor.fetchone() is not None
+    conn.close()
+    return existe
+
+
 def _partes_data_br(data_br: str | None) -> tuple[int, int, str]:
     if not data_br:
         raise ValueError("data_venda ausente; nao e possivel alimentar dashboard_vendas_historicas.")
