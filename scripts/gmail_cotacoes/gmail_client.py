@@ -30,6 +30,7 @@ from __future__ import annotations
 import base64
 import email.utils
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 
 import config
@@ -66,6 +67,55 @@ class CredenciaisNaoEncontradasError(GmailClientError):
 
 class EscopoGmailInvalidoError(GmailClientError):
     pass
+
+
+def _parse_data_iso(valor: str | None) -> date | None:
+    if not valor:
+        return None
+    try:
+        return date.fromisoformat(valor)
+    except ValueError as exc:
+        raise ValueError(f"Data invalida '{valor}'. Use o formato YYYY-MM-DD.") from exc
+
+
+def montar_query_gmail_periodo(marcador_nome: str, data_inicio: str | None = None, data_fim: str | None = None) -> str:
+    """Monta a query Gmail por marcador e data do e-mail.
+
+    `before:` e exclusivo no Gmail; data_fim e somada em 1 dia para incluir
+    todo o ultimo dia informado. Este filtro nao altera DATA_VENDA, que
+    continua vindo da Ordem de Compra.
+    """
+    inicio = _parse_data_iso(data_inicio)
+    fim = _parse_data_iso(data_fim)
+    if inicio and fim and inicio > fim:
+        raise ValueError("--data-inicio nao pode ser maior que --data-fim.")
+
+    partes = [f"label:{marcador_nome}"]
+    if inicio:
+        partes.append(f"after:{inicio.strftime('%Y/%m/%d')}")
+    if fim:
+        fim_exclusivo = fim + timedelta(days=1)
+        partes.append(f"before:{fim_exclusivo.strftime('%Y/%m/%d')}")
+    return " ".join(partes)
+
+
+def montar_query_gmail_oc_texto(data_inicio: str | None = None, data_fim: str | None = None, marcador_nome: str | None = None) -> str:
+    """Query ampla para apurar vendas por Ordem de Compra, sem depender de PEDIDO."""
+    inicio = _parse_data_iso(data_inicio)
+    fim = _parse_data_iso(data_fim)
+    if inicio and fim and inicio > fim:
+        raise ValueError("--data-inicio nao pode ser maior que --data-fim.")
+
+    partes = ['"ordem de compra"']
+    if marcador_nome:
+        partes.append(f"label:{marcador_nome}")
+    if inicio:
+        partes.append(f"after:{inicio.strftime('%Y/%m/%d')}")
+    if fim:
+        fim_exclusivo = fim + timedelta(days=1)
+        partes.append(f"before:{fim_exclusivo.strftime('%Y/%m/%d')}")
+    partes.append("has:attachment")
+    return " ".join(partes)
 
 
 def _extrair_cabecalhos(payload: dict) -> dict:
@@ -197,12 +247,66 @@ class GmailClient:
     def _obter_mensagem(self, message_id: str) -> dict:
         return self._service.users().messages().get(userId="me", id=message_id, format="full").execute()
 
-    def listar_emails_por_marcador(self, label_id: str, marcador_nome: str, limite: int) -> list[EmailGmail]:
+    def listar_labels_thread(self, thread_id: str) -> list[str]:
+        """Lista nomes de labels presentes em qualquer mensagem do thread."""
+        if not thread_id:
+            return []
+        thread = self._service.users().threads().get(
+            userId="me", id=thread_id, format="minimal",
+        ).execute()
+        mapa_labels = self._mapa_labels()
+        labels_ids: set[str] = set()
+        for msg in thread.get("messages", []):
+            labels_ids.update(msg.get("labelIds", []))
+        return sorted(mapa_labels.get(label_id, label_id) for label_id in labels_ids)
+
+    def listar_emails_por_marcador(
+        self,
+        label_id: str,
+        marcador_nome: str,
+        limite: int,
+        data_inicio: str | None = None,
+        data_fim: str | None = None,
+    ) -> list[EmailGmail]:
         if not limite or limite <= 0:
             raise ValueError("listar_emails_por_marcador exige um limite positivo explícito.")
 
+        query = montar_query_gmail_periodo(marcador_nome, data_inicio, data_fim)
         resposta = self._service.users().messages().list(
-            userId="me", labelIds=[label_id], maxResults=limite,
+            userId="me", labelIds=[label_id], q=query, maxResults=limite,
+        ).execute()
+
+        mapa_labels = self._mapa_labels()
+        resultado: list[EmailGmail] = []
+        for ref in resposta.get("messages", []):
+            msg = self._obter_mensagem(ref["id"])
+            payload = msg.get("payload", {}) or {}
+            cabecalhos = _extrair_cabecalhos(payload)
+            anexos_meta = _extrair_metadados_anexos(payload)
+            nomes_labels = [mapa_labels.get(lid, lid) for lid in msg.get("labelIds", [])]
+
+            resultado.append(EmailGmail(
+                id_email=msg["id"],
+                marcador=marcador_nome,
+                assunto=cabecalhos["assunto"],
+                remetente=cabecalhos["remetente"],
+                data=cabecalhos["data"],
+                anexos=[a["filename"] for a in anexos_meta],
+                link=f"https://mail.google.com/mail/u/0/#all/{msg['id']}",
+                corpo_texto="",
+                thread_id=msg.get("threadId", ""),
+                labels=nomes_labels,
+                snippet=(msg.get("snippet") or "")[:140],
+            ))
+        return resultado
+
+    def listar_emails_por_query(self, query: str, marcador_nome: str, limite: int) -> list[EmailGmail]:
+        """Lista mensagens por query Gmail livre, somente metadados/anexos."""
+        if not limite or limite <= 0:
+            raise ValueError("listar_emails_por_query exige um limite positivo explicito.")
+
+        resposta = self._service.users().messages().list(
+            userId="me", q=query, maxResults=limite,
         ).execute()
 
         mapa_labels = self._mapa_labels()
@@ -266,3 +370,50 @@ class GmailClient:
                 )
                 caminhos_salvos.append(caminho)
         return caminhos_salvos
+
+    def baixar_anexos_mensagem(
+        self,
+        message_id: str,
+        label_nome: str,
+        pasta_anexos: Path,
+        somente_ordem_compra: bool = False,
+        limite_anexos: int | None = None,
+    ) -> list[dict]:
+        """Baixa anexos de uma mensagem especifica. Somente leitura no Gmail.
+
+        Retorna metadados locais suficientes para persistencia idempotente:
+        caminho, filename, attachment_id, mime_type e tamanho.
+        """
+        from extrator_anexos import parece_ordem_compra, salvar_anexo_gmail
+
+        msg = self._obter_mensagem(message_id)
+        payload = msg.get("payload", {}) or {}
+        anexos_meta = _extrair_metadados_anexos(payload)
+        if somente_ordem_compra:
+            anexos_meta = [a for a in anexos_meta if parece_ordem_compra(a["filename"])]
+        if limite_anexos is not None:
+            anexos_meta = anexos_meta[:limite_anexos]
+
+        baixados: list[dict] = []
+        for anexo in anexos_meta:
+            if not anexo["attachment_id"]:
+                continue
+            dados = self._service.users().messages().attachments().get(
+                userId="me", messageId=message_id, id=anexo["attachment_id"],
+            ).execute()
+            conteudo = base64.urlsafe_b64decode(dados["data"])
+            caminho = salvar_anexo_gmail(
+                pasta_anexos=pasta_anexos,
+                label=label_nome,
+                message_id=message_id,
+                nome_arquivo=anexo["filename"],
+                conteudo=conteudo,
+            )
+            baixados.append({
+                "caminho": caminho,
+                "filename": anexo["filename"],
+                "attachment_id": anexo["attachment_id"],
+                "mime_type": anexo["mime_type"],
+                "size": anexo["size"],
+            })
+        return baixados

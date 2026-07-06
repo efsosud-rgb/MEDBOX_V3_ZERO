@@ -37,6 +37,10 @@ Exemplos de uso real (diagnóstico, somente leitura):
     --limite-cotacoes 1 --limite-pedidos 1 --acao-gmail buscar-amostra --marcador PEDIDO
 
 .venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run \
+    --limite-pedidos 10 --acao-gmail contar-por-periodo --marcador PEDIDO \
+    --data-inicio 2026-06-01 --data-fim 2026-06-30
+
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run \
     --limite-cotacoes 1 --limite-pedidos 1 --acao-gmail baixar-anexos-amostra --marcador PEDIDO
 ```
 
@@ -212,10 +216,34 @@ acidente.
 .venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 --limite-pedidos 1 \
     --acao-gmail buscar-amostra --marcador PEDIDO
 
-# 4. Baixar amostra de anexos de um marcador (grava em data/gmail_cotacoes/anexos/<marcador>/<message_id>/)
+# 4. Contar/listar e-mails por periodo do Gmail (sem baixar anexo e sem gravar banco)
+.venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-pedidos 10 \
+    --acao-gmail contar-por-periodo --marcador PEDIDO --data-inicio 2026-06-01 --data-fim 2026-06-30
+
+# 5. Baixar amostra de anexos de um marcador (grava em data/gmail_cotacoes/anexos/<marcador>/<message_id>/)
 .venv\Scripts\python.exe scripts/gmail_cotacoes/main.py --gmail-real --dry-run --limite-cotacoes 1 --limite-pedidos 1 \
     --acao-gmail baixar-anexos-amostra --marcador PEDIDO
 ```
+
+### Filtro de periodo no Gmail
+
+As acoes de busca diagnostica aceitam `--data-inicio` e `--data-fim` no
+formato `YYYY-MM-DD`. Esse filtro e aplicado na busca do Gmail pela data do
+e-mail, usando os operadores `after:YYYY/MM/DD` e `before:YYYY/MM/DD`.
+
+Importante: `before:` no Gmail e exclusivo. Portanto, quando o usuario passa
+`--data-fim 2026-06-30`, a query enviada usa `before:2026/07/01` para incluir
+todo o dia 30/06/2026.
+
+Exemplo de query gerada:
+```
+label:PEDIDO after:2026/06/01 before:2026/07/01
+```
+
+Esse filtro nunca substitui `DATA_VENDA`: `DATA_VENDA` continua vindo somente
+da data de emissao da Ordem de Compra extraida por `parser_pdf_oc.py`.
+`contar-por-periodo` e diagnostico read-only: lista ate N mensagens, nao baixa
+anexos, nao processa cotacoes, nao gera relatorio e nao persiste dados.
 
 No primeiro uso, `flow.run_local_server()` abre o navegador para a tela de
 consentimento OAuth do Google e, ao autorizar, grava `token_gmail.json` na

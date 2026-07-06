@@ -128,6 +128,191 @@ def criar_tabela_gmail_vendas_oc(cursor):
 
 
 # ============================================================
+# DASHBOARD COMERCIAL — vendas históricas (planilha), metas,
+# cotações enviadas e resultado cotado x vencido/perdido.
+#
+# Prioridade de apuração (ver correlacionador.py / calcular_resultado_cotacao):
+# 1. dashboard_vendas_historicas / gmail_oc_itens = SEMPRE alimentados a
+#    partir da planilha Fev-Mai ou da Ordem de Compra real (marcador PEDIDO).
+#    Uma venda entra aqui mesmo que a cotação correspondente nunca seja
+#    encontrada — a OC nunca depende de correlação para contar como venda.
+# 2. gmail_cotacoes_itens = itens cotados (Excel/PDF da vendedora), fonte
+#    independente, usada só para a análise cotado x ganho/perdido.
+# 3. gmail_cotacao_resultado_itens = só populada quando a correlação
+#    cotação<->OC é seguem (ver status_resultado); nunca inventa
+#    PERDIDO/VENCIDO para um item sem correlação confiável.
+# ============================================================
+
+def criar_tabelas_dashboard_comercial(cursor):
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS dashboard_vendas_historicas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ano INTEGER NOT NULL,
+        mes_num INTEGER NOT NULL,
+        mes_nome TEXT,
+        vendedora TEXT NOT NULL,
+        cliente TEXT,
+        numero_oc TEXT,
+        valor_vendido REAL NOT NULL,
+        fonte TEXT NOT NULL,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dvh_ano_mes ON dashboard_vendas_historicas (ano, mes_num)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dvh_vendedora ON dashboard_vendas_historicas (vendedora)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dvh_cliente ON dashboard_vendas_historicas (cliente)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dvh_numero_oc ON dashboard_vendas_historicas (numero_oc)")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS dashboard_metas_vendedora (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ano INTEGER NOT NULL,
+        mes_num INTEGER NOT NULL,
+        vendedora TEXT NOT NULL,
+        media_fev_mai REAL,
+        meta_valor REAL,
+        percentual_meta REAL,
+        fonte TEXT NOT NULL,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""")
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_dmv_dedupe
+    ON dashboard_metas_vendedora (ano, mes_num, vendedora)
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dmv_ano_mes ON dashboard_metas_vendedora (ano, mes_num)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dmv_vendedora ON dashboard_metas_vendedora (vendedora)")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS dashboard_metas_cliente (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ano INTEGER NOT NULL,
+        mes_num INTEGER NOT NULL,
+        cliente TEXT NOT NULL,
+        media_fev_mai REAL,
+        meta_valor REAL,
+        percentual_meta REAL,
+        fonte TEXT NOT NULL,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""")
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_dmc_dedupe
+    ON dashboard_metas_cliente (ano, mes_num, cliente)
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dmc_ano_mes ON dashboard_metas_cliente (ano, mes_num)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_dmc_cliente ON dashboard_metas_cliente (cliente)")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS gmail_cotacoes_enviadas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_email TEXT NOT NULL,
+        thread_id TEXT,
+        assunto TEXT,
+        remetente TEXT,
+        data_email TEXT,
+        data_cotacao TEXT,
+        vendedora TEXT,
+        cliente TEXT,
+        numero_cotacao TEXT,
+        nome_arquivo TEXT,
+        caminho_anexo TEXT,
+        hash_arquivo TEXT,
+        status_processamento TEXT,
+        erro_processamento TEXT,
+        data_processamento TEXT NOT NULL,
+        origem_execucao TEXT NOT NULL,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gce_id_email ON gmail_cotacoes_enviadas (id_email)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gce_thread_id ON gmail_cotacoes_enviadas (thread_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gce_vendedora ON gmail_cotacoes_enviadas (vendedora)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gce_cliente ON gmail_cotacoes_enviadas (cliente)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gce_numero_cotacao ON gmail_cotacoes_enviadas (numero_cotacao)")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS gmail_cotacoes_itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cotacao_id INTEGER,
+        id_email TEXT,
+        numero_cotacao TEXT,
+        cliente TEXT,
+        vendedora TEXT,
+        data_cotacao TEXT,
+        descricao_item_original TEXT,
+        sku_master TEXT,
+        marca TEXT,
+        quantidade_cotada REAL,
+        valor_unitario_cotado REAL,
+        valor_total_cotado REAL,
+        status_item TEXT,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gci_cotacao_id ON gmail_cotacoes_itens (cotacao_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gci_numero_cotacao ON gmail_cotacoes_itens (numero_cotacao)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gci_cliente ON gmail_cotacoes_itens (cliente)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gci_vendedora ON gmail_cotacoes_itens (vendedora)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gci_sku_master ON gmail_cotacoes_itens (sku_master)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gci_status_item ON gmail_cotacoes_itens (status_item)")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS gmail_oc_itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        venda_oc_id INTEGER,
+        id_email TEXT,
+        numero_oc TEXT,
+        cliente TEXT,
+        vendedora TEXT,
+        data_venda TEXT,
+        descricao_item_oc TEXT,
+        sku_master TEXT,
+        marca TEXT,
+        quantidade_vendida REAL,
+        valor_unitario_vendido REAL,
+        valor_total_vendido REAL,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_goi_venda_oc_id ON gmail_oc_itens (venda_oc_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_goi_numero_oc ON gmail_oc_itens (numero_oc)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_goi_cliente ON gmail_oc_itens (cliente)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_goi_vendedora ON gmail_oc_itens (vendedora)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_goi_sku_master ON gmail_oc_itens (sku_master)")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS gmail_cotacao_resultado_itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cliente TEXT,
+        vendedora TEXT,
+        numero_cotacao TEXT,
+        numero_oc TEXT,
+        data_cotacao TEXT,
+        data_venda TEXT,
+        descricao_item TEXT,
+        sku_master TEXT,
+        quantidade_cotada REAL,
+        quantidade_vendida REAL,
+        valor_total_cotado REAL,
+        valor_total_vendido REAL,
+        status_resultado TEXT,
+        item_critico TEXT,
+        aparece_em_clientes INTEGER,
+        clientes_repetidos TEXT,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gcri_cliente ON gmail_cotacao_resultado_itens (cliente)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gcri_vendedora ON gmail_cotacao_resultado_itens (vendedora)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gcri_numero_cotacao ON gmail_cotacao_resultado_itens (numero_cotacao)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gcri_numero_oc ON gmail_cotacao_resultado_itens (numero_oc)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gcri_status_resultado ON gmail_cotacao_resultado_itens (status_resultado)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gcri_item_critico ON gmail_cotacao_resultado_itens (item_critico)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_gcri_sku_master ON gmail_cotacao_resultado_itens (sku_master)")
+
+
+# ============================================================
 # CRIAÇÃO DO BANCO
 # ============================================================
 
@@ -227,6 +412,7 @@ def criar_banco():
     )""")
 
     criar_tabela_gmail_vendas_oc(cursor)
+    criar_tabelas_dashboard_comercial(cursor)
 
     # Migração: Adiciona colunas se não existirem
     try:
