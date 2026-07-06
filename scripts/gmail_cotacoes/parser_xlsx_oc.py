@@ -170,6 +170,9 @@ def _processar_aba(ws: openpyxl.worksheet.worksheet.Worksheet) -> OrdemDeCompra 
         return None
 
     valor_total_calculado = sum(it.valor_total for it in itens if it.valor_total)
+    avisos = []
+    if valor_total_impresso is not None and abs(valor_total_calculado - valor_total_impresso) > 0.01:
+        avisos.append(f"Soma dos itens (R$ {valor_total_calculado:.2f}) diverge do total impresso (R$ {valor_total_impresso:.2f})")
 
     # Se não achou numero_oc no texto, tenta pegar do nome da aba
     if not numero_oc:
@@ -185,7 +188,7 @@ def _processar_aba(ws: openpyxl.worksheet.worksheet.Worksheet) -> OrdemDeCompra 
         valor_total_calculado=valor_total_calculado,
         itens=itens,
         metodo_extracao="openpyxl",
-        avisos=[],
+        avisos=avisos,
         aba_origem=ws.title
     )
 

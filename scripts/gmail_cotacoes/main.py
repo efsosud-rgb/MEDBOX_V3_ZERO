@@ -186,7 +186,11 @@ def _executar_modo_local(args: argparse.Namespace) -> int:
 
 
 def _executar_modo_gmail_real(args: argparse.Namespace) -> int:
-    if not args.dry_run:
+    # Exceção: sincronizar-pedidos-dashboard + salvar-dashboard permite rodar sem dry-run
+    # (Gmail continua somente leitura pelo escopo do token, mas o banco local é gravado).
+    permite_sem_dry_run = (args.acao_gmail == "sincronizar-pedidos-dashboard" and args.salvar_dashboard)
+
+    if not args.dry_run and not permite_sem_dry_run:
         logger.error("--gmail-real exige --dry-run nesta fase (diagnóstico somente leitura).")
         return 2
     if args.limite_cotacoes is None and args.limite_pedidos is None:
@@ -376,10 +380,12 @@ def _sincronizar_pedidos_dashboard(args, cliente) -> int:
                     logger.warning("Falha ao parsear PDF %s: %s", nome_anexo, exc)
 
             for oc in ocs_extraidas:
-                xlsx_parseado = is_xlsx and oc.numero_oc is not None
+                xlsx_parseado = is_xlsx and oc.numero_oc is not None and len(oc.itens) > 0
                 classificacao = classificar_email_venda(
                     marcadores_presentes, True, anexo_xlsx=is_xlsx, xlsx_parseado=xlsx_parseado
                 )
+                if is_xlsx and not xlsx_parseado:
+                    classificacao.motivo_exclusao = "FALHA_PARSER_XLSX: " + (oc.avisos[0] if oc.avisos else "dados incompletos")
 
                 # Rule 9: Identificador único da OC
                 # (numero_oc, cliente, data, valor)
@@ -410,11 +416,13 @@ def _sincronizar_pedidos_dashboard(args, cliente) -> int:
             marcadores_grupo.update(extrair_marcadores_presentes(em.labels))
 
         is_xlsx = dados_oc["caminho"].name.lower().endswith(".xlsx")
-        xlsx_parseado = is_xlsx and oc.numero_oc is not None
+        xlsx_parseado = is_xlsx and oc.numero_oc is not None and len(oc.itens) > 0
 
         classificacao = classificar_email_venda(
             marcadores_grupo, True, anexo_xlsx=is_xlsx, xlsx_parseado=xlsx_parseado
         )
+        if is_xlsx and not xlsx_parseado:
+             classificacao.motivo_exclusao = "FALHA_PARSER_XLSX: " + (oc.avisos[0] if oc.avisos else "dados incompletos")
 
         if not args.dry_run or args.salvar_dashboard:
             valor_total_oc = oc.valor_total_impresso if oc.valor_total_impresso is not None else oc.valor_total_calculado
