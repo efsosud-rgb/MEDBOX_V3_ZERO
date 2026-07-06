@@ -45,6 +45,7 @@ from gerador_relatorios import gerar_relatorios
 from manifesto_local import carregar_manifesto
 from parser_excel_cotacao import parse_excel_cotacao
 from parser_pdf_oc import parse_pdf_oc
+from parser_xlsx_oc import parse_xlsx_oc
 from parser_pdf_proposta import parse_pdf_proposta
 
 logger = logging.getLogger("robo_gmail_cotacoes")
@@ -108,6 +109,20 @@ def _vendedora_de_classificacao(marcadores_presentes: set[str]) -> str:
         if vendedora in marcadores_presentes:
             return vendedora
     return config.SEM_VENDEDORA
+
+
+def _data_email_para_data_venda(data_email: str | None) -> str | None:
+    if not data_email:
+        return None
+    texto = str(data_email).strip()
+    try:
+        return datetime.fromisoformat(texto.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(texto[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        return None
 
 
 def _montar_registro_oc_gmail(email, anexo: dict, oc, classificacao) -> dict:
@@ -182,7 +197,7 @@ def _montar_registro_erro_oc(email, anexo: dict, marcadores_presentes: set[str],
     elif is_xlsx:
         status_email = "OC_XLSX_PENDENTE"
         status_revisao = "REVISAR_PARSER_XLSX"
-        motivo_exclusao = "PARSER_XLSX_AUSENTE"
+        motivo_exclusao = "PARSER_XLSX_ERRO"
     else:
         status_email = "ERRO_PROCESSAMENTO_OC"
         status_revisao = "REVISAR_PARSER_OC"
@@ -323,6 +338,7 @@ def _executar_modo_local(args: argparse.Namespace) -> int:
 def _sincronizar_pedidos_dashboard(cliente, args: argparse.Namespace, label_id: str | None) -> int:
     from gmail_client import montar_query_gmail_oc_texto, montar_query_gmail_periodo
     from persistencia import (
+        desativar_gmail_venda_oc_duplicada,
         existe_gmail_venda_oc,
         existe_gmail_venda_oc_confirmada,
         remover_dashboard_venda_historica_gmail,
@@ -414,7 +430,16 @@ def _sincronizar_pedidos_dashboard(cliente, args: argparse.Namespace, label_id: 
             caminho = anexo["caminho"]
             logger.info("  Anexo OC baixado: %s", caminho)
             try:
-                oc = parse_pdf_oc(caminho)
+                if caminho.suffix.lower() in {".xlsx", ".xls"}:
+                    oc = parse_xlsx_oc(caminho)
+                    if not oc.data_oc:
+                        oc.data_oc = _data_email_para_data_venda(email.data)
+                        if oc.data_oc:
+                            oc.avisos.append("DATA_VENDA preenchida pela data de recebimento do e-mail porque o XLSX não tinha data interna.")
+                        else:
+                            raise ValueError("XLSX sem data interna e data do e-mail indisponível para DATA_VENDA.")
+                else:
+                    oc = parse_pdf_oc(caminho)
                 stats["ocs_reconhecidas"] += 1
                 classificacao = classificar_email_venda(marcadores_presentes, tem_anexo_ordem_compra=True)
                 registro = _montar_registro_oc_gmail(email, anexo, oc, classificacao)
@@ -495,6 +520,7 @@ def _sincronizar_pedidos_dashboard(cliente, args: argparse.Namespace, label_id: 
                 for venda_oc_id in decisao["venda_oc_ids"]:
                     if venda_oc_id != confirmado["venda_oc_id"]:
                         stats["itens_removidos"] += remover_gmail_oc_itens(venda_oc_id)
+                        desativar_gmail_venda_oc_duplicada(venda_oc_id)
 
     logger.info(
         "Resumo sincronizacao: emails=%d anexos_baixados=%d ocs_reconhecidas=%d vendas_gravadas=%d novas=%d atualizadas=%d cancelados=%d resolver_revisao=%d excluidas_apuracao=%d itens_gravados=%d itens_removidos=%d xlsx_pendentes=%d duplicadas_oc_ignoradas=%d erros=%d",

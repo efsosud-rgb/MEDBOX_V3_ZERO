@@ -282,6 +282,28 @@ def remover_gmail_oc_itens(venda_oc_id: int | None) -> int:
     return removidas
 
 
+def desativar_gmail_venda_oc_duplicada(venda_oc_id: int | None, motivo: str = "DUPLICADA_OC_PERDEDORA") -> int:
+    """Marca uma linha duplicada como fora da apuracao, preservando auditoria."""
+    if not venda_oc_id:
+        return 0
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = banco.conectar()
+    cursor = conn.cursor()
+    cursor.execute(
+        """UPDATE gmail_vendas_oc
+           SET considerar_venda = 'NAO',
+               status_revisao = ?,
+               motivo_exclusao = ?,
+               atualizado_em = ?
+           WHERE id = ?""",
+        (motivo, motivo, agora, venda_oc_id),
+    )
+    alteradas = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return alteradas
+
+
 def listar_gmail_vendas_oc(filtros: dict | None = None) -> list[dict]:
     filtros = filtros or {}
     conn = banco.conectar()
