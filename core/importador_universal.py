@@ -9,7 +9,7 @@ from datetime import datetime
 
 from rapidfuzz import fuzz
 
-from core.banco import conectar, registrar_preco_fornecedor
+from core.banco import conectar, registrar_preco_fornecedor, normalizar_texto
 from core.formatadores import moeda_br
 
 
@@ -347,105 +347,38 @@ def montar_sku_provisorio(descricao):
 
 SINONIMOS_COLUNAS = {
     "sku_master": [
-        "SKU_MASTER",
-        "SKU MASTER",
-        "PRODUTO PADRAO",
-        "PRODUTO_PADRAO",
-        "PRODUTO PADRÃO",
-        "DESCRICAO PADRONIZADA",
-        "DESCRIÇÃO PADRONIZADA",
-        "NOME FANTASIA"
+        "SKU_MASTER", "SKU MASTER", "PRODUTO PADRAO", "PRODUTO_PADRAO",
+        "PRODUTO PADRÃO", "DESCRICAO PADRONIZADA", "DESCRIÇÃO PADRONIZADA", "NOME FANTASIA"
     ],
     "descricao": [
-        "DESCRIÇÃO DO PRODUTO",
-        "DESCRICAO DO PRODUTO",
-        "DESCRICAO",
-        "DESCRIÇÃO",
-        "PRODUTO",
-        "ITEM",
-        "NOME"
+        "DESCRIÇÃO DO PRODUTO", "DESCRICAO DO PRODUTO", "DESCRICAO", "DESCRIÇÃO",
+        "PRODUTO", "ITEM", "NOME"
     ],
     "codigo": [
-        "CÓDIGO PRODUTO",
-        "CODIGO PRODUTO",
-        "COD. PRODUTO",
-        "CODIGO",
-        "CÓDIGO",
-        "COD"
+        "CÓDIGO PRODUTO", "CODIGO PRODUTO", "COD. PRODUTO", "CODIGO", "CÓDIGO", "COD"
     ],
     "preco": [
-        "VALOR UNITÁRIO",
-        "VALOR UNITARIO",
-        "PRECO",
-        "PREÇO",
-        "VALOR",
-        "UNITARIO",
-        "VL_UNIT",
-        "PRICE"
+        "VALOR UNITÁRIO", "VALOR UNITARIO", "PRECO", "PREÇO", "VALOR",
+        "UNITARIO", "VL_UNIT", "PRICE"
     ],
-    "marca": [
-        "MARCA",
-        "MARCA/FABRICANTE",
-        "FABRICANTE",
-        "LABORATORIO",
-        "LABORATÓRIO"
-    ],
-    "categoria": [
-        "CATEGORIA",
-        "TIPO",
-        "GRUPO"
-    ],
+    "marca": ["MARCA", "MARCA/FABRICANTE", "FABRICANTE", "LABORATORIO", "LABORATÓRIO"],
+    "categoria": ["CATEGORIA", "TIPO", "GRUPO"],
     "fornecedor": [
-        "FORNECEDOR",
-        "RAZÃO SOCIAL DO FORNECEDOR",
-        "RAZAO SOCIAL DO FORNECEDOR",
-        "EMPRESA"
+        "FORNECEDOR", "RAZÃO SOCIAL DO FORNECEDOR", "RAZAO SOCIAL DO FORNECEDOR", "EMPRESA"
     ],
-    "tipo_fornecedor": [
-        "FABRICANTE/DISTRIBUIDOR",
-        "TIPO FORNECEDOR",
-        "TIPO_FORNECEDOR"
-    ],
-    "unidade": [
-        "UNIDADE DE COMPRA",
-        "UNIDADE",
-        "UN",
-        "UNIT"
-    ],
+    "tipo_fornecedor": ["FABRICANTE/DISTRIBUIDOR", "TIPO FORNECEDOR", "TIPO_FORNECEDOR"],
+    "unidade": ["UNIDADE DE COMPRA", "UNIDADE", "UN", "UNIT"],
 }
 
-
-SINONIMOS_COLUNAS["sku_master"].extend([
-    "PRODUTO PADRÃO",
-    "DESCRIÇÃO PADRONIZADA",
-])
+SINONIMOS_COLUNAS["sku_master"].extend(["PRODUTO PADRÃO", "DESCRIÇÃO PADRONIZADA"])
 SINONIMOS_COLUNAS["descricao"].extend([
-    "DESCRIÇÃO DO PRODUTO",
-    "DESCRIÇÃO PRODUTO",
-    "DESCRICAO PRODUTO",
-    "DESCR PRODUTO",
-    "DESCRIÇÃO",
-    "DESCR",
+    "DESCRIÇÃO DO PRODUTO", "DESCRIÇÃO PRODUTO", "DESCRICAO PRODUTO",
+    "DESCR PRODUTO", "DESCRIÇÃO", "DESCR",
 ])
-SINONIMOS_COLUNAS["codigo"].extend([
-    "CÓDIGO PRODUTO",
-    "COD PRODUTO",
-    "CÓDIGO",
-    "CÓD",
-    "COD.",
-])
+SINONIMOS_COLUNAS["codigo"].extend(["CÓDIGO PRODUTO", "COD PRODUTO", "CÓDIGO", "CÓD", "COD."])
 SINONIMOS_COLUNAS["preco"].extend([
-    "VALOR UNITÁRIO",
-    "VALOR UNIT",
-    "VLR UNITARIO",
-    "VL UNITARIO",
-    "VL UNIT",
-    "PREÇO",
-    "PRECO UNITARIO",
-    "PREÇO UNITÁRIO",
-    "PF 12%",
-    "PF",
-    "R$",
+    "VALOR UNITÁRIO", "VALOR UNIT", "VLR UNITARIO", "VL UNITARIO", "VL UNIT",
+    "PREÇO", "PRECO UNITARIO", "PREÇO UNITÁRIO", "PF 12%", "PF", "R$",
 ])
 SINONIMOS_COLUNAS["marca"].append("LABORATÓRIO")
 SINONIMOS_COLUNAS["categoria"].extend(["LINHA"])
@@ -461,7 +394,6 @@ def detectar_coluna(cabecalhos, chave):
             cab_norm = normalizar_cabecalho(cab)
             if not cab_norm:
                 continue
-
             for s in sinonimos:
                 s_norm = normalizar_cabecalho(s)
                 if len(s_norm) < 2:
@@ -473,7 +405,6 @@ def detectar_coluna(cabecalhos, chave):
         cab_norm = normalizar_cabecalho(cab)
         if not cab_norm:
             continue
-
         for s in sinonimos:
             s_norm = normalizar_cabecalho(s)
             if len(s_norm) < 2:
@@ -485,10 +416,7 @@ def detectar_coluna(cabecalhos, chave):
 
 
 def colunas_detectadas(cabecalhos):
-    return {
-        chave: detectar_coluna(cabecalhos, chave)
-        for chave in SINONIMOS_COLUNAS
-    }
+    return {chave: detectar_coluna(cabecalhos, chave) for chave in SINONIMOS_COLUNAS}
 
 
 def pontuar_cabecalho(cabecalhos):
@@ -575,7 +503,6 @@ def extrair_itens_estruturado(registros):
     for row in registros:
         sku_existente = str(row.get(col_sku, "") or "").strip().upper()
         descricao_orig = str(row.get(col_descricao, "") or "").strip().upper()
-
         nome_produto = sku_existente if sku_existente else descricao_orig
 
         if not nome_produto:
@@ -646,10 +573,8 @@ def extrair_itens_catalogo_estruturado(registros, nome_fornecedor="", tipo_forne
 
         if not fornecedor_nome:
             fornecedor_nome = fornecedor_padrao
-
         if not tipo_item:
             tipo_item = tipo_padrao
-
         if not marca and tipo_item == "FABRICANTE":
             marca = fornecedor_nome or fornecedor_padrao
 
@@ -752,7 +677,6 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
                     "tipo_fornecedor": tipo_fornecedor,
                 },
             )
-
             diagnostico["formato"] = "xlsb"
             diagnostico["detalhes"] = detalhe
             diagnostico["ok"] = detalhe["ok"]
@@ -789,29 +713,23 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
 
                 detalhe = diagnosticar_registros_estruturados(
                     registros,
-                        {
-                            "aba": ws.title,
-                            "linha_cabecalho": info["linha_cabecalho"],
-                            "cabecalhos": info["cabecalhos"],
-                            "nome_fornecedor": nome_fornecedor,
-                            "tipo_fornecedor": tipo_fornecedor,
-                        },
-                    )
+                    {
+                        "aba": ws.title,
+                        "linha_cabecalho": info["linha_cabecalho"],
+                        "cabecalhos": info["cabecalhos"],
+                        "nome_fornecedor": nome_fornecedor,
+                        "tipo_fornecedor": tipo_fornecedor,
+                    },
+                )
                 abas.append(detalhe)
 
             wb.close()
 
             diagnostico["detalhes"]["abas"] = abas
             diagnostico["detalhes"]["total_registros_lidos"] = len(todos_registros)
-            diagnostico["detalhes"]["total_itens_extraidos"] = sum(
-                aba["total_itens_extraidos"] for aba in abas
-            )
-            diagnostico["detalhes"]["total_produtos_catalogo"] = sum(
-                aba.get("total_produtos_catalogo", 0) for aba in abas
-            )
-            diagnostico["detalhes"]["total_precos_importados"] = sum(
-                aba.get("total_precos_importados", 0) for aba in abas
-            )
+            diagnostico["detalhes"]["total_itens_extraidos"] = sum(aba["total_itens_extraidos"] for aba in abas)
+            diagnostico["detalhes"]["total_produtos_catalogo"] = sum(aba.get("total_produtos_catalogo", 0) for aba in abas)
+            diagnostico["detalhes"]["total_precos_importados"] = sum(aba.get("total_precos_importados", 0) for aba in abas)
             if diagnostico["detalhes"]["total_precos_importados"]:
                 diagnostico["modo_importacao"] = "tabela_com_preco"
             elif diagnostico["detalhes"]["total_produtos_catalogo"]:
@@ -819,9 +737,7 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
             diagnostico["total_produtos_catalogo"] = diagnostico["detalhes"]["total_produtos_catalogo"]
             diagnostico["total_precos_importados"] = diagnostico["detalhes"]["total_precos_importados"]
             diagnostico["ok"] = any(aba["ok"] for aba in abas)
-            diagnostico["mensagens"] = [
-                msg for aba in abas for msg in aba["mensagens"]
-            ]
+            diagnostico["mensagens"] = [msg for aba in abas for msg in aba["mensagens"]]
 
         elif ext == ".csv":
             texto = ler_texto_csv(caminho)
@@ -893,53 +809,6 @@ def diagnosticar_arquivo_fornecedor(caminho, nome_fornecedor="", tipo_fornecedor
 # ================================================
 # PARSER TEXTO/PDF
 # ================================================
-
-def extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor):
-    itens = []
-
-    padrao = re.compile(
-        r"""^\s*(?P<codigo>[\d.,]+)?\s+(?P<descricao>[A-Z][A-Z0-9 \-\.,/()%°#]+?)\s+
-        (?:ENV|UN|UNI|CX|FR|PC|KIT|AMP|BIS|SC|RL|MT|KG|GR|ML|L|TB|BX|AP|EV|CP|FA)?\s*
-        (?P<preco>\d{1,6}[.,]\d{2})\s*""",
-        re.VERBOSE | re.IGNORECASE
-    )
-
-    marca = nome_fornecedor.upper() if tipo_fornecedor.upper() == "FABRICANTE" else ""
-
-    for linha in linhas:
-        linha = str(linha).strip().upper()
-
-        if not linha:
-            continue
-
-        m = padrao.match(linha)
-
-        if m:
-            descricao = m.group("descricao").strip().upper()
-
-            if len(descricao) < 4:
-                continue
-
-            preco = limpar_preco(m.group("preco"))
-
-            if preco <= 0:
-                continue
-
-            itens.append({
-                "nome_produto": descricao,
-                "descricao_orig": descricao,
-                "sku_existente": "",
-                "codigo": (m.group("codigo") or "").strip(),
-                "marca": marca,
-                "categoria": "",
-                "preco": preco,
-                "fornecedor_nome": nome_fornecedor.upper(),
-                "tipo_fornecedor": tipo_fornecedor.upper(),
-                "unidade": "",
-            })
-
-    return itens
-
 
 def extrair_itens_texto(linhas, nome_fornecedor, tipo_fornecedor):
     itens = []
@@ -1040,8 +909,8 @@ def garantir_fornecedor(cursor, nome, tipo):
 
 def _extrair_numeros_unidades(texto):
     """Extrai números seguidos de unidades comuns para evitar match errado."""
-    if not texto: return []
-    # Busca por 500MG, 10ML, 0.9%, etc e normaliza removendo espaços
+    if not texto:
+        return []
     encontrados = re.findall(r'(\d+(?:[.,]\d+)?\s*(?:MG|ML|G|MCG|UI|%))', texto.upper())
     return [re.sub(r'\s+', '', e) for e in encontrados]
 
@@ -1070,7 +939,6 @@ def garantir_produto(cursor, sku_master, categoria, fabricante, cache_produtos=N
         return produto_id
 
     # 2. Match fuzzy (se não encontrou exato)
-    # Usa cache se disponível para performance
     if cache_produtos is not None:
         todos_produtos = cache_produtos
     else:
@@ -1086,18 +954,14 @@ def garantir_produto(cursor, sku_master, categoria, fabricante, cache_produtos=N
             continue
 
         p_nome = p["produto_padrao"].upper()
-        # Se os nomes normalizados sem espaços/pontuação forem iguais, match imediato 100%
-        # Isso ajuda muito em casos como "DIPIRONA 500MG" vs "DIPIRONA 500 MG"
         if re.sub(r'[^A-Z0-9]', '', sku_master) == re.sub(r'[^A-Z0-9]', '', p_nome):
             score = 100.0
         else:
             score = fuzz.token_set_ratio(sku_master, p_nome)
 
         if score >= 92 and score > maior_score:
-            # Segurança extra: se tem números/unidades, eles PRECISAM bater
             num_destino = _extrair_numeros_unidades(p_nome)
             if num_origem or num_destino:
-                # Se os conjuntos de concentrações/volumes são diferentes, ignora o fuzzy
                 if set(num_origem) != set(num_destino):
                     continue
 
@@ -1268,70 +1132,38 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
         registros = ler_xlsb(caminho)
         itens = extrair_itens_estruturado(registros)
         if not itens:
-            itens_catalogo = extrair_itens_catalogo_estruturado(
-                registros,
-                nome_fornecedor,
-                tipo_fornecedor
-            )
+            itens_catalogo = extrair_itens_catalogo_estruturado(registros, nome_fornecedor, tipo_fornecedor)
 
     elif ext in [".xlsx", ".xls"]:
         registros = ler_excel(caminho)
         itens = extrair_itens_estruturado(registros)
         if not itens:
-            itens_catalogo = extrair_itens_catalogo_estruturado(
-                registros,
-                nome_fornecedor,
-                tipo_fornecedor
-            )
+            itens_catalogo = extrair_itens_catalogo_estruturado(registros, nome_fornecedor, tipo_fornecedor)
 
     elif ext == ".csv":
         registros = ler_csv(caminho)
         itens = extrair_itens_estruturado(registros)
         if not itens:
-            itens_catalogo = extrair_itens_catalogo_estruturado(
-                registros,
-                nome_fornecedor,
-                tipo_fornecedor
-            )
+            itens_catalogo = extrair_itens_catalogo_estruturado(registros, nome_fornecedor, tipo_fornecedor)
 
     elif ext == ".pdf":
-        itens = extrair_itens_texto(
-            ler_pdf(caminho),
-            nome_fornecedor,
-            tipo_fornecedor
-        )
+        itens = extrair_itens_texto(ler_pdf(caminho), nome_fornecedor, tipo_fornecedor)
 
     elif ext == ".txt":
-        itens = extrair_itens_texto(
-            ler_txt(caminho),
-            nome_fornecedor,
-            tipo_fornecedor
-        )
+        itens = extrair_itens_texto(ler_txt(caminho), nome_fornecedor, tipo_fornecedor)
 
     elif ext == ".docx":
-        itens = extrair_itens_texto(
-            ler_docx(caminho),
-            nome_fornecedor,
-            tipo_fornecedor
-        )
+        itens = extrair_itens_texto(ler_docx(caminho), nome_fornecedor, tipo_fornecedor)
 
     elif ext in [".jpg", ".jpeg", ".png"]:
-        itens = extrair_itens_texto(
-            ler_imagem(caminho),
-            nome_fornecedor,
-            tipo_fornecedor
-        )
+        itens = extrair_itens_texto(ler_imagem(caminho), nome_fornecedor, tipo_fornecedor)
 
     else:
         raise Exception(f"Formato não suportado: {ext}")
 
     if not itens and itens_catalogo:
         diagnostico_catalogo = importar_catalogo_sem_preco(
-            caminho,
-            fornecedor_id,
-            nome_fornecedor,
-            tipo_fornecedor,
-            itens_catalogo
+            caminho, fornecedor_id, nome_fornecedor, tipo_fornecedor, itens_catalogo
         )
         importar_arquivo_fornecedor.ultimo_diagnostico = diagnostico_catalogo
         return diagnostico_catalogo["total_produtos_catalogo"]
@@ -1339,14 +1171,9 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
     if not itens:
         raise Exception("Nenhum item encontrado no arquivo.")
 
-    descricoes_sem_sku = [
-        item["descricao_orig"]
-        for item in itens
-        if not item["sku_existente"]
-    ]
+    descricoes_sem_sku = [item["descricao_orig"] for item in itens if not item["sku_existente"]]
 
     mapa_sku = {}
-
     if descricoes_sem_sku:
         mapa_sku = gerar_skus_em_lotes(descricoes_sem_sku)
 
@@ -1370,16 +1197,11 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
                 sku_master = montar_sku_provisorio(item["descricao_orig"])
 
         if item["fornecedor_nome"] and item["fornecedor_nome"] != nome_fornecedor.upper():
-            fid = garantir_fornecedor(
-                cursor,
-                item["fornecedor_nome"],
-                item["tipo_fornecedor"] or tipo_fornecedor
-            )
+            fid = garantir_fornecedor(cursor, item["fornecedor_nome"], item["tipo_fornecedor"] or tipo_fornecedor)
         else:
             fid = fornecedor_id
 
         marca = item["marca"]
-
         if not marca and item["tipo_fornecedor"] == "FABRICANTE":
             marca = item["fornecedor_nome"] or nome_fornecedor.upper()
 
@@ -1390,13 +1212,25 @@ def importar_arquivo_fornecedor(caminho, fornecedor_id, nome_fornecedor, tipo_fo
                 if categoria else "SKU PENDENTE DE PADRONIZACAO"
             )
 
-        produto_id = garantir_produto(
-            cursor,
-            sku_master,
-            categoria,
-            marca,
-            cache_produtos=cache_produtos
-        )
+        # Anti-duplicação: se este fornecedor já tem preço para esta descrição,
+        # reaproveita o produto já vinculado em vez de criar um novo.
+        descricao_norm = normalizar_texto(item["descricao_orig"])
+        cursor.execute("""
+            SELECT produto_id FROM precos_fornecedores
+            WHERE fornecedor_id = ? AND UPPER(descricao_original) = ?
+        """, (fid, descricao_norm))
+        preco_existente = cursor.fetchone()
+
+        if preco_existente and preco_existente["produto_id"]:
+            produto_id = preco_existente["produto_id"]
+        else:
+            produto_id = garantir_produto(
+                cursor,
+                sku_master,
+                categoria,
+                marca,
+                cache_produtos=cache_produtos
+            )
 
         if not produto_id:
             continue
