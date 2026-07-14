@@ -4272,3 +4272,220 @@ def lances_cotacao_importar():
         return render_template("lances_cotacao.html", resultado=resultado, erro=None)
     except Exception as exc:
         return render_template("lances_cotacao.html", resultado=None, erro=f"Erro ao importar cotação: {exc}")
+
+# ============================================================
+# OVERRIDE FINAL PR53 - PERSISTENCIA CANONICA DE LANCES
+# Corrige criacao/atualizacao para recalcular disputa no backend.
+# ============================================================
+
+def _pr53_lance_float(valor, padrao=0.0):
+    try:
+        if valor is None:
+            return padrao
+        if isinstance(valor, (int, float)):
+            return float(valor)
+        texto = str(valor).strip().replace("R$", "").replace("%", "")
+        if not texto:
+            return padrao
+        if "," in texto:
+            texto = texto.replace(".", "").replace(",", ".")
+        return float(texto)
+    except Exception:
+        return padrao
+
+
+def _pr53_garantir_colunas_lances():
+    _fix_lance_garantir_colunas()
+
+
+def _pr53_calcular_item_lance(item):
+    from core.cotacao_lances_v2 import calcular_disputa_precos_lances as calcular_disputa_core
+
+    quantidade = _pr53_lance_float(item.get("quantidade"), 0.0)
+    preco_osinfo = _pr53_lance_float(item.get("preco_osinfo"), 0.0)
+    menor_lance = _pr53_lance_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0.0)), 0.0)
+    menor_custo = _pr53_lance_float(item.get("menor_custo_unitario", item.get("menor_custo_encontrado", 0.0)), 0.0)
+    markup = _pr53_lance_float(item.get("markup_atual"), 80.0)
+    preco_medbox = _pr53_lance_float(item.get("preco_medbox"), 0.0)
+    if menor_custo > 0:
+        preco_medbox = menor_custo * (1 + markup / 100)
+
+    disputa = calcular_disputa_core(
+        preco_osinfo=preco_osinfo,
+        menor_lance=menor_lance,
+        preco_medbox=preco_medbox,
+        empresa_melhor_lance=str(item.get("empresa_melhor_lance") or "").strip(),
+        quantidade=quantidade,
+        sku_master=str(item.get("sku_master") or "").strip(),
+        sku_encontrado=bool(str(item.get("sku_master") or "").strip()),
+        menor_custo=menor_custo if menor_custo > 0 else 1,
+    )
+
+    medbox_vence = bool(disputa.get("medbox_vence", disputa.get("medbox_vencedora", False)))
+    menor_valor_vencedor = _pr53_lance_float(disputa.get("menor_valor_vencedor", disputa.get("menor_valor", 0.0)), 0.0)
+    valor_unitario = menor_valor_vencedor if medbox_vence and quantidade > 0 else 0.0
+    valor_total = quantidade * valor_unitario if medbox_vence and quantidade > 0 else 0.0
+
+    return {
+        "quantidade": quantidade,
+        "preco_osinfo": preco_osinfo,
+        "ultima_compra": _pr53_lance_float(item.get("ultima_compra"), 0.0),
+        "menor_lance": menor_lance,
+        "menor_custo": menor_custo,
+        "markup": markup,
+        "preco_medbox": preco_medbox,
+        "empresa_lance": str(item.get("empresa_melhor_lance") or "").strip(),
+        "menor_origem": disputa.get("menor_origem", ""),
+        "menor_empresa": disputa.get("menor_empresa", disputa.get("empresa_vencedora", "")),
+        "menor_valor": menor_valor_vencedor,
+        "medbox_vence": medbox_vence,
+        "status": disputa.get("status") or ("MEDBOX VENCE" if medbox_vence else "NEGOCIAR"),
+        "valor_unitario": valor_unitario,
+        "valor_total": valor_total,
+        "valor_total_vencedor": quantidade * menor_valor_vencedor if quantidade > 0 and menor_valor_vencedor > 0 else 0.0,
+    }
+
+
+def _pr53_inserir_item_lance(cur, cotacao_id, item_numero, item):
+    calc = _pr53_calcular_item_lance(item)
+    descricao = str(item.get("descricao_original") or item.get("descricao_produto") or item.get("descricao") or "").strip()
+    sku_master = str(item.get("sku_master") or "").strip()
+    marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip()
+    categoria = str(item.get("categoria") or "").strip()
+    fornecedor = str(item.get("fornecedor_menor_custo") or "").strip()
+
+    cur.execute("""
+        INSERT INTO cotacoes_geradas_itens (
+            cotacao_id,
+            item_numero,
+            descricao_produto,
+            sku_master,
+            marca,
+            quantidade,
+            valor_unitario,
+            valor_total,
+            venceu_medbox,
+            status_lance,
+            categoria,
+            fornecedor_menor_custo,
+            menor_custo_unitario,
+            markup_atual,
+            ultima_compra,
+            preco_osinfo,
+            menor_lance,
+            preco_medbox_original,
+            empresa_melhor_lance,
+            menor_origem,
+            menor_empresa,
+            menor_valor_comparativo,
+            valor_total_vencedor,
+            medbox_vencedora
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        cotacao_id,
+        item_numero,
+        descricao,
+        sku_master,
+        marca,
+        calc["quantidade"],
+        calc["valor_unitario"],
+        calc["valor_total"],
+        1 if calc["medbox_vence"] else 0,
+        calc["status"],
+        categoria,
+        fornecedor,
+        calc["menor_custo"],
+        calc["markup"],
+        calc["ultima_compra"],
+        calc["preco_osinfo"],
+        calc["menor_lance"],
+        calc["preco_medbox"],
+        calc["empresa_lance"],
+        calc["menor_origem"],
+        calc["menor_empresa"],
+        calc["menor_valor"],
+        calc["valor_total_vencedor"],
+        1 if calc["medbox_vence"] else 0,
+    ))
+    return calc
+
+
+def gerar_cotacao_lances_pr53_persistencia():
+    _pr53_garantir_colunas_lances()
+    dados = request.get_json(silent=True) or {}
+    itens = dados.get("itens", [])
+    if not itens:
+        return jsonify({"ok": False, "erro": "Nenhum item encontrado para gerar cotacao."}), 400
+
+    cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "-").strip().upper() or "-"
+    numero_cotacao = proximo_numero_cotacao()
+    data_emissao = datetime.now().strftime("%d/%m/%Y")
+
+    conn = conectar()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO cotacoes_geradas (
+            numero_cotacao, data_emissao, cliente, empresa_nome, empresa_cnpj,
+            empresa_endereco, empresa_email, empresa_telefone, validade_dias, total_geral
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        numero_cotacao,
+        data_emissao,
+        cliente,
+        EMPRESA_MEDBOX_COTACAO.get("nome"),
+        EMPRESA_MEDBOX_COTACAO.get("cnpj"),
+        EMPRESA_MEDBOX_COTACAO.get("endereco"),
+        EMPRESA_MEDBOX_COTACAO.get("email"),
+        EMPRESA_MEDBOX_COTACAO.get("telefone"),
+        7,
+        0.0,
+    ))
+    cotacao_id = cur.lastrowid
+    total_geral = 0.0
+    for idx, item in enumerate(itens, start=1):
+        calc = _pr53_inserir_item_lance(cur, cotacao_id, idx, item)
+        total_geral += calc["valor_total"]
+    cur.execute("UPDATE cotacoes_geradas SET total_geral = ? WHERE id = ?", (total_geral, cotacao_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "numero_cotacao": numero_cotacao, "url": f"/cotacoes/geradas/{numero_cotacao}", "total_geral": total_geral})
+
+
+def atualizar_cotacao_gerada_pr53_persistencia(numero_cotacao):
+    _pr53_garantir_colunas_lances()
+    dados = request.get_json(silent=True) or {}
+    itens = dados.get("itens", [])
+    if not itens:
+        return jsonify({"ok": False, "erro": "Nenhum item recebido para atualizar."}), 400
+
+    cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "-").strip().upper() or "-"
+    conn = conectar()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "erro": f"Cotacao {numero_cotacao} nao encontrada."}), 404
+
+    cotacao_id = row[0]
+    cur.execute("DELETE FROM cotacoes_geradas_itens WHERE cotacao_id = ?", (cotacao_id,))
+    total_geral = 0.0
+    for idx, item in enumerate(itens, start=1):
+        calc = _pr53_inserir_item_lance(cur, cotacao_id, idx, item)
+        total_geral += calc["valor_total"]
+    cur.execute("UPDATE cotacoes_geradas SET cliente = ?, total_geral = ? WHERE id = ?", (cliente, total_geral, cotacao_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "numero_cotacao": numero_cotacao, "url": f"/cotacoes/geradas/{numero_cotacao}", "total_geral": total_geral})
+
+
+try:
+    app.view_functions["gerar_cotacao_lances"] = gerar_cotacao_lances_pr53_persistencia
+    for _rule in list(app.url_map.iter_rules()):
+        if str(_rule.rule) == "/cotacoes/lances/atualizar-cotacao/<numero_cotacao>":
+            app.view_functions[_rule.endpoint] = atualizar_cotacao_gerada_pr53_persistencia
+    print("OK: PR53 persistencia canonica de lances aplicada.")
+except Exception as _pr53_exc:
+    print("AVISO: PR53 persistencia canonica de lances nao aplicada:", _pr53_exc)
