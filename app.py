@@ -36,6 +36,7 @@ from core.auditoria_sku_master import (
     excluir_produto_logico,
 )
 from core.cotacao_lances_v2 import analisar_arquivo_cotacao, analisar_itens_manuais_lance, configurar_logger_cotacao, salvar_sku_rapido_lances, sugerir_skus_lances, montar_resumo_lances
+from core.lances_persistencia import calcular_persistencia_item, calcular_total_geral
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
@@ -2168,133 +2169,139 @@ def gerar_cotacao_lances_oas_definitiva():
         cliente_exibicao = cliente + " | " + " | ".join(extras)
 
     if not itens:
-        return jsonify({"ok": False, "erro": "Nenhum item encontrado para gerar cotação."}), 400
+        return jsonify({"ok": False, "erro": "Nenhum item encontrado para gerar cotacao."}), 400
 
     numero_cotacao = proximo_numero_cotacao()
     data_emissao = datetime.now().strftime("%d/%m/%Y")
 
-    conn = conectar()
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT INTO cotacoes_geradas (
-            numero_cotacao,
-            data_emissao,
-            cliente,
-            empresa_nome,
-            empresa_cnpj,
-            empresa_endereco,
-            empresa_email,
-            empresa_telefone,
-            validade_dias,
-            total_geral
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        numero_cotacao,
-        data_emissao,
-        cliente_exibicao,
-        EMPRESA_MEDBOX_COTACAO.get("nome"),
-        EMPRESA_MEDBOX_COTACAO.get("cnpj"),
-        EMPRESA_MEDBOX_COTACAO.get("endereco"),
-        EMPRESA_MEDBOX_COTACAO.get("email"),
-        EMPRESA_MEDBOX_COTACAO.get("telefone"),
-        7,
-        0.0,
-    ))
-
-    cotacao_id = cur.lastrowid
-    total_geral = 0.0
-
-    for idx, item in enumerate(itens, start=1):
-        descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
-        sku_master = str(item.get("sku_master") or "").strip().upper()
-        marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
-
-        quantidade = _oas_float(item.get("quantidade"), 0.0)
-
-        preco_osinfo = _oas_float(item.get("preco_osinfo"), 0.0)
-        preco_medbox = _oas_float(item.get("preco_medbox"), 0.0)
-        menor_lance = _oas_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0.0)), 0.0)
-
-        empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
-
-        disputa = _oas_disputa(
-            preco_osinfo=preco_osinfo,
-            preco_medbox=preco_medbox,
-            menor_lance=menor_lance,
-            empresa_lance=empresa_lance
-        )
-
-        menor_valor = disputa["menor_valor"]
-        total_vencedor = menor_valor * quantidade
-
-        # Valor da proposta MedBox só entra quando MedBox for vencedora.
-        valor_unitario = preco_medbox if disputa["medbox_vencedora"] else 0.0
-        valor_total = valor_unitario * quantidade
-
-        total_geral += valor_total
+    conn = None
+    try:
+        conn = conectar()
+        cur = conn.cursor()
 
         cur.execute("""
-            INSERT INTO cotacoes_geradas_itens (
+            INSERT INTO cotacoes_geradas (
+                numero_cotacao,
+                data_emissao,
+                cliente,
+                empresa_nome,
+                empresa_cnpj,
+                empresa_endereco,
+                empresa_email,
+                empresa_telefone,
+                validade_dias,
+                total_geral
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            numero_cotacao,
+            data_emissao,
+            cliente_exibicao,
+            EMPRESA_MEDBOX_COTACAO.get("nome") or EMPRESA_MEDBOX_COTACAO.get("razao_social"),
+            EMPRESA_MEDBOX_COTACAO.get("cnpj"),
+            EMPRESA_MEDBOX_COTACAO.get("endereco"),
+            EMPRESA_MEDBOX_COTACAO.get("email"),
+            EMPRESA_MEDBOX_COTACAO.get("telefone"),
+            7,
+            0.0,
+        ))
+
+        cotacao_id = cur.lastrowid
+        calculados = []
+
+        for idx, item in enumerate(itens, start=1):
+            descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+            sku_master = str(item.get("sku_master") or "").strip().upper()
+            marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+            empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
+
+            calculado = calcular_persistencia_item({
+                "quantidade": item.get("quantidade"),
+                "preco_osinfo": item.get("preco_osinfo"),
+                "menor_lance": item.get("menor_preco_ofertado", item.get("menor_lance")),
+                "preco_medbox": item.get("preco_medbox"),
+                "empresa_melhor_lance": empresa_lance,
+            })
+            calculados.append(calculado)
+
+            quantidade = float(calculado["quantidade"])
+            preco_osinfo = float(calculado["preco_osinfo"])
+            preco_medbox = float(calculado["preco_medbox"])
+            menor_lance = float(calculado["menor_lance"])
+            menor_valor = float(calculado["menor_valor_vencedor"])
+            valor_unitario = float(calculado["valor_unitario"])
+            valor_total = float(calculado["valor_total"])
+            venceu_medbox = int(calculado["venceu_medbox"])
+            empresa_vencedora = str(calculado["empresa_vencedora"] or "").strip().upper()
+            menor_origem = "MEDBOX" if empresa_vencedora == "MEDBOX" else "OSINFO" if empresa_vencedora == "OSINFO" else "OUTRA_EMPRESA" if empresa_vencedora else "-"
+            valor_total_vencedor = quantidade * menor_valor if quantidade > 0 and menor_valor > 0 else 0.0
+
+            cur.execute("""
+                INSERT INTO cotacoes_geradas_itens (
+                    cotacao_id,
+                    item_numero,
+                    descricao_produto,
+                    sku_master,
+                    marca,
+                    quantidade,
+                    valor_unitario,
+                    valor_total,
+                    venceu_medbox,
+                    status_lance,
+                    preco_osinfo,
+                    menor_lance,
+                    preco_medbox_original,
+                    empresa_melhor_lance,
+                    menor_origem,
+                    menor_empresa,
+                    menor_valor_comparativo,
+                    valor_total_vencedor,
+                    medbox_vencedora
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
                 cotacao_id,
-                item_numero,
-                descricao_produto,
+                idx,
+                descricao,
                 sku_master,
                 marca,
                 quantidade,
                 valor_unitario,
                 valor_total,
                 venceu_medbox,
-                status_lance,
+                calculado["status_lance"],
                 preco_osinfo,
                 menor_lance,
-                preco_medbox_original,
-                empresa_melhor_lance,
+                preco_medbox,
+                empresa_lance,
                 menor_origem,
-                menor_empresa,
-                menor_valor_comparativo,
+                empresa_vencedora or "-",
+                menor_valor,
                 valor_total_vencedor,
-                medbox_vencedora
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            cotacao_id,
-            idx,
-            descricao,
-            sku_master,
-            marca,
-            quantidade,
-            valor_unitario,
-            valor_total,
-            1 if disputa["medbox_vencedora"] else 0,
-            str(item.get("status") or "").strip().upper(),
-            preco_osinfo,
-            menor_lance,
-            preco_medbox,
-            empresa_lance,
-            disputa["menor_origem"],
-            disputa["menor_empresa"],
-            menor_valor,
-            total_vencedor,
-            1 if disputa["medbox_vencedora"] else 0,
-        ))
+                venceu_medbox,
+            ))
 
-    cur.execute("""
-        UPDATE cotacoes_geradas
-        SET total_geral = ?
-        WHERE id = ?
-    """, (total_geral, cotacao_id))
+        total_geral = float(calcular_total_geral(calculados))
+        cur.execute("""
+            UPDATE cotacoes_geradas
+            SET total_geral = ?
+            WHERE id = ?
+        """, (total_geral, cotacao_id))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    except Exception as exc:
+        if conn is not None:
+            conn.rollback()
+        return jsonify({"ok": False, "erro": str(exc)}), 500
+    finally:
+        if conn is not None:
+            conn.close()
 
     return jsonify({
         "ok": True,
         "numero_cotacao": numero_cotacao,
         "url": f"/cotacoes/geradas/{numero_cotacao}"
     })
-
 
 try:
     app.view_functions["gerar_cotacao_lances"] = gerar_cotacao_lances_oas_definitiva
@@ -3827,123 +3834,127 @@ def atualizar_cotacao_gerada_fix_persistencia(numero_cotacao):
     cliente = str(dados.get("cliente") or dados.get("cliente_orgao") or "").strip().upper()
     cliente_exibicao = cliente or "-"
 
-    conn = conectar()
-    cur = conn.cursor()
+    conn = None
+    try:
+        conn = conectar()
+        cur = conn.cursor()
 
-    cur.execute("SELECT id FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
-    row = cur.fetchone()
+        cur.execute("SELECT id FROM cotacoes_geradas WHERE numero_cotacao = ?", (numero_cotacao,))
+        row = cur.fetchone()
 
-    if not row:
-        conn.close()
-        return jsonify({"ok": False, "erro": f"Cotação {numero_cotacao} não encontrada."}), 404
+        if not row:
+            return jsonify({"ok": False, "erro": f"Cotacao {numero_cotacao} nao encontrada."}), 404
 
-    cotacao_id = row[0]
-    cur.execute("DELETE FROM cotacoes_geradas_itens WHERE cotacao_id = ?", (cotacao_id,))
+        cotacao_id = row[0]
+        cur.execute("DELETE FROM cotacoes_geradas_itens WHERE cotacao_id = ?", (cotacao_id,))
 
-    total_medbox = 0.0
+        calculados = []
 
-    for idx, item in enumerate(itens, start=1):
-        descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
-        sku_master = str(item.get("sku_master") or "").strip().upper()
-        categoria = str(item.get("categoria") or "").strip().upper()
-        marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
-        fornecedor = str(item.get("fornecedor_menor_custo") or "").strip().upper()
+        for idx, item in enumerate(itens, start=1):
+            descricao = str(item.get("descricao_produto") or item.get("descricao") or "").strip().upper()
+            sku_master = str(item.get("sku_master") or "").strip().upper()
+            categoria = str(item.get("categoria") or "").strip().upper()
+            marca = str(item.get("marca_fabricante") or item.get("marca") or "").strip().upper()
+            fornecedor = str(item.get("fornecedor_menor_custo") or "").strip().upper()
+            empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
 
-        quantidade = _fix_lance_float(item.get("quantidade"), 0)
-        preco_osinfo = _fix_lance_float(item.get("preco_osinfo"), 0)
-        ultima_compra = _fix_lance_float(item.get("ultima_compra"), 0)
-        menor_lance = _fix_lance_float(item.get("menor_preco_ofertado", item.get("menor_lance", 0)), 0)
-        menor_custo = _fix_lance_float(item.get("menor_custo_unitario"), 0)
-        markup = _fix_lance_float(item.get("markup_atual"), 80)
+            calculado = calcular_persistencia_item({
+                "quantidade": item.get("quantidade"),
+                "preco_osinfo": item.get("preco_osinfo"),
+                "menor_lance": item.get("menor_preco_ofertado", item.get("menor_lance")),
+                "preco_medbox": item.get("preco_medbox"),
+                "empresa_melhor_lance": empresa_lance,
+            })
+            calculados.append(calculado)
 
-        preco_medbox = _fix_lance_float(item.get("preco_medbox"), 0)
-        if menor_custo > 0:
-            preco_medbox = menor_custo * (1 + markup / 100)
+            quantidade = float(calculado["quantidade"])
+            preco_osinfo = float(calculado["preco_osinfo"])
+            preco_medbox = float(calculado["preco_medbox"])
+            menor_lance = float(calculado["menor_lance"])
+            menor_valor = float(calculado["menor_valor_vencedor"])
+            valor_unitario = float(calculado["valor_unitario"])
+            valor_total = float(calculado["valor_total"])
+            venceu_medbox = int(calculado["venceu_medbox"])
+            empresa_vencedora = str(calculado["empresa_vencedora"] or "").strip().upper()
+            menor_origem = "MEDBOX" if empresa_vencedora == "MEDBOX" else "OSINFO" if empresa_vencedora == "OSINFO" else "OUTRA_EMPRESA" if empresa_vencedora else "-"
+            valor_total_vencedor = quantidade * menor_valor if quantidade > 0 and menor_valor > 0 else 0.0
 
-        empresa_lance = str(item.get("empresa_melhor_lance") or "").strip().upper()
-
-        menor_origem, menor_empresa, menor_valor, medbox_vencedora = _fix_lance_disputa(
-            preco_osinfo,
-            preco_medbox,
-            menor_lance,
-            empresa_lance
-        )
-
-        valor_total_vencedor = quantidade * menor_valor
-        valor_unitario = preco_medbox if medbox_vencedora else 0.0
-        valor_total = quantidade * valor_unitario
-        total_medbox += valor_total
-
-        cur.execute("""
-            INSERT INTO cotacoes_geradas_itens (
+            cur.execute("""
+                INSERT INTO cotacoes_geradas_itens (
+                    cotacao_id,
+                    item_numero,
+                    descricao_produto,
+                    sku_master,
+                    marca,
+                    quantidade,
+                    valor_unitario,
+                    valor_total,
+                    venceu_medbox,
+                    status_lance,
+                    categoria,
+                    fornecedor_menor_custo,
+                    menor_custo_unitario,
+                    markup_atual,
+                    ultima_compra,
+                    preco_osinfo,
+                    menor_lance,
+                    preco_medbox_original,
+                    empresa_melhor_lance,
+                    menor_origem,
+                    menor_empresa,
+                    menor_valor_comparativo,
+                    valor_total_vencedor,
+                    medbox_vencedora
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
                 cotacao_id,
-                item_numero,
-                descricao_produto,
+                idx,
+                descricao,
                 sku_master,
                 marca,
                 quantidade,
                 valor_unitario,
                 valor_total,
                 venceu_medbox,
-                status_lance,
+                calculado["status_lance"],
                 categoria,
-                fornecedor_menor_custo,
-                menor_custo_unitario,
-                markup_atual,
-                ultima_compra,
+                fornecedor,
+                _fix_lance_float(item.get("menor_custo_unitario"), 0),
+                _fix_lance_float(item.get("markup_atual"), 80),
+                _fix_lance_float(item.get("ultima_compra"), 0),
                 preco_osinfo,
                 menor_lance,
-                preco_medbox_original,
-                empresa_melhor_lance,
+                preco_medbox,
+                empresa_lance,
                 menor_origem,
-                menor_empresa,
-                menor_valor_comparativo,
+                empresa_vencedora or "-",
+                menor_valor,
                 valor_total_vencedor,
-                medbox_vencedora
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            cotacao_id,
-            idx,
-            descricao,
-            sku_master,
-            marca,
-            quantidade,
-            valor_unitario,
-            valor_total,
-            1 if medbox_vencedora else 0,
-            "SKU SELECIONADO" if sku_master else "REVISAR SKU",
-            categoria,
-            fornecedor,
-            menor_custo,
-            markup,
-            ultima_compra,
-            preco_osinfo,
-            menor_lance,
-            preco_medbox,
-            empresa_lance,
-            menor_origem,
-            menor_empresa,
-            menor_valor,
-            valor_total_vencedor,
-            1 if medbox_vencedora else 0,
-        ))
+                venceu_medbox,
+            ))
 
-    cur.execute("""
-        UPDATE cotacoes_geradas
-        SET cliente = ?, total_geral = ?
-        WHERE id = ?
-    """, (cliente_exibicao, total_medbox, cotacao_id))
+        total_medbox = float(calcular_total_geral(calculados))
+        cur.execute("""
+            UPDATE cotacoes_geradas
+            SET cliente = ?, total_geral = ?
+            WHERE id = ?
+        """, (cliente_exibicao, total_medbox, cotacao_id))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    except Exception as exc:
+        if conn is not None:
+            conn.rollback()
+        return jsonify({"ok": False, "erro": str(exc)}), 500
+    finally:
+        if conn is not None:
+            conn.close()
 
     return jsonify({
         "ok": True,
         "numero_cotacao": numero_cotacao,
         "url": f"/cotacoes/geradas/{numero_cotacao}"
     })
-
 
 # Substitui os endpoints já registrados sem recriar rotas.
 try:
