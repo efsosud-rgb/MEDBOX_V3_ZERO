@@ -1,0 +1,81 @@
+name: MEDBOX CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "melhoria/**"
+      - "feature/**"
+      - "fix/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: medbox-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validar código e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --prefer-binary -r requirements.txt -r requirements-dev.txt
+      - name: Bloquear dados sensíveis
+        run: python scripts/ci/check_repo_safety.py
+      - name: Compilar Python
+        run: python -m compileall -q app.py core tests scripts
+      - name: Erros críticos do Ruff
+        run: ruff check app.py core tests scripts --select E9,F63,F7,F82
+      - name: Testes Python
+        env:
+          MEDBOX_TESTING: "1"
+        run: pytest -q
+      - name: Testes JavaScript de Lances
+        run: node tests/lances_recalculo_dinamico_test.js
+
+  python-314-compatibility:
+    name: Compatibilidade Python 3.14
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Compilar código
+        run: python -m compileall -q app.py core tests scripts
+
+  security-audit:
+    name: Auditoria de segurança
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Instalar ferramentas
+        run: python -m pip install bandit pip-audit
+      - name: Bandit
+        run: bandit -q -r app.py core scripts -x tests -ll
+      - name: Dependências vulneráveis
+        run: pip-audit -r requirements.txt
