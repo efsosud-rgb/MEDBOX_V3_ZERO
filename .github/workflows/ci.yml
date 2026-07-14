@@ -39,6 +39,8 @@ jobs:
           python -m pip install --prefer-binary -r requirements.txt -r requirements-dev.txt
       - name: Bloquear dados sensíveis
         run: python scripts/ci/check_repo_safety.py
+      - name: Bloquear uso do banco operacional nos testes
+        run: python scripts/ci/check_test_db_isolation.py
       - name: Compilar Python
         run: python -m compileall -q app.py core tests scripts
       - name: Erros críticos do Ruff
