@@ -1,187 +1,639 @@
+
+<style>
+/* ============================================================
+   DESTAQUE DE MENOR OFERTA - OSINFO x LANCE x MEDBOX
+   ============================================================ */
+
+.menor-oferta,
+input.menor-oferta,
+td.menor-oferta,
+.campo-menor-oferta {
+    background: #e8fff3 !important;
+    border: 2px solid #00a65a !important;
+    color: #005c32 !important;
+    font-weight: 900 !important;
+}
+
+.vencedor-medbox {
+    background: #e8fff3 !important;
+}
+
+.vencedor-concorrente {
+    background: #fff3e8 !important;
+}
+
+.badge-vencedor {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 900;
+    background: #e8fff3;
+    color: #005c32;
+    border: 1px solid #00a65a;
+}
+
+.badge-negociar {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 900;
+    background: #fff3e8;
+    color: #9a4a00;
+    border: 1px solid #ff9f43;
+}
+</style>
+
+
+<style>
+/* ============================================================
+   CORREÇÃO DEFINITIVA - LANCES DE COTAÇÃO
+   Remove coluna vazia lateral e coloca ações no topo direito
+   ============================================================ */
+
+.medbox-lances-top-actions {
+    position: fixed !important;
+    top: 14px !important;
+    right: 24px !important;
+    z-index: 9999 !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    background: #ffffff !important;
+    border: 1px solid #dbe3ef !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+    padding: 8px 10px !important;
+}
+
+.medbox-lances-top-actions .meta-field {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+}
+
+.medbox-lances-top-actions label {
+    font-size: 9px !important;
+    font-weight: 900 !important;
+    color: #0b2c4d !important;
+    text-transform: uppercase !important;
+    margin: 0 !important;
+}
+
+.medbox-lances-top-actions input {
+    width: 150px !important;
+    height: 28px !important;
+    border: 1px solid #c9d7e8 !important;
+    border-radius: 6px !important;
+    padding: 5px 7px !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    box-sizing: border-box !important;
+}
+
+.medbox-lances-top-actions button,
+.medbox-lances-top-actions a,
+#btnGerarCotacaoMedbox,
+#btnPesquisarCotacoes {
+    height: 38px !important;
+    min-width: 78px !important;
+    padding: 6px 10px !important;
+    border-radius: 7px !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+}
+
+/* Esconde barras antigas que espremiam a grade */
+.lances-meta-bar:not(.medbox-lances-top-actions),
+.lances-meta-bar-topo-direita,
+.cotacao-meta-bar,
+.grade-meta-bar,
+.cotacao-gerada-bar,
+.lances-cotacao-bar {
+    display: none !important;
+}
+
+/* Força a área da grade a ocupar largura total */
+.grade-lances-wrapper,
+.lances-grade-wrapper,
+.grade-lances-container,
+.tabela-lances-wrapper,
+.table-lances-wrapper,
+.lances-table-wrapper,
+.table-responsive,
+.table-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    clear: both !important;
+    box-sizing: border-box !important;
+    float: none !important;
+}
+
+/* Mata o layout flex que criou a margem lateral */
+div:has(> table),
+div:has(table) {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Qualquer container direto da tabela vira bloco */
+table {
+    width: max-content !important;
+    min-width: 100% !important;
+    margin-left: 0 !important;
+    clear: both !important;
+}
+
+/* Remove coluna/título lateral "Grade de Lances" quando ele vira coluna */
+.grade-lances-title,
+.titulo-grade-lances {
+    display: block !important;
+    width: 100% !important;
+    margin: 8px 0 !important;
+    padding: 0 !important;
+    clear: both !important;
+}
+
+/* Corrige casos onde o template usa grid/flex em volta da grade */
+.row:has(table),
+.card:has(table),
+section:has(table),
+article:has(table) {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* Ajuda visual do SKU */
+.lances-sku-ajuda {
+    display: block !important;
+    margin-top: 3px !important;
+    font-size: 9px !important;
+    color: #52647a !important;
+    font-weight: 800 !important;
+}
+
+.btn-sugestao-sku-linha {
+    display: inline-block !important;
+    margin-top: 4px !important;
+    border: none !important;
+    background: #00486c !important;
+    color: #fff !important;
+    border-radius: 5px !important;
+    font-size: 9px !important;
+    font-weight: 900 !important;
+    padding: 4px 7px !important;
+    cursor: pointer !important;
+}
+
+.btn-sugestao-sku-linha:hover {
+    background: #003652 !important;
+}
+
+input[placeholder*="SKU"],
+.sku-master-input {
+    min-width: 170px !important;
+}
+
+@media (max-width: 1400px) {
+    .medbox-lances-top-actions {
+        position: static !important;
+        margin: 8px 16px 10px auto !important;
+        width: fit-content !important;
+    }
+}
+</style>
+
+
+<style>
+/* ============================================================
+   AJUSTE ERP - CLIENTE / OAS / PROJETO NO TOPO DIREITO
+   ============================================================ */
+
+.lances-meta-bar,
+.cotacao-meta-bar,
+.grade-meta-bar,
+.cotacao-gerada-bar,
+.lances-cotacao-bar {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: flex-end !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 0 12px 0 !important;
+    padding: 10px 16px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #dbe3ef !important;
+    box-sizing: border-box !important;
+    clear: both !important;
+}
+
+.lances-meta-field {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    min-width: 170px !important;
+}
+
+.lances-meta-field label {
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    color: #0b2c4d !important;
+    text-transform: uppercase !important;
+}
+
+#clienteCotacaoGerada,
+#oasCotacaoGerada,
+#projetoCotacaoGerada,
+#controleClienteCotacaoGerada {
+    width: 180px !important;
+    height: 32px !important;
+    border: 1px solid #c9d7e8 !important;
+    border-radius: 6px !important;
+    padding: 6px 8px !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    background: #fff !important;
+    box-sizing: border-box !important;
+}
+
+.lances-meta-actions {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: flex-end !important;
+}
+
+.lances-meta-actions .btn,
+.lances-meta-actions button,
+#btnGerarCotacaoMedbox,
+#btnPesquisarCotacoes {
+    height: 44px !important;
+    min-width: 92px !important;
+    padding: 8px 14px !important;
+    white-space: nowrap !important;
+}
+
+/* A grade nunca fica ao lado dos campos */
+.grade-lances-wrapper,
+.lances-grade-wrapper,
+.grade-lances-container,
+.tabela-lances-wrapper,
+.table-lances-wrapper,
+.lances-table-wrapper,
+table {
+    clear: both !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* Em telas menores, joga para esquerda para não quebrar */
+@media (max-width: 1200px) {
+    .lances-meta-bar,
+    .cotacao-meta-bar,
+    .grade-meta-bar,
+    .cotacao-gerada-bar,
+    .lances-cotacao-bar {
+        justify-content: flex-start !important;
+    }
+}
+</style>
+
 {% extends "base.html" %}
 {% block title %}Cotação - Lances{% endblock %}
-{% block subtitle %}Crítica operacional item a item, sem salvar cotação final.{% endblock %}
 
 {% block content %}
 <style>
     .lances-toolbar {
         display: grid;
-        grid-template-columns: minmax(320px, 1fr) 180px auto;
-        gap: 14px;
+        grid-template-columns: 1fr 160px 140px;
+        gap: 12px;
         align-items: end;
     }
+
     .lances-upload-box label,
     .markup-box label {
-        display: block;
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: var(--text2);
-        margin-bottom: 6px;
-        text-transform: uppercase;
+        display:block;
+        font-size:.76rem;
+        font-weight:800;
+        color:var(--text2);
+        margin-bottom:6px;
+        text-transform:uppercase;
     }
+
     .lances-upload-box input,
     .markup-box input,
+    .sku-quick-input,
     .lance-input {
-        width: 100%;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 9px 10px;
-        font: inherit;
-        background: white;
+        width:100%;
+        border:1px solid #dbe3ef;
+        border-radius:7px;
+        padding:8px;
+        font-size:.76rem;
     }
+
     .lances-summary {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 10px;
-        margin-bottom: 18px;
+        display:grid;
+        grid-template-columns:repeat(8, minmax(120px, 1fr));
+        gap:10px;
+        margin-top:14px;
     }
+
     .lances-kpi {
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 12px;
-        background: #fff;
+        border:1px solid #dbe3ef;
+        border-radius:8px;
+        padding:10px;
+        background:#fff;
     }
+
     .lances-kpi span {
-        display: block;
-        color: var(--muted);
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        font-weight: 700;
-        margin-bottom: 5px;
+        display:block;
+        color:var(--muted);
+        font-size:.68rem;
+        text-transform:uppercase;
+        font-weight:800;
     }
+
     .lances-kpi strong {
-        font-size: 1.05rem;
-        color: var(--text);
+        font-size:1rem;
+        color:var(--text);
     }
+
     .lances-table-wrap {
-        overflow-x: auto;
-        border: 1px solid var(--border);
-        border-radius: 8px;
+        overflow-x:auto;
     }
+
     .lances-table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 1900px;
-        background: white;
+        min-width:2200px;
+        width:100%;
+        border-collapse:collapse;
     }
+
     .lances-table th,
     .lances-table td {
-        border-bottom: 1px solid var(--border);
-        padding: 9px 8px;
-        vertical-align: top;
-        font-size: 0.82rem;
+        padding:8px 7px;
+        border-bottom:1px solid #e5edf6;
+        font-size:.72rem;
+        vertical-align:middle;
     }
+
     .lances-table th {
-        background: #f8fafc;
-        color: var(--text2);
-        text-transform: uppercase;
-        font-size: 0.7rem;
-        letter-spacing: 0.3px;
-        text-align: left;
-        position: sticky;
-        top: 0;
-        z-index: 1;
+        background:#f8fafc;
+        color:#1f3654;
+        font-weight:900;
+        text-transform:uppercase;
+        font-size:.64rem;
     }
-    .money-input {
-        max-width: 110px;
-        text-align: right;
-        font-weight: 700;
+
+    .linha-ok {
+        background:#ecfdf3;
     }
-    .osinfo-cell,
-    .osinfo-cell input {
-        background: #fff7bf;
+
+    .linha-revisar {
+        background:#fff7ed;
     }
-    .winner-cell {
-        background: #e8f5e9;
-        border-left: 4px solid var(--green);
-        font-weight: 800;
+
+    .linha-sem-preco {
+        background:#fff1f2;
     }
+
     .status-badge {
-        display: inline-block;
-        border-radius: 999px;
-        padding: 5px 8px;
-        font-size: 0.7rem;
-        font-weight: 800;
-        white-space: nowrap;
+        display:inline-block;
+        border-radius:999px;
+        padding:5px 8px;
+        font-weight:900;
+        font-size:.64rem;
+        white-space:nowrap;
     }
-    tr.status-competitivo { background: #f0fff4; }
-    tr.status-negociar { background: #fffbea; }
-    tr.status-sem-preco { background: #fff1f2; }
-    tr.status-revisar-sku { background: #f1f5f9; }
-    .badge-competitivo { background: #dcfce7; color: #166534; }
-    .badge-negociar { background: #fef3c7; color: #92400e; }
-    .badge-sem-preco { background: #ffe4e6; color: #9f1239; }
-    .badge-revisar-sku { background: #e2e8f0; color: #334155; }
-    .badge-sem-lance-informado { background: #dbeafe; color: #1e40af; }
-    .muted-small { color: var(--muted); display: block; font-size: 0.75rem; margin-top: 3px; }
+
+    .status-competitivo {
+        background:#dcfce7;
+        color:#166534;
+    }
+
+    .status-negociar {
+        background:#fef3c7;
+        color:#92400e;
+    }
+
+    .status-sem-preco,
+    .status-revisar-sku {
+        background:#fee2e2;
+        color:#991b1b;
+    }
+
+    .btn-salvar-sku {
+        background:#00486C;
+        color:#fff;
+        border:none;
+        border-radius:7px;
+        padding:7px 9px;
+        font-size:.68rem;
+        font-weight:900;
+        cursor:pointer;
+    }
+
+    .btn-salvar-sku:disabled {
+        opacity:.55;
+        cursor:not-allowed;
+    }
+
+    .medbox-readonly {
+        background:#f3f4f6 !important;
+        cursor:not-allowed;
+    }
+
     .erro-lances {
-        background: #fff1f2;
-        border: 1px solid #fecdd3;
-        color: #9f1239;
+        background:#fee2e2;
+        color:#991b1b;
+        padding:12px;
+        border-radius:8px;
+        font-weight:800;
+        margin-top:12px;
+    }
+
+    .btn-excluir-item {
+        background:#7a0018;
+        color:#fff;
+        border:none;
+        border-radius:7px;
+        padding:7px 10px;
+        font-weight:700;
+        font-size:11px;
+        cursor:pointer;
+        margin-top:5px;
+        width:100%;
+    }
+
+    .sku-quick-input,
+    .empresa-input,
+    textarea {
+        text-transform: uppercase;
+    }
+
+
+    .custo-manual-input[readonly] {
+        background:#f3f6fa;
+        color:#4b5b6b;
+        cursor:not-allowed;
+    }
+
+    .custo-manual-input:not([readonly]) {
+        background:#fff7e6;
+        border-color:#f59e0b;
+        font-weight:700;
+    }
+
+
+    .sku-sugestao-select {
+        margin-top:5px;
+        width:100%;
+        border:1px solid #dbe3ef;
+        border-radius:7px;
+        padding:6px;
+        font-size:11px;
+        background:#fff;
+        color:#0b2545;
+        font-weight:700;
+    }
+
+
+    .sku-autocomplete-box {
+        position: absolute;
+        z-index: 9999;
+        background: #fff;
+        border: 1px solid #dbe3ef;
         border-radius: 8px;
-        padding: 12px;
-        margin-top: 14px;
-        font-weight: 700;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, .16);
+        max-height: 260px;
+        overflow-y: auto;
+        min-width: 320px;
+        font-size: 11px;
     }
-    @media (max-width: 900px) {
-        .lances-toolbar { grid-template-columns: 1fr; }
+
+    .sku-autocomplete-item {
+        padding: 8px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eef3f8;
+        color: #0b2545;
     }
+
+    .sku-autocomplete-item:hover {
+        background: #eef6ff;
+    }
+
+    .sku-autocomplete-item strong {
+        display: block;
+        font-size: 12px;
+        color: #002b45;
+    }
+
+    .sku-autocomplete-item small {
+        display: block;
+        margin-top: 3px;
+        color: #64748b;
+    }
+
 </style>
 
-<section class="panel large">
-    <h3>Importar Cotação do Cliente</h3>
+<div class="page-header">
+    <div>
+        <h1>COTAÇÃO - LANCES</h1>
+        <p>Crítica operacional item a item. A descrição da cotação é preservada; o SKU Master MedBox é encontrado pela base.</p>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Importar Cotação OAS / Lances</h3>
+
     <form action="/cotacoes/lances/importar" method="POST" enctype="multipart/form-data" class="lances-toolbar">
         <div class="lances-upload-box">
             <label>Arquivo da cotação</label>
-            <input type="file" name="arquivo" accept=".pdf,.xlsx,.xls,.doc,.docx,.csv,.png,.jpg,.jpeg" required>
+            <input type="file" name="arquivo" accept=".xlsx,.xlsm,.csv,.txt" required>
+            {% if arquivo_nome %}
+            <small>Arquivo analisado: {{ arquivo_nome }}</small>
+            {% endif %}
         </div>
+
         <div class="markup-box">
             <label>Markup geral (%)</label>
             <input type="number" step="0.01" min="0" name="markup_percentual" id="markupGeral" value="{{ markup_percentual or 80 }}">
         </div>
-        <button type="submit" class="btn-primary">Importar Cotação</button>
+
+        <button class="btn-primary" type="submit">Importar Cotação</button>
     </form>
-    {% if arquivo_nome %}
-        <p class="muted-small">Arquivo analisado: <strong>{{ arquivo_nome }}</strong></p>
-    {% endif %}
+
+    <div class="lances-upload-box" style="margin-top:14px;">
+        <label>Adicionar itens manualmente</label>
+        <textarea id="textoItensManuais" rows="5" placeholder="Cole ou digite vários itens, um por linha. Ex.:&#10;AGUA DESTILADA ESTERIL 10ML - 3000&#10;CEFAZOLINA SODICA 1G - 700" style="width:100%;border:1px solid #dbe3ef;border-radius:7px;padding:10px;"></textarea>
+        <small style="display:block;color:var(--muted);margin-top:6px;">
+            Cada linha será analisada pela base MedBox. Se encontrar SKU Master, os campos serão preenchidos. Se não encontrar, ficará como REVISAR SKU.
+        </small>
+        <button class="btn-primary" type="button" id="btnAdicionarItensManuais" style="margin-top:10px;">Adicionar itens à grade</button>
+    </div>
+
+
     {% if erro %}
-        <div class="erro-lances">{{ erro }}</div>
+    <div class="erro-lances">{{ erro }}</div>
     {% endif %}
-</section>
+</div>
 
 {% if analise %}
-<section class="panel large">
+<div class="card">
     <h3>Resumo da Crítica</h3>
+
     <div class="lances-summary" id="lancesResumo">
-        <div class="lances-kpi"><span>Total de itens</span><strong data-kpi="total_itens">{{ analise.resumo.total_itens }}</strong></div>
+        <div class="lances-kpi"><span>Total de itens cotados</span><strong data-kpi="total_itens">{{ analise.resumo.total_itens }}</strong></div>
         <div class="lances-kpi"><span>SKU encontrado</span><strong data-kpi="itens_com_sku">{{ analise.resumo.itens_com_sku }}</strong></div>
         <div class="lances-kpi"><span>Revisar SKU</span><strong data-kpi="itens_revisar_sku">{{ analise.resumo.itens_revisar_sku }}</strong></div>
-        <div class="lances-kpi"><span>Com Preço MedBox</span><strong data-kpi="itens_com_preco_medbox">{{ analise.resumo.itens_com_preco_medbox }}</strong></div>
-        <div class="lances-kpi"><span>Sem Preço</span><strong data-kpi="itens_sem_preco">{{ analise.resumo.itens_sem_preco }}</strong></div>
-        <div class="lances-kpi"><span>Competitivos</span><strong data-kpi="itens_competitivos">{{ analise.resumo.itens_competitivos }}</strong></div>
+        <div class="lances-kpi"><span>Com preço MedBox</span><strong data-kpi="itens_com_preco_medbox">{{ analise.resumo.itens_com_preco_medbox }}</strong></div>
+        <div class="lances-kpi"><span>Sem preço</span><strong data-kpi="itens_sem_preco">{{ analise.resumo.itens_sem_preco }}</strong></div>
+        <div class="lances-kpi"><span>Itens ganhos MedBox</span><strong data-kpi="itens_ganhos_medbox">{{ analise.resumo.itens_ganhos_medbox }}</strong></div>
+        <div class="lances-kpi"><span>% itens ganhos</span><strong data-kpi="percentual_itens_ganhos">{{ analise.resumo.percentual_itens_ganhos_formatado }}</strong></div>
         <div class="lances-kpi"><span>Negociar</span><strong data-kpi="itens_negociar">{{ analise.resumo.itens_negociar }}</strong></div>
-        <div class="lances-kpi"><span>Total OSINFO</span><strong data-kpi="total_osinfo">{{ analise.resumo.total_osinfo_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Total Última Compra</span><strong data-kpi="total_ultima_compra">{{ analise.resumo.total_ultima_compra_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Total MedBox</span><strong data-kpi="total_medbox">{{ analise.resumo.total_medbox_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Total Menor Lance</span><strong data-kpi="total_menor_lance">{{ analise.resumo.total_menor_lance_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Total Menor Valor</span><strong data-kpi="total_menor_valor">{{ analise.resumo.total_menor_valor_formatado }}</strong></div>
-        <div class="lances-kpi"><span>Margem Média MedBox</span><strong data-kpi="margem_media_medbox">{{ "%.2f"|format(analise.resumo.margem_media_medbox)|replace(".", ",") }}%</strong></div>
-        <div class="lances-kpi"><span>Total Estimado</span><strong data-kpi="valor_total_estimado">{{ analise.resumo.valor_total_estimado_formatado }}</strong></div>
+        <div class="lances-kpi"><span>Total ganho MedBox</span><strong data-kpi="total_ganho_medbox">{{ analise.resumo.total_ganho_medbox_formatado }}</strong></div>
     </div>
-</section>
+</div>
 
-<section class="panel large">
+<div class="card">
+    
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:end;" class="no-print">
+        <div>
+            <label style="font-size:11px;font-weight:800;text-transform:uppercase;">Cliente / Órgão</label><br>
+            <input id="clienteCotacaoGerada" class="sku-quick-input" placeholder="Informe o cliente/órgão" style="min-width:280px;">
+        </div>
+        <button type="button" class="btn-primary" id="btnGerarCotacaoMedbox">Gerar Cotação</button>
+        <a href="/cotacoes/geradas" class="btn-primary" style="text-decoration:none;display:inline-block;">Pesquisar Cotações</a>
+    </div>
+
     <h3>Grade de Lances</h3>
+
     <div class="lances-table-wrap">
         <table class="lances-table" id="tabelaLances">
             <thead>
                 <tr>
                     <th>Item</th>
-                    <th>Descrição do Produto</th>
-                    <th>SKU_MASTER MedBox</th>
+                    <th>Descrição do Produto<br><small>Cotação original</small></th>
+                    <th>SKU Master MedBox</th>
+                    <th>Categoria</th>
                     <th>Quantidade</th>
                     <th>Preço OSINFO</th>
-                    <th>Últ. Comp. da Cotação</th>
+                    <th>Últ. Compra da Cotação</th>
                     <th>Preço MedBox</th>
                     <th>Markup Atual</th>
                     <th>Menor Preço Ofertado</th>
@@ -191,183 +643,138 @@
                     <th>Fornecedor Menor Custo</th>
                     <th>Marca/Fabricante</th>
                     <th>Status</th>
+                    <th>Ação SKU</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for item in analise.itens %}
                 <tr
-                    class="linha-lance status-{{ item.status|lower|replace(' ', '-')|replace('preco', 'preco') }}"
+                    class="{% if item.status == 'REVISAR SKU' %}linha-revisar{% elif item.status == 'SEM PREÇO' %}linha-sem-preco{% else %}linha-ok{% endif %}"
                     data-custo="{{ item.menor_custo_unitario or 0 }}"
-                    data-quantidade="{{ item.quantidade }}"
-                    data-tem-sku="{{ 1 if item.tem_sku else 0 }}"
                     data-tem-preco="{{ 1 if item.tem_preco else 0 }}"
+                    data-medbox-vence="{{ 1 if item.medbox_vence else 0 }}"
+                    data-status="{{ item.status }}"
+                    data-sku-encontrado="{{ 1 if item.sku_encontrado else 0 }}"
+                    data-unidade-compra="{{ item.unidade_compra or item.unidade or '' }}"
                 >
-                    <td><strong>{{ item.item }}</strong></td>
+                    <td>{{ item.item }}</td>
+
+                    <td style="min-width:260px;">
+                        <strong>{{ item.descricao_produto }}</strong>
+                        {% if item.codigo_cliente %}
+                        <small style="display:block;color:var(--muted);">Código: {{ item.codigo_cliente }}</small>
+                        {% endif %}
+                    </td>
+
+                    <td style="min-width:230px;">
+                        <input class="sku-quick-input sku-master-input" value="{{ item.sku_master if item.sku_master != 'REVISAR SKU' else '' }}" placeholder="Informe o SKU Master">
+                        <small style="display:block;color:var(--muted);">Score: {{ "%.1f"|format(item.score or 0) }}</small>
+                        {% if item.sugestoes_sku %}
+                        <select class="sku-sugestao-select">
+                            <option value="">Escolher SKU...</option>
+                            {% for s in item.sugestoes_sku %}
+                            <option
+                                value="{{ s.sku_master }}"
+                                data-categoria="{{ s.categoria }}"
+                                data-fornecedor="{{ s.fornecedor_menor_custo }}"
+                                data-fabricante="{{ s.marca_fabricante }}"
+                                data-custo="{{ s.menor_custo_unitario }}"
+                                data-custo-formatado="{{ s.menor_custo_unitario_formatado }}"
+                                data-score="{{ s.score }}"
+                            >
+                                {{ s.sku_master }} | {{ s.marca_fabricante }} | {{ s.menor_custo_unitario_formatado }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </td>
+
+                    <td style="min-width:140px;">
+                        <input class="sku-quick-input categoria-input" value="{{ item.categoria if item.categoria != '-' else '' }}" placeholder="Categoria">
+                    </td>
+
+                    <td><input class="lance-input qtd-input" type="number" step="1" min="0" value="{{ item.quantidade_formatada or item.quantidade|int }}"></td>
+
+                    <td><input class="lance-input money-input osinfo-input" value="{{ item.preco_osinfo_formatado }}"></td>
+
+                    <td><input class="lance-input money-input ultima-input" value="{{ item.ultima_compra_formatada }}"></td>
+
+                    <td><input class="lance-input money-input medbox-input medbox-readonly" readonly value="{{ item.preco_medbox_formatado }}"></td>
+
+                    <td><input class="lance-input markup-atual-input" type="number" step="0.01" min="0" value="{{ "%.2f"|format(item.markup_atual or 80) }}"></td>
+
+                    <td><input class="lance-input money-input concorrente-input" value="{{ item.menor_preco_ofertado_formatado }}"></td>
+
+                    <td><input class="lance-input empresa-input" value="{{ item.empresa_melhor_lance or '' }}" placeholder="Empresa"></td>
+
+                    <td class="menor-valor-cell">
+                        <strong>{{ item.menor_valor_formatado }}</strong>
+                        <small style="display:block;">{{ item.menor_valor_nome }}</small>
+                    </td>
+
                     <td>
-                        <strong>{{ item.descricao_original }}</strong>
-                        <span class="muted-small">Texto original da cotação</span>
+                        <input
+                            class="lance-input money-input custo-manual-input"
+                            value="{{ item.menor_custo_unitario_formatado if item.menor_custo_unitario else '' }}"
+                            placeholder="R$ 0,00"
+                            {% if item.sku_encontrado and item.tem_preco %}readonly{% endif %}
+                        >
                     </td>
+
                     <td>
-                        <strong>{{ item.sku_master }}</strong>
-                        <span class="muted-small">Score: {{ "%.1f"|format(item.score_busca or 0) }}</span>
+                        <input class="sku-quick-input fornecedor-input" value="{{ item.fornecedor_menor_custo if item.fornecedor_menor_custo != '-' else '' }}" placeholder="Fornecedor">
                     </td>
+
                     <td>
-                        <input class="lance-input qtd-input" type="number" min="0" step="0.01" value="{{ item.quantidade }}">
+                        <input class="sku-quick-input fabricante-input" value="{{ item.marca_fabricante if item.marca_fabricante != '-' else '' }}" placeholder="Fabricante">
                     </td>
-                    <td class="osinfo-cell">
-                        <input class="lance-input money-input osinfo-input" type="text" value="{{ item.preco_osinfo_formatado }}">
+
+                    <td class="status-cell">
+                        <span class="status-badge status-{{ item.status|lower|replace(' ', '-')|replace('ç','c') }}">{{ item.status }}</span>
                     </td>
+
                     <td>
-                        <input class="lance-input money-input ultima-input" type="text" value="{{ item.ultima_compra_formatada }}">
-                    </td>
-                    <td>
-                        <input class="lance-input money-input medbox-input" type="text" value="{{ item.preco_medbox_formatado }}">
-                    </td>
-                    <td><strong class="markup-atual">{{ "%.2f"|format(item.markup_atual or 0)|replace(".", ",") if item.markup_atual is not none else "-" }}{% if item.markup_atual is not none %}%{% endif %}</strong></td>
-                    <td>
-                        <input class="lance-input money-input concorrente-input" type="text" value="{{ item.menor_preco_ofertado_formatado }}">
-                    </td>
-                    <td>
-                        <input class="lance-input empresa-input" type="text" value="{{ item.empresa_melhor_lance }}" placeholder="Empresa">
-                    </td>
-                    <td class="winner-cell">
-                        <strong class="menor-valor">{{ item.menor_valor_item_formatado }}</strong>
-                        <span class="muted-small vencedor">{{ item.vencedor_item }}</span>
-                    </td>
-                    <td><strong>{{ item.menor_custo_unitario_formatado }}</strong></td>
-                    <td>{{ item.fornecedor_menor_custo }}</td>
-                    <td>{{ item.marca_fabricante }}</td>
-                    <td>
-                        <span class="status-badge badge-{{ item.status|lower|replace(' ', '-')|replace('preco', 'preco') }}">{{ item.status }}</span>
+                        <button type="button" class="btn-salvar-sku">Salvar SKU</button>
+                        <button type="button" class="btn-excluir-item">Excluir</button>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</section>
-
-<script>
-(function () {
-    const tabela = document.getElementById("tabelaLances");
-    const markupGeral = document.getElementById("markupGeral");
-    if (!tabela || !markupGeral) return;
-
-    function parseMoeda(valor) {
-        if (!valor) return 0;
-        return Number(String(valor).replace("R$", "").replace(/\./g, "").replace(",", ".").replace(/[^0-9.-]/g, "")) || 0;
-    }
-
-    function moeda(valor) {
-        return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor) || 0);
-    }
-
-    function statusClasse(status) {
-        return "status-" + status.toLowerCase().replaceAll(" ", "-").replace("preço", "preco");
-    }
-
-    function badgeClasse(status) {
-        return "badge-" + status.toLowerCase().replaceAll(" ", "-").replace("preço", "preco");
-    }
-
-    function atualizarLinha(linha) {
-        const custo = Number(linha.dataset.custo || 0);
-        const temSku = linha.dataset.temSku === "1";
-        const temPreco = linha.dataset.temPreco === "1";
-        const qtd = Number(linha.querySelector(".qtd-input").value || 1);
-        const osinfo = parseMoeda(linha.querySelector(".osinfo-input").value);
-        const ultima = parseMoeda(linha.querySelector(".ultima-input").value);
-        const medbox = parseMoeda(linha.querySelector(".medbox-input").value);
-        const concorrente = parseMoeda(linha.querySelector(".concorrente-input").value);
-        const empresa = linha.querySelector(".empresa-input").value.trim();
-
-        const markupEl = linha.querySelector(".markup-atual");
-        markupEl.textContent = custo > 0 ? (((medbox / custo) - 1) * 100).toFixed(2).replace(".", ",") + "%" : "-";
-
-        const candidatos = [
-            ["OSINFO", osinfo],
-            ["Ultima Compra", ultima],
-            ["MedBox", medbox],
-            [empresa || "Concorrente informado", concorrente]
-        ].filter((item) => item[1] > 0);
-        candidatos.sort((a, b) => a[1] - b[1]);
-        const vencedor = candidatos[0] || ["-", 0];
-        linha.querySelector(".menor-valor").textContent = moeda(vencedor[1]);
-        linha.querySelector(".vencedor").textContent = vencedor[0];
-
-        let status = "SEM LANCE INFORMADO";
-        if (!temSku) {
-            status = "REVISAR SKU";
-        } else if (!temPreco) {
-            status = "SEM PRECO";
-        } else {
-            const referencia = concorrente > 0 ? concorrente : osinfo;
-            status = referencia > 0 ? (medbox <= referencia ? "COMPETITIVO" : "NEGOCIAR") : "SEM LANCE INFORMADO";
-        }
-
-        linha.className = "linha-lance " + statusClasse(status);
-        const badge = linha.querySelector(".status-badge");
-        badge.className = "status-badge " + badgeClasse(status);
-        badge.textContent = status;
-
-        linha.dataset.totalOsinfo = osinfo * qtd;
-        linha.dataset.totalUltima = ultima * qtd;
-        linha.dataset.totalMedbox = medbox * qtd;
-        linha.dataset.totalConcorrente = concorrente * qtd;
-        linha.dataset.totalMenor = vencedor[1] * qtd;
-        linha.dataset.statusAtual = status;
-        linha.dataset.markupAtual = custo > 0 ? ((medbox / custo) - 1) * 100 : "";
-    }
-
-    function atualizarResumo() {
-        const linhas = Array.from(tabela.querySelectorAll(".linha-lance"));
-        const soma = (campo) => linhas.reduce((acc, linha) => acc + Number(linha.dataset[campo] || 0), 0);
-        const count = (pred) => linhas.filter(pred).length;
-        const margens = linhas.map((l) => Number(l.dataset.markupAtual)).filter((v) => !Number.isNaN(v));
-        const kpi = (nome, valor) => {
-            const el = document.querySelector(`[data-kpi="${nome}"]`);
-            if (el) el.textContent = valor;
-        };
-
-        kpi("total_itens", linhas.length);
-        kpi("itens_com_sku", count((l) => l.dataset.temSku === "1"));
-        kpi("itens_revisar_sku", count((l) => l.dataset.statusAtual === "REVISAR SKU"));
-        kpi("itens_com_preco_medbox", count((l) => l.dataset.temPreco === "1"));
-        kpi("itens_sem_preco", count((l) => l.dataset.statusAtual === "SEM PRECO"));
-        kpi("itens_competitivos", count((l) => l.dataset.statusAtual === "COMPETITIVO"));
-        kpi("itens_negociar", count((l) => l.dataset.statusAtual === "NEGOCIAR"));
-        kpi("total_osinfo", moeda(soma("totalOsinfo")));
-        kpi("total_ultima_compra", moeda(soma("totalUltima")));
-        kpi("total_medbox", moeda(soma("totalMedbox")));
-        kpi("total_menor_lance", moeda(soma("totalConcorrente")));
-        kpi("total_menor_valor", moeda(soma("totalMenor")));
-        kpi("margem_media_medbox", margens.length ? (margens.reduce((a, b) => a + b, 0) / margens.length).toFixed(2).replace(".", ",") + "%" : "0,00%");
-        kpi("valor_total_estimado", moeda(soma("totalMedbox")));
-    }
-
-    function recalcularMarkupGeral() {
-        const markup = Number(markupGeral.value || 0);
-        tabela.querySelectorAll(".linha-lance").forEach((linha) => {
-            const custo = Number(linha.dataset.custo || 0);
-            if (custo > 0) {
-                linha.querySelector(".medbox-input").value = moeda(custo * (1 + markup / 100));
-            }
-            atualizarLinha(linha);
-        });
-        atualizarResumo();
-    }
-
-    tabela.addEventListener("input", (event) => {
-        const linha = event.target.closest(".linha-lance");
-        if (!linha) return;
-        atualizarLinha(linha);
-        atualizarResumo();
-    });
-    markupGeral.addEventListener("input", recalcularMarkupGeral);
-    tabela.querySelectorAll(".linha-lance").forEach(atualizarLinha);
-    atualizarResumo();
-})();
-</script>
+</div>
 {% endif %}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+window.MEDBOX_NUMERO_COTACAO_EDITANDO = "{{ numero_cotacao_editando|default('', true) }}";
+</script>
+<script src="{{ url_for('static', filename='js/cotacao_lances.js') }}"></script>
+
 {% endblock %}
+
+
+
+
+
