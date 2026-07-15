@@ -186,3 +186,8 @@ def test_fixture_afne_cinco_vitorias_total_119461_60(app_temporario):
     cotacao, itens = consultar_cotacao(db)
     assert sum(item["venceu_medbox"] for item in itens) == 5
     assert Decimal(str(cotacao["total_geral"])).quantize(Decimal("0.01")) == Decimal("119461.60")
+
+def test_rotas_de_persistencia_usam_funcoes_decoradas(app_temporario):
+    app_mod, _db = app_temporario
+    assert app_mod.app.view_functions["gerar_cotacao_lances"].__name__ == "gerar_cotacao_lances"
+    assert app_mod.app.view_functions["atualizar_cotacao_gerada"].__name__ == "atualizar_cotacao_gerada"
