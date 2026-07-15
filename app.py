@@ -35,7 +35,7 @@ from core.auditoria_sku_master import (
     salvar_edicao_manual_produto,
     excluir_produto_logico,
 )
-from core.cotacao_lances_v2 import analisar_arquivo_cotacao, analisar_itens_manuais_lance, configurar_logger_cotacao, salvar_sku_rapido_lances, sugerir_skus_lances
+from core.cotacao_lances_v2 import analisar_arquivo_cotacao, analisar_itens_manuais_lance, configurar_logger_cotacao, salvar_sku_rapido_lances, sugerir_skus_lances, montar_resumo_lances
 from core.formatadores import moeda_br
 from core.importador_sku import importar_sku_master
 
