@@ -512,6 +512,13 @@ def analisar_itens_lances(itens, markup_percentual=80, score_minimo=72):
         menor_nome, menor_valor = candidatos_valor[0] if candidatos_valor else ("-", 0.0)
 
         status = status_item(sku_encontrado, menor_custo, preco_medbox, preco_osinfo, ultima_compra, menor_lance)
+        disputa = {
+            "menor_origem": "MEDBOX" if menor_nome == "MedBox" else "OSINFO" if menor_nome == "OSINFO" else "LANCE" if menor_valor else "-",
+            "medbox_vencedora": menor_nome == "MedBox",
+            "classe_osinfo": "",
+            "classe_lance": "",
+            "classe_medbox": "",
+        }
 
         analisados.append({
             "item": idx,
